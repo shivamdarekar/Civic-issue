@@ -1,0 +1,347 @@
+// VMC Civic Issue Monitoring System - Production Schema
+// Tech Titans - Hackathon 2026
+
+generator client {
+  provider        = "prisma-client-js"
+  output          = "../src/generated/prisma"
+  previewFeatures = ["postgresqlExtensions"]
+}
+
+datasource db {
+  provider   = "postgresql"
+  url        = env("DATABASE_URL")
+  extensions = [postgis, uuidOssp(map: "uuid-ossp")]
+}
+
+// ENUMS
+
+enum UserRole {
+  SUPER_ADMIN
+  ZONE_OFFICER
+  WARD_ENGINEER
+  FIELD_WORKER
+  CITIZEN
+}
+
+enum IssueStatus {
+  OPEN
+  ASSIGNED
+  IN_PROGRESS
+  RESOLVED
+  VERIFIED
+  REOPENED
+  REJECTED
+}
+
+enum Priority {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum MediaType {
+  BEFORE
+  AFTER
+}
+
+// IDENTITY & ACCESS CLUSTER
+
+model User {
+  id             String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  fullName       String   @map("full_name")
+  email          String   @unique
+  phoneNumber    String   @unique @map("phone_number")
+  hashedPassword String   @map("hashed_password")
+  role           UserRole @default(FIELD_WORKER)
+  isActive       Boolean  @default(true) @map("is_active")
+
+  // Scope of Authority (Hierarchical RBAC)
+  zoneId String? @map("zone_id") @db.Uuid
+  wardId String? @map("ward_id") @db.Uuid
+  zone   Zone?   @relation(fields: [zoneId], references: [id])
+  ward   Ward?   @relation(fields: [wardId], references: [id])
+
+  // Relations
+  reportedIssues Issue[]    @relation("ReportedBy")
+  assignedIssues Issue[]    @relation("AssignedTo")
+  comments       Comment[]
+  auditLogs      AuditLog[]
+
+  // Gamification
+  gamification UserGamification?
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([role])
+  @@index([wardId])
+  @@index([zoneId])
+  @@map("users")
+}
+
+model Session {
+  id        String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  token     String   @unique
+  expiresAt DateTime @map("expires_at")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([userId])
+  @@index([expiresAt])
+  @@map("sessions")
+}
+
+// SPATIAL REGISTRY (Geo-Fence Layer)
+
+model Zone {
+  id   String @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  name String @unique // e.g., "North Zone"
+  code String @unique // e.g., "NORTH"
+
+  wards Ward[]
+  users User[]
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("zones")
+}
+
+model Ward {
+  id         String @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  wardNumber Int    @unique @map("ward_number")
+  name       String // e.g., "Fatehgunj"
+  zoneId     String @map("zone_id") @db.Uuid
+  zone       Zone   @relation(fields: [zoneId], references: [id])
+
+  // PostGIS boundary - created via raw SQL migration
+  // Type: geometry(Polygon, 4326)
+  // boundary Unsupported("geometry(Polygon, 4326)")?
+
+  issues Issue[]
+  users  User[]
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([zoneId])
+  @@map("wards")
+}
+
+// OPERATIONS CLUSTER (Issue Engine)
+
+model IssueCategory {
+  id          String  @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  name        String  @unique // e.g., "Pothole", "Stray Cattle"
+  slug        String  @unique // e.g., "pothole", "stray-cattle"
+  description String?
+  slaHours    Int     @map("sla_hours") // SLA deadline in hours
+  iconUrl     String? @map("icon_url")
+  isActive    Boolean @default(true) @map("is_active")
+
+  // Dynamic form schema (Open311 compatible)
+  // e.g., { "fields": [{ "name": "depth", "type": "number", "required": true }] }
+  formSchema Json? @map("form_schema")
+
+  issues Issue[]
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("issue_categories")
+}
+
+model Issue {
+  id           String      @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  ticketNumber String      @unique @map("ticket_number") // e.g., "VMC-2026-000001"
+  status       IssueStatus @default(OPEN)
+  priority     Priority    @default(MEDIUM)
+
+  // Classification
+  categoryId String        @map("category_id") @db.Uuid
+  category   IssueCategory @relation(fields: [categoryId], references: [id])
+
+  // Content
+  description String?
+  aiTags      String[] @map("ai_tags") // e.g., ["pothole", "severe", "road_damage"]
+
+  // Dynamic attributes (category-specific data)
+  // e.g., { "depth_cm": 15, "width_cm": 50, "material": "asphalt" }
+  metaData Json? @map("meta_data")
+
+  // Location
+  address   String? // Human-readable address
+  latitude  Float?
+  longitude Float?
+  eloc      String? // MapmyIndia 6-char eLoc
+
+  // PostGIS Point - created via raw SQL migration
+  // Type: geometry(Point, 4326)
+  // location Unsupported("geometry(Point, 4326)")?
+
+  // Geo-fenced Ward Assignment
+  wardId String? @map("ward_id") @db.Uuid
+  ward   Ward?   @relation(fields: [wardId], references: [id])
+
+  // People
+  reporterId String @map("reporter_id") @db.Uuid
+  reporter   User   @relation("ReportedBy", fields: [reporterId], references: [id])
+  assigneeId String? @map("assignee_id") @db.Uuid
+  assignee   User?   @relation("AssignedTo", fields: [assigneeId], references: [id])
+
+  // Media
+  media IssueMedia[]
+
+  // Comments & History
+  comments Comment[]
+  history  IssueHistory[]
+
+  //SYNC & SLA FIELDS
+
+  // Offline Sync Support
+  version   Int       @default(1) // Optimistic concurrency control
+  deletedAt DateTime? @map("deleted_at") // Soft delete for sync
+
+  // SLA Tracking
+  slaTargetAt DateTime? @map("sla_target_at") // createdAt + category.slaHours
+  assignedAt  DateTime? @map("assigned_at")
+  resolvedAt  DateTime? @map("resolved_at") // Worker claims completion
+  verifiedAt  DateTime? @map("verified_at") // Engineer confirms
+  closedAt    DateTime? @map("closed_at")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([wardId])
+  @@index([status])
+  @@index([priority])
+  @@index([categoryId])
+  @@index([reporterId])
+  @@index([assigneeId])
+  @@index([updatedAt]) // Critical for sync queries
+  @@index([deletedAt])
+  @@index([slaTargetAt])
+  @@map("issues")
+}
+
+model IssueMedia {
+  id        String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  issueId   String    @map("issue_id") @db.Uuid
+  issue     Issue     @relation(fields: [issueId], references: [id], onDelete: Cascade)
+  type      MediaType // BEFORE or AFTER
+  url       String
+  mimeType  String?   @map("mime_type")
+  fileSize  Int?      @map("file_size") // in bytes
+  createdAt DateTime  @default(now()) @map("created_at")
+
+  @@index([issueId])
+  @@map("issue_media")
+}
+
+model Comment {
+  id        String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  issueId   String   @map("issue_id") @db.Uuid
+  issue     Issue    @relation(fields: [issueId], references: [id], onDelete: Cascade)
+  userId    String   @map("user_id") @db.Uuid
+  user      User     @relation(fields: [userId], references: [id])
+  text      String
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([issueId])
+  @@index([userId])
+  @@map("comments")
+}
+
+// AUDIT & HISTORY CLUSTER
+
+model IssueHistory {
+  id         String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  issueId    String   @map("issue_id") @db.Uuid
+  issue      Issue    @relation(fields: [issueId], references: [id], onDelete: Cascade)
+  changedBy  String   @map("changed_by") @db.Uuid // User ID
+  changeType String   @map("change_type") // STATUS_CHANGE, ASSIGNMENT, PRIORITY_CHANGE
+  oldValue   Json?    @map("old_value")
+  newValue   Json?    @map("new_value")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  @@index([issueId])
+  @@index([changedBy])
+  @@index([createdAt])
+  @@map("issue_history")
+}
+
+model AuditLog {
+  id        String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  user      User     @relation(fields: [userId], references: [id])
+  action    String // LOGIN, LOGOUT, SYNC, EXPORT, CREATE_ISSUE, etc.
+  resource  String? // e.g., "Issue", "User"
+  resourceId String?  @map("resource_id") @db.Uuid
+  ipAddress String?  @map("ip_address")
+  userAgent String?  @map("user_agent")
+  metadata  Json?
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([userId])
+  @@index([action])
+  @@index([createdAt])
+  @@map("audit_logs")
+}
+
+// GAMIFICATION CLUSTER
+
+model UserGamification {
+  userId         String @id @map("user_id") @db.Uuid
+  user           User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  points         Int    @default(0)
+  issuesReported Int    @default(0) @map("issues_reported")
+  issuesResolved Int    @default(0) @map("issues_resolved")
+  slaCompliance  Float  @default(0.0) @map("sla_compliance") // Percentage
+  currentStreak  Int    @default(0) @map("current_streak") // Days active
+  longestStreak  Int    @default(0) @map("longest_streak")
+  lastActiveAt   DateTime? @map("last_active_at")
+
+  badges BadgeAssignment[]
+
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("user_gamification")
+}
+
+model Badge {
+  id          String @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  name        String @unique // e.g., "Monsoon Warrior"
+  slug        String @unique
+  description String
+  imageUrl    String @map("image_url")
+  threshold   Int // Points or count needed
+  badgeType   String @map("badge_type") // POINTS, ISSUES_RESOLVED, STREAK, SPECIAL
+
+  assignments BadgeAssignment[]
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@map("badges")
+}
+
+model BadgeAssignment {
+  userId    String           @map("user_id") @db.Uuid
+  badgeId   String           @map("badge_id") @db.Uuid
+  user      UserGamification @relation(fields: [userId], references: [userId], onDelete: Cascade)
+  badge     Badge            @relation(fields: [badgeId], references: [id], onDelete: Cascade)
+  awardedAt DateTime         @default(now()) @map("awarded_at")
+
+  @@id([userId, badgeId])
+  @@map("badge_assignments")
+}
+
+// CONFIGURATION & SYSTEM
+
+model SystemConfig {
+  key       String   @id
+  value     Json
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("system_config")
+}
