@@ -1,5 +1,6 @@
 import express from "express";
 import cors from "cors";
+import { errorHandler, notFoundHandler } from "./middlewares/error.middleware";
 
 const app = express();
 
@@ -33,5 +34,9 @@ app.get("/api/health", (req, res) => {
 // app.use("/api/auth", authRoutes);
 // app.use("/api/issues", issueRoutes);
 // app.use("/api/users", userRoutes);
+
+// Error handling middleware (must be last)
+app.use(notFoundHandler);
+app.use(errorHandler);
 
 export default app;
