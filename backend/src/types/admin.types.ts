@@ -33,6 +33,13 @@ export interface WardOverview {
   totalIssues: number;      
   engineer: string | null;
 }
+export type Department =
+  | "ROAD"
+  | "STORM_WATER_DRAINAGE"
+  | "SEWAGE_DISPOSAL"
+  | "WATER_WORKS"
+  | "STREET_LIGHT"
+  | "BRIDGE_CELL";
 
 export interface WardEngineer {
   id: string;
@@ -40,6 +47,7 @@ export interface WardEngineer {
   email: string;
   phoneNumber: string;
   isActive: boolean;
+  department: Department | null; 
 }
 
 export interface WardIssueItem {
@@ -47,6 +55,7 @@ export interface WardIssueItem {
   status: "OPEN" | "ASSIGNED" | "IN_PROGRESS" | "RESOLVED" | "VERIFIED" | "REOPENED" | "REJECTED";
   priority: "LOW" | "MEDIUM" | "HIGH" | "CRITICAL" | null;
   categoryName: string | null;
+  department: Department | null;  
   createdAt: string;     // ISO
   resolvedAt: string | null;   // ISO
   slaTargetAt: string | null;  // ISO
@@ -114,6 +123,7 @@ export interface WardIssueListItem {
   status: WardIssueStatus;
   priority: WardIssuePriority | null;
   category: string | null;
+  department: Department | null;
   assignee: string | null;
   slaBreached: boolean;
   updatedAt: string; // ISO string
