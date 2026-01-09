@@ -19,6 +19,7 @@ declare global {
   }
 }
 
+// JWT verification middleware
 export const verifyJWT = asyncHandler(
   async (req: Request, res: Response, next: NextFunction) => {
     const token =
@@ -42,12 +43,13 @@ export const verifyJWT = asyncHandler(
           email: true, 
           role: true,
           wardId: true,
-          zoneId: true
+          zoneId: true,
+          isActive: true
         },
       });
 
-      if (!user) {
-        throw new ApiError(404, "Unauthorized: User not found");
+      if (!user || !user.isActive) {
+        throw new ApiError(404, "Unauthorized: User not found or inactive");
       }
 
       req.user = user;
@@ -59,42 +61,5 @@ export const verifyJWT = asyncHandler(
       }
       throw new ApiError(401, "Unauthorized: Invalid token");
     }
-  }
-);
-
-
-
-// Ward-specific access control
-export const requireWardAccess = asyncHandler(
-  async (req: Request, res: Response, next: NextFunction) => {
-    if (!req.user) {
-      throw new ApiError(401, "Authentication required");
-    }
-
-    const { wardId } = req.params;
-    
-    // Super admin can access all wards
-    if (req.user.role === "SUPER_ADMIN") {
-      return next();
-    }
-
-    // Zone officers can access wards in their zone
-    if (req.user.role === "ZONE_OFFICER" && req.user.zoneId) {
-      const ward = await prisma.ward.findUnique({
-        where: { id: wardId },
-        select: { zoneId: true }
-      });
-      
-      if (ward?.zoneId === req.user.zoneId) {
-        return next();
-      }
-    }
-
-    // Ward engineers can only access their ward
-    if (req.user.role === "WARD_ENGINEER" && req.user.wardId === wardId) {
-      return next();
-    }
-
-    throw new ApiError(403, "Access denied to this ward");
   }
 );
