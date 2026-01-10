@@ -4,6 +4,9 @@
 // Auth types
 export * from './auth.types';
 
+// Admin types
+export * from './admin.types';
+
 // Issue types (for future)
 // export * from './issue.types';
 
