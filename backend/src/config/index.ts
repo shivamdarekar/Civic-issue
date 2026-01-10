@@ -10,7 +10,15 @@ const envSchema = z.object({
   DIRECT_URL: z.string().min(1).optional(),
   JWT_SECRET: z.string().min(10),
   JWT_EXPIRES_IN: z.union([z.string(), z.number()]).default('7d'),
-  FRONTEND_URL: z.string().optional(),
+  FRONTEND_URL: z.string().default('http://localhost:3000'),
+  
+  // Email Configuration
+  SMTP_HOST: z.string().default('smtp.gmail.com'),
+  SMTP_PORT: z.string().default('587'),
+  SMTP_SECURE: z.string().default('false'),
+  SMTP_USER: z.string().optional(),
+  SMTP_PASS: z.string().optional(),
+  SMTP_FROM: z.string().optional(),
 });
 
 const parsed = envSchema.safeParse(process.env);

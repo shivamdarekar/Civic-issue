@@ -2,9 +2,10 @@ import { PrismaClient, UserRole } from '@prisma/client';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { Pool } from 'pg';
 import * as bcrypt from 'bcryptjs';
+import * as fs from 'fs';
+import * as path from 'path';
 import 'dotenv/config';
 
-// Use the same adapter pattern as your main app
 const connectionString = process.env.DIRECT_URL || process.env.DATABASE_URL;
 const pool = new Pool({ connectionString });
 const adapter = new PrismaPg(pool);
@@ -15,32 +16,27 @@ async function main() {
   console.log('🌱 Starting database seeding...');
 
   try {
+    // CLEAN UP: Delete all existing wards first
+    console.log('🧹 Cleaning existing wards...');
+    await prisma.$executeRaw`DELETE FROM wards`;
+    
     // Create Zones first
     console.log('📍 Creating zones...');
-    const northZone = await prisma.zone.upsert({
-      where: { name: 'North Zone' },
-      update: {},
-      create: {
-        name: 'North Zone',
-        code: 'NORTH',
-      },
-    });
-
-    const southZone = await prisma.zone.upsert({
-      where: { name: 'South Zone' },
-      update: {},
-      create: {
-        name: 'South Zone',
-        code: 'SOUTH',
-      },
-    });
-
     const eastZone = await prisma.zone.upsert({
       where: { name: 'East Zone' },
       update: {},
       create: {
         name: 'East Zone',
         code: 'EAST',
+      },
+    });
+
+    const northZone = await prisma.zone.upsert({
+      where: { name: 'North Zone' },
+      update: {},
+      create: {
+        name: 'North Zone',
+        code: 'NORTH',
       },
     });
 
@@ -53,41 +49,62 @@ async function main() {
       },
     });
 
+    const southZone = await prisma.zone.upsert({
+      where: { name: 'South Zone' },
+      update: {},
+      create: {
+        name: 'South Zone',
+        code: 'SOUTH',
+      },
+    });
+
     console.log('✅ Zones created');
 
-    // Create Wards
-    console.log('📍 Creating wards...');
-    const wards = [
-      { wardNumber: 1, name: 'Fatehgunj', zoneId: northZone.id },
-      { wardNumber: 2, name: 'Alkapuri', zoneId: northZone.id },
-      { wardNumber: 3, name: 'Sayajigunj', zoneId: northZone.id },
-      { wardNumber: 4, name: 'Raopura', zoneId: northZone.id },
-      { wardNumber: 5, name: 'Mandvi', zoneId: northZone.id },
-      { wardNumber: 6, name: 'Sama', zoneId: southZone.id },
-      { wardNumber: 7, name: 'Gorwa', zoneId: southZone.id },
-      { wardNumber: 8, name: 'Akota', zoneId: southZone.id },
-      { wardNumber: 9, name: 'Karelibaug', zoneId: southZone.id },
-      { wardNumber: 10, name: 'Vasna', zoneId: southZone.id },
-      { wardNumber: 11, name: 'Manjalpur', zoneId: eastZone.id },
-      { wardNumber: 12, name: 'Tandalja', zoneId: eastZone.id },
-      { wardNumber: 13, name: 'Vadsar', zoneId: eastZone.id },
-      { wardNumber: 14, name: 'Waghodia', zoneId: eastZone.id },
-      { wardNumber: 15, name: 'Harni', zoneId: westZone.id },
-      { wardNumber: 16, name: 'Productivity Road', zoneId: westZone.id },
-      { wardNumber: 17, name: 'Subhanpura', zoneId: westZone.id },
-      { wardNumber: 18, name: 'Makarpura', zoneId: westZone.id },
-      { wardNumber: 19, name: 'Ajwa Road', zoneId: westZone.id },
-    ];
+    // Load GeoJSON data
+    console.log('📍 Loading ward boundaries from GeoJSON...');
+    const geojsonPath = path.join(__dirname, '../data/ward-boundaries.geojson');
+    const geojsonData = JSON.parse(fs.readFileSync(geojsonPath, 'utf8'));
 
-    for (const ward of wards) {
-      await prisma.ward.upsert({
-        where: { wardNumber: ward.wardNumber },
-        update: {},
-        create: ward,
-      });
+    // Zone mapping
+    const zoneMap = {
+      'EAST': eastZone.id,
+      'NORTH': northZone.id,
+      'WEST': westZone.id,
+      'SOUTH': southZone.id
+    };
+
+    // Create ONLY wards from GeoJSON data (12 wards)
+    console.log('📍 Creating wards with boundaries...');
+    console.log(`📊 Processing ${geojsonData.features.length} wards from GeoJSON`);
+    
+    for (const feature of geojsonData.features) {
+      const { ward_no, ward_name, zone_code } = feature.properties;
+      const coordinates = feature.geometry.coordinates;
+      
+      console.log(`   Creating Ward ${ward_no}: ${ward_name} (${zone_code} Zone)`);
+      
+      // Convert coordinates to PostGIS format
+      const polygonWKT = `POLYGON((${coordinates[0].map(coord => `${coord[0]} ${coord[1]}`).join(', ')}))`;
+      
+      await prisma.$executeRaw`
+        INSERT INTO wards (id, ward_number, name, zone_id, boundary, created_at, updated_at)
+        VALUES (
+          uuid_generate_v4(),
+          ${ward_no},
+          ${ward_name},
+          ${zoneMap[zone_code]}::uuid,
+          ST_GeomFromText(${polygonWKT}, 4326),
+          NOW(),
+          NOW()
+        )
+      `;
     }
 
-    console.log('✅ Wards created');
+    console.log('✅ Wards created with boundaries');
+
+    // Verify ward creation
+    const wardCount = await prisma.ward.count();
+    console.log(`📊 Total wards in database: ${wardCount}`);
 
     // Create Super Admin
     console.log('👤 Creating Super Admin...');
@@ -165,7 +182,13 @@ async function main() {
     console.log('Email: superadmin@vmc.gov.in');
     console.log('Password: SuperAdmin@123');
     console.log('');
-    console.log('🚀 You can now test the API endpoints!');
+    console.log('📊 Final Ward Summary (12 wards with boundaries):');
+    console.log('- East Zone: Nyay Mandir, Waghodia, Pratap Nagar, Raopura');
+    console.log('- North Zone: Harni, Fatehgunj, Tin Rasta, Ajwa');
+    console.log('- West Zone: Akota, Subhanpura, Vasna');
+    console.log('- South Zone: Makarpura');
+    console.log('');
+    console.log('🚀 Clean database with real ward boundaries ready!');
 
   } catch (error) {
     console.error('❌ Error during seeding:', error);
