@@ -1,4 +1,4 @@
-import { UserRole } from "@prisma/client";
+import { UserRole, Department } from "@prisma/client";
 
 // Auth request/response types
 export interface RegisterUserData {
@@ -7,6 +7,7 @@ export interface RegisterUserData {
   phoneNumber: string;
   password: string;
   role: UserRole;
+  department?: Department;
   wardId?: string;
   zoneId?: string;
 }
@@ -26,6 +27,7 @@ export interface UserInfo {
   fullName: string;
   email: string;
   role: UserRole;
+  department?: Department;
   wardId?: string;
   zoneId?: string;
 }
@@ -37,6 +39,7 @@ export interface RegisterRequestBody {
   phoneNumber: string;
   password: string;
   role: UserRole;
+  department?: Department;
   wardId?: string;
   zoneId?: string;
 }
@@ -44,4 +47,19 @@ export interface RegisterRequestBody {
 export interface LoginRequestBody {
   email: string;
   password: string;
+}
+
+export interface ForgotPasswordData {
+  email: string;
+}
+
+export interface VerifyOtpData {
+  email: string;
+  otp: string;
+}
+
+export interface ResetPasswordData {
+  email: string;
+  otp: string;
+  newPassword: string;
 }

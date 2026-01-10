@@ -4,21 +4,6 @@ import { ApiResponse } from "../../utils/apiResponse";
 import { AuthService } from "./auth.service";
 
 export class AuthController {
-  // super Admin registers other users
-  static registerUser = asyncHandler(async (req: Request, res: Response) => {
-    const { fullName, email, phoneNumber, password, role, wardId, zoneId } = req.body;
-    
-    const user = await AuthService.registerUser(
-      { fullName, email, phoneNumber, password, role, wardId, zoneId },
-      req.user!.id
-    );
-
-    res.status(201).json(
-      new ApiResponse(201, user, "User registered successfully")
-    );
-  });
-
-
   // login
   static login = asyncHandler(async (req: Request, res: Response) => {
     const { email, password } = req.body;
@@ -38,36 +23,48 @@ export class AuthController {
     );
   });
 
-
-  // get all users (Super Admin only)
-  static getAllUsers = asyncHandler(async (req: Request, res: Response) => {
-    const users = await AuthService.getAllUsers();
+  // Forgot password
+  static forgotPassword = asyncHandler(async (req: Request, res: Response) => {
+    const { email } = req.body;
+    
+    const result = await AuthService.forgotPassword(email);
 
     res.status(200).json(
-      new ApiResponse(200, users, "Users retrieved successfully")
+      new ApiResponse(200, result, "OTP sent successfully")
     );
   });
 
-
-  // get zones and wards for registration form
-  static getZonesAndWards = asyncHandler(async (req: Request, res: Response) => {
-    const data = await AuthService.getZonesAndWards();
+  // Verify OTP
+  static verifyOtp = asyncHandler(async (req: Request, res: Response) => {
+    const { email, otp } = req.body;
+    
+    const result = await AuthService.verifyOtp(email, otp);
 
     res.status(200).json(
-      new ApiResponse(200, data, "Zones and wards retrieved successfully")
+      new ApiResponse(200, result, "OTP verified successfully")
     );
   });
 
+  // Reset password
+  static resetPassword = asyncHandler(async (req: Request, res: Response) => {
+    const { email, otp, newPassword } = req.body;
+    
+    const result = await AuthService.resetPassword(email, otp, newPassword);
+
+    res.status(200).json(
+      new ApiResponse(200, result, "Password reset successful")
+    );
+  });
 
   // logout
   static logout = asyncHandler(async (req: Request, res: Response) => {
+    await AuthService.logout(req.user!.id);
     res.clearCookie("token");
     
     res.status(200).json(
       new ApiResponse(200, null, "Logout successful")
     );
   });
-
 
   // get current user profile
   static getProfile = asyncHandler(async (req: Request, res: Response) => {

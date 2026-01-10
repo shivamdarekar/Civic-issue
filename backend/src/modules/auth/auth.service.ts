@@ -1,90 +1,12 @@
 import { prisma } from "../../lib/prisma";
 import { ApiError } from "../../utils/apiError";
 import { generateTokenWithUser } from "../../utils/tokens";
-import { hashPassword, comparePassword } from "./auth.utils";
-import { RegisterUserData, LoginData } from "../../types";
+import { comparePassword, hashPassword } from "./auth.utils";
+import { LoginData } from "../../types";
+import { EmailService } from "../../services/email/emailService";
+import * as crypto from "crypto";
 
 export class AuthService {
-  // Super Admin registers other users
-  static async registerUser(userData: RegisterUserData, registeredBy: string) {
-    const { fullName, email, phoneNumber, password, role, wardId, zoneId } = userData;
-
-    // Check if user already exists
-    const existingUser = await prisma.user.findFirst({
-      where: {
-        OR: [{ email }, { phoneNumber }]
-      }
-    });
-
-    if (existingUser) {
-      throw new ApiError(400, "User with this email or phone already exists");
-    }
-
-    // Validate ward/zone existence
-    if (wardId) {
-      const ward = await prisma.ward.findUnique({ where: { id: wardId } });
-      if (!ward) {
-        throw new ApiError(400, "Invalid ward ID");
-      }
-    }
-
-    if (zoneId) {
-      const zone = await prisma.zone.findUnique({ where: { id: zoneId } });
-      if (!zone) {
-        throw new ApiError(400, "Invalid zone ID");
-      }
-    }
-
-    // Hash password using utility
-    const hashedPassword = await hashPassword(password);
-
-    // Create user
-    const user = await prisma.user.create({
-      data: {
-        fullName,
-        email,
-        phoneNumber,
-        hashedPassword,
-        role,
-        wardId: wardId || null,
-        zoneId: zoneId || null
-      },
-      select: {
-        id: true,
-        fullName: true,
-        email: true,
-        phoneNumber: true,
-        role: true,
-        wardId: true,
-        zoneId: true,
-        ward: {
-          select: { wardNumber: true, name: true }
-        },
-        zone: {
-          select: { name: true }
-        }
-      }
-    });
-
-    // Log the registration
-    await prisma.auditLog.create({
-      data: {
-        userId: registeredBy,
-        action: "USER_REGISTRATION",
-        resource: "User",
-        resourceId: user.id,
-        metadata: {
-          registeredUser: {
-            email: user.email,
-            role: user.role
-          }
-        }
-      }
-    });
-
-    return user;
-  }
-
   // Login functionality
   static async login(loginData: LoginData) {
     const { email, password } = loginData;
@@ -98,6 +20,7 @@ export class AuthService {
         email: true,
         hashedPassword: true,
         role: true,
+        department: true,
         isActive: true,
         wardId: true,
         zoneId: true
@@ -133,44 +56,188 @@ export class AuthService {
     return { token, user: userInfo };
   }
 
-  // Get all users (for Super Admin)
-  static async getAllUsers() {
-    return await prisma.user.findMany({
-      select: {
-        id: true,
-        fullName: true,
-        email: true,
-        phoneNumber: true,
-        role: true,
-        isActive: true,
-        wardId: true,
-        zoneId: true,
-        ward: {
-          select: { wardNumber: true, name: true }
-        },
-        zone: {
-          select: { name: true }
-        },
-        createdAt: true
+  // Forgot password - send OTP
+  static async forgotPassword(email: string) {
+    // Find user by email
+    const user = await prisma.user.findUnique({
+      where: { email },
+      select: { id: true, fullName: true, email: true, role: true }
+    });
+
+    if (!user) {
+      // Don't reveal if email exists - security best practice
+      return { message: "If email exists, OTP has been sent" };
+    }
+
+    // Generate 6-digit OTP
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
+
+    // Invalidate any existing OTPs for this user
+    await prisma.passwordReset.updateMany({
+      where: { userId: user.id, isUsed: false },
+      data: { isUsed: true }
+    });
+
+    // Create new OTP record
+    await prisma.passwordReset.create({
+      data: {
+        userId: user.id,
+        otp,
+        expiresAt
+      }
+    });
+
+    // Log password reset request
+    await prisma.auditLog.create({
+      data: {
+        userId: user.id,
+        action: "PASSWORD_RESET_OTP_REQUEST",
+        metadata: { requestTime: new Date() }
+      }
+    });
+
+    // Send OTP email
+    try {
+      await EmailService.sendPasswordResetOTP(user.email, user.fullName, otp);
+    } catch (emailError) {
+      console.error('Failed to send OTP email:', emailError);
+      // Continue execution - don't fail the request if email fails
+    }
+
+    return { 
+      message: "If email exists, OTP has been sent",
+      // For development only - remove in production
+      ...(process.env.NODE_ENV === 'development' && { otp })
+    };
+  }
+
+  // Verify OTP
+  static async verifyOtp(email: string, otp: string) {
+    // Find user by email
+    const user = await prisma.user.findUnique({
+      where: { email },
+      select: { id: true, email: true, fullName: true }
+    });
+
+    if (!user) {
+      throw new ApiError(400, "Invalid email or OTP");
+    }
+
+    // Find the most recent unused OTP for this user
+    const otpRecord = await prisma.passwordReset.findFirst({
+      where: {
+        userId: user.id,
+        isUsed: false,
+        expiresAt: { gt: new Date() }
       },
       orderBy: { createdAt: 'desc' }
     });
-  }
 
-  // Get zones and wards for dropdowns
-  static async getZonesAndWards() {
-    return await prisma.zone.findMany({
-      select: {
-        id: true,
-        name: true,
-        wards: {
-          select: {
-            id: true,
-            wardNumber: true,
-            name: true
-          }
-        }
+    if (!otpRecord) {
+      throw new ApiError(400, "No valid OTP found. Please request a new one");
+    }
+
+    // Check attempts limit (max 3 attempts)
+    if (otpRecord.attempts >= 3) {
+      await prisma.passwordReset.update({
+        where: { id: otpRecord.id },
+        data: { isUsed: true }
+      });
+      throw new ApiError(400, "Too many failed attempts. Please request a new OTP");
+    }
+
+    // Verify OTP matches
+    if (otpRecord.otp !== otp) {
+      // Increment attempts for failed verification
+      await prisma.passwordReset.update({
+        where: { id: otpRecord.id },
+        data: { attempts: { increment: 1 } }
+      });
+      
+      const remainingAttempts = 3 - (otpRecord.attempts + 1);
+      throw new ApiError(400, `Invalid OTP. ${remainingAttempts} attempt(s) remaining`);
+    }
+
+    // Log OTP verification
+    await prisma.auditLog.create({
+      data: {
+        userId: user.id,
+        action: "PASSWORD_RESET_OTP_VERIFIED",
+        metadata: { verifyTime: new Date() }
       }
     });
+
+    return { 
+      message: "OTP verified successfully",
+      verified: true
+    };
+  }
+
+  // Reset password with OTP
+  static async resetPassword(email: string, otp: string, newPassword: string) {
+    // Find user by email
+    const user = await prisma.user.findUnique({
+      where: { email },
+      select: { id: true, email: true, fullName: true }
+    });
+
+    if (!user) {
+      throw new ApiError(400, "Invalid email or OTP");
+    }
+
+    // Find valid OTP
+    const otpRecord = await prisma.passwordReset.findFirst({
+      where: {
+        userId: user.id,
+        otp,
+        isUsed: false,
+        expiresAt: { gt: new Date() }
+      }
+    });
+
+    if (!otpRecord) {
+      throw new ApiError(400, "Invalid or expired OTP");
+    }
+
+    // Hash new password
+    const hashedPassword = await hashPassword(newPassword);
+
+    // Update user password and mark OTP as used
+    await prisma.$transaction([
+      prisma.user.update({
+        where: { id: user.id },
+        data: { hashedPassword }
+      }),
+      prisma.passwordReset.update({
+        where: { id: otpRecord.id },
+        data: { isUsed: true }
+      })
+    ]);
+
+    // Log password reset completion
+    await prisma.auditLog.create({
+      data: {
+        userId: user.id,
+        action: "PASSWORD_RESET_COMPLETE",
+        metadata: { resetTime: new Date() }
+      }
+    });
+
+    return { message: "Password reset successfully" };
+  }
+
+  // Logout functionality
+  static async logout(userId: string) {
+    // Log logout
+    await prisma.auditLog.create({
+      data: {
+        userId,
+        action: "LOGOUT",
+        metadata: { logoutTime: new Date() }
+      }
+    });
+
+    return { success: true };
   }
 }

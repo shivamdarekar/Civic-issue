@@ -42,6 +42,26 @@ export const loginSchema = z.object({
   password: z.string().min(1, "Password is required")
 });
 
+// Forgot password validation schema
+export const forgotPasswordSchema = z.object({
+  email: z.string().email("Invalid email format").transform(val => val.toLowerCase())
+});
+
+// Verify OTP validation schema
+export const verifyOtpSchema = z.object({
+  email: z.string().email("Invalid email format").transform(val => val.toLowerCase()),
+  otp: z.string().length(6, "OTP must be 6 digits").regex(/^\d{6}$/, "OTP must contain only numbers")
+});
+
+// Reset password validation schema
+export const resetPasswordSchema = z.object({
+  email: z.string().email("Invalid email format").transform(val => val.toLowerCase()),
+  otp: z.string().length(6, "OTP must be 6 digits").regex(/^\d{6}$/, "OTP must contain only numbers"),
+  newPassword: z.string()
+    .min(8, "Password must be at least 8 characters")
+    .regex(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/, "Password must contain uppercase, lowercase and number")
+});
+
 // Validation middleware
 export const validateRegisterUser = (req: any, res: any, next: any) => {
   try {
@@ -62,6 +82,54 @@ export const validateRegisterUser = (req: any, res: any, next: any) => {
 export const validateLogin = (req: any, res: any, next: any) => {
   try {
     loginSchema.parse(req.body);
+    next();
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return res.status(400).json({
+        success: false,
+        message: "Validation failed",
+        errors: error.issues
+      });
+    }
+    next(error);
+  }
+};
+
+export const validateForgotPassword = (req: any, res: any, next: any) => {
+  try {
+    forgotPasswordSchema.parse(req.body);
+    next();
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return res.status(400).json({
+        success: false,
+        message: "Validation failed",
+        errors: error.issues
+      });
+    }
+    next(error);
+  }
+};
+
+export const validateVerifyOtp = (req: any, res: any, next: any) => {
+  try {
+    verifyOtpSchema.parse(req.body);
+    next();
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return res.status(400).json({
+        success: false,
+        message: "Validation failed",
+        errors: error.issues
+      });
+    }
+    next(error);
+  }
+};
+
+export const validateResetPassword = (req: any, res: any, next: any) => {
+  try {
+    resetPasswordSchema.parse(req.body);
     next();
   } catch (error) {
     if (error instanceof z.ZodError) {

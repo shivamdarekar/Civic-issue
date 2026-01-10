@@ -1,31 +1,18 @@
 import { Router } from "express";
 import { AuthController } from "./auth.controller";
 import { verifyJWT } from "../../middlewares/auth.middleware";
-import { requireRole } from "../../middlewares/rbac.middleware";
+import { validateLogin, validateForgotPassword, validateVerifyOtp, validateResetPassword } from "./auth.schema";
 
 const router = Router();
 
 // public routes
-router.post("/login", AuthController.login);
+router.post("/login", validateLogin, AuthController.login);
+router.post("/forgot-password", validateForgotPassword, AuthController.forgotPassword);
+router.post("/verify-otp", validateVerifyOtp, AuthController.verifyOtp);
+router.post("/reset-password", validateResetPassword, AuthController.resetPassword);
 
 // protected routes
 router.use(verifyJWT); // All routes below require authentication
-
-// super admin only routes
-router.post("/register", 
-  requireRole(["SUPER_ADMIN"]), 
-  AuthController.registerUser
-);
-
-router.get("/users", 
-  requireRole(["SUPER_ADMIN"]), 
-  AuthController.getAllUsers
-);
-
-router.get("/zones-wards", 
-  requireRole(["SUPER_ADMIN"]), 
-  AuthController.getZonesAndWards
-);
 
 // general authenticated routes
 router.post("/logout", AuthController.logout);
