@@ -39,7 +39,10 @@ export type Department =
   | "SEWAGE_DISPOSAL"
   | "WATER_WORKS"
   | "STREET_LIGHT"
-  | "BRIDGE_CELL";
+  | "BRIDGE_CELL"
+  | "SOLID_WASTE_MANAGEMENT"
+  | "HEALTH"
+  | "TOWN_PLANNING";
 
 export interface WardEngineer {
   id: string;
