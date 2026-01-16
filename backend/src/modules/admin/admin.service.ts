@@ -728,7 +728,10 @@ export class AdminService {
       { value: 'SEWAGE_DISPOSAL', label: 'Sewage Disposal' },
       { value: 'WATER_WORKS', label: 'Water Works' },
       { value: 'STREET_LIGHT', label: 'Street Light' },
-      { value: 'BRIDGE_CELL', label: 'Bridge Cell' }
+      { value: 'BRIDGE_CELL', label: 'Bridge Cell' },
+      { value: 'SOLID_WASTE_MANAGEMENT', label: 'Solid Waste Management' },
+      { value: 'HEALTH', label: 'Health Department' },
+      { value: 'TOWN_PLANNING', label: 'Town Planning' }
     ];
   }
 

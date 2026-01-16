@@ -14,6 +14,7 @@ declare global {
         role: string;
         wardId?: string | null;
         zoneId?: string | null;
+        department?: string | null;
       };
     }
   }
@@ -44,7 +45,8 @@ export const verifyJWT = asyncHandler(
           role: true,
           wardId: true,
           zoneId: true,
-          isActive: true
+          isActive: true,
+          department:true,
         },
       });
 
