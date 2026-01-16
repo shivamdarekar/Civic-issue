@@ -6,10 +6,10 @@ import { AdminService } from "./admin.service";
 export class AdminController {
   // User Management Functions
   static registerUser = asyncHandler(async (req: Request, res: Response) => {
-    const { fullName, email, phoneNumber, password, role, wardId, zoneId } = req.body;
-    
+    const { fullName, email, phoneNumber, password, role, wardId, zoneId, department } = req.body;
+
     const user = await AdminService.registerUser(
-      { fullName, email, phoneNumber, password, role, wardId, zoneId },
+      { fullName, email, phoneNumber, password, role, wardId, zoneId, department },
       req.user!.id
     );
 
@@ -41,7 +41,7 @@ export class AdminController {
   static updateUser = asyncHandler(async (req: Request, res: Response) => {
     const { userId } = req.params;
     const updateData = req.body;
-    
+
     const user = await AdminService.updateUser(userId, updateData, req.user!.id);
 
     res.status(200).json(
@@ -53,7 +53,7 @@ export class AdminController {
   static reassignUserWork = asyncHandler(async (req: Request, res: Response) => {
     const { userId } = req.params;
     const { toUserId } = req.body;
-    
+
     const result = await AdminService.reassignUserWork(userId, toUserId, req.user!.id);
 
     res.status(200).json(
@@ -64,7 +64,7 @@ export class AdminController {
 
   static deactivateUser = asyncHandler(async (req: Request, res: Response) => {
     const { userId } = req.params;
-    
+
     const user = await AdminService.deactivateUser(userId, req.user!.id);
 
     res.status(200).json(
@@ -75,7 +75,7 @@ export class AdminController {
 
   static reactivateUser = asyncHandler(async (req: Request, res: Response) => {
     const { userId } = req.params;
-    
+
     const user = await AdminService.reactivateUser(userId, req.user!.id);
 
     res.status(200).json(
@@ -86,7 +86,7 @@ export class AdminController {
 
   static getUserStatistics = asyncHandler(async (req: Request, res: Response) => {
     const { userId } = req.params;
-    
+
     const statistics = await AdminService.getUserStatistics(userId);
 
     res.status(200).json(
@@ -97,7 +97,7 @@ export class AdminController {
 
   static getUsersByFilter = asyncHandler(async (req: Request, res: Response) => {
     const { role, wardId, zoneId, isActive, department } = req.query;
-    
+
     const users = await AdminService.getUsersByFilter({
       role: role as string,
       wardId: wardId as string,
@@ -162,10 +162,10 @@ export class AdminController {
     }
 
     return res.status(200).json(new ApiResponse(200, data, "Ward detail retrieved"));
-  }); 
-  
-  
- static getWardIssues = asyncHandler(async (req: Request, res: Response) => {
+  });
+
+
+  static getWardIssues = asyncHandler(async (req: Request, res: Response) => {
     const { wardId } = req.params;
 
     // Parse and validate query filters
@@ -195,5 +195,5 @@ export class AdminController {
     return res
       .status(200)
       .json(new ApiResponse(200, data, "Ward issues retrieved"));
-  });  
+  });
 }

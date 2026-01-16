@@ -1,26 +1,26 @@
 import { z } from "zod";
-import type { NextFunction, Request, Response } from "express";
-import type { ZodTypeAny } from "zod";
+
+// Validation patterns
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const URL_REGEX = /^https?:\/\/.+/;
 
 export const createIssueSchema = z.object({
-  categoryId: z.string().uuid(),
+  categoryId: z.string().refine(val => UUID_REGEX.test(val), { message: "Invalid UUID" }),
   description: z.string().trim().min(1).max(5000).optional(),
   priority: z.enum(["LOW", "MEDIUM", "HIGH", "CRITICAL"]).optional(),
-  metaData: z.record(z.string(), z.any()).optional(), // Json
+  metaData: z.record(z.string(), z.any()).optional(),
   aiTags: z.array(z.string().trim().min(1)).max(50).optional(),
 
-  // location
   latitude: z.number().min(-90).max(90),
   longitude: z.number().min(-180).max(180),
   address: z.string().trim().max(500).optional(),
   eloc: z.string().trim().max(32).optional(),
 
-  // media urls from frontend (already uploaded somewhere)
   media: z
     .array(
       z.object({
         type: z.enum(["BEFORE", "AFTER"]),
-        url: z.string().url(),
+        url: z.string().refine(val => URL_REGEX.test(val), { message: "Invalid URL" }),
         mimeType: z.string().trim().max(100).optional(),
         fileSize: z.number().int().positive().optional(),
       })
@@ -30,86 +30,58 @@ export const createIssueSchema = z.object({
 });
 
 export const issueIdParamsSchema = z.object({
-  issueId: z.string().uuid(),
+  issueId: z.string().refine(val => UUID_REGEX.test(val), { message: "Invalid UUID" }),
 });
 
 export const listIssuesQuerySchema = z.object({
   status: z.enum(["OPEN", "ASSIGNED", "IN_PROGRESS", "RESOLVED", "VERIFIED", "REOPENED", "REJECTED"]).optional(),
   priority: z.enum(["LOW", "MEDIUM", "HIGH", "CRITICAL"]).optional(),
-  wardId: z.string().uuid().optional(),
-  zoneId: z.string().uuid().optional(),
-  categoryId: z.string().uuid().optional(),
-  reporterId: z.string().uuid().optional(),
-  assigneeId: z.string().uuid().optional(),
+  wardId: z.string().refine(val => UUID_REGEX.test(val), { message: "Invalid UUID" }).optional(),
+  zoneId: z.string().refine(val => UUID_REGEX.test(val), { message: "Invalid UUID" }).optional(),
+  categoryId: z.string().refine(val => UUID_REGEX.test(val), { message: "Invalid UUID" }).optional(),
+  reporterId: z.string().refine(val => UUID_REGEX.test(val), { message: "Invalid UUID" }).optional(),
+  assigneeId: z.string().refine(val => UUID_REGEX.test(val), { message: "Invalid UUID" }).optional(),
   department: z.enum(["ROAD", "STORM_WATER_DRAINAGE", "SEWAGE_DISPOSAL", "WATER_WORKS", "STREET_LIGHT", "BRIDGE_CELL"]).optional(),
-
-  q: z.string().trim().max(100).optional(), // ticketNumber search
-
+  q: z.string().trim().max(100).optional(),
   page: z.coerce.number().int().min(1).default(1),
   pageSize: z.coerce.number().int().min(1).max(100).default(20),
 });
 
-export const addAfterMediaSchema = z
-  .object({
-    // allow uploading 1..10 "after" photos in one call
-    media: z
-      .array(
-        z.object({
-          url: z.string().url(),
-          mimeType: z.string().trim().max(100).optional(),
-          fileSize: z.number().int().positive().optional(),
-        })
-      )
-      .min(1)
-      .max(10),
+// Combined schemas for routes with both params and body (using 'all' source)
+export const addAfterMediaWithParamsSchema = z.object({
+  issueId: z.string().refine(val => UUID_REGEX.test(val), { message: "Invalid UUID" }),
+  media: z
+    .array(
+      z.object({
+        url: z.string().refine(val => URL_REGEX.test(val), { message: "Invalid URL" }),
+        mimeType: z.string().trim().max(100).optional(),
+        fileSize: z.number().int().positive().optional(),
+      })
+    )
+    .min(1)
+    .max(10),
+  markResolved: z.boolean().optional().default(true),
+});
 
-    // if true, endpoint will mark issue RESOLVED + set resolvedAt
-    markResolved: z.boolean().optional().default(true),
-  })
-  .strict();
+export const updateStatusWithParamsSchema = z.object({
+  issueId: z.string().refine(val => UUID_REGEX.test(val), { message: "Invalid UUID" }),
+  status: z.enum(["OPEN", "ASSIGNED", "IN_PROGRESS", "RESOLVED", "VERIFIED", "REOPENED", "REJECTED"]),
+  comment: z.string().trim().min(1).max(1000).optional()
+});
 
-  
-export const validateBody =
-  (schema: ZodTypeAny) =>
-  (req: Request, res: Response, next: NextFunction) => {
-    try {
-      req.body = schema.parse(req.body);
-      next();
-    } catch (error: any) {
-      return res.status(400).json({
-        success: false,
-        message: "Validation failed",
-        errors: error?.issues || [{ message: error?.message ?? "Invalid request body" }],
-      });
-    }
-  };
+export const addCommentWithParamsSchema = z.object({
+  issueId: z.string().refine(val => UUID_REGEX.test(val), { message: "Invalid UUID" }),
+  comment: z.string().trim().min(1).max(1000)
+});
 
-export const validateQuery =
-  (schema: ZodTypeAny) =>
-  (req: Request, res: Response, next: NextFunction) => {
-    try {
-      req.query = schema.parse(req.query) as any;
-      next();
-    } catch (error: any) {
-      return res.status(400).json({
-        success: false,
-        message: "Validation failed",
-        errors: error?.issues || [{ message: error?.message ?? "Invalid query params" }],
-      });
-    }
-  };
+export const reassignIssueWithParamsSchema = z.object({
+  issueId: z.string().refine(val => UUID_REGEX.test(val), { message: "Invalid UUID" }),
+  assigneeId: z.string().refine(val => UUID_REGEX.test(val), { message: "Invalid UUID" }),
+  reason: z.string().trim().min(1).max(500).optional()
+});
 
-export const validateParams =
-  (schema: ZodTypeAny) =>
-  (req: Request, res: Response, next: NextFunction) => {
-    try {
-      req.params = schema.parse(req.params) as any;
-      next();
-    } catch (error: any) {
-      return res.status(400).json({
-        success: false,
-        message: "Validation failed",
-        errors: error?.issues || [{ message: error?.message ?? "Invalid route params" }],
-      });
-    }
-  };
+export const verifyResolutionWithParamsSchema = z.object({
+  issueId: z.string().refine(val => UUID_REGEX.test(val), { message: "Invalid UUID" }),
+  approved: z.boolean(),
+  comment: z.string().trim().min(1).max(1000).optional()
+});

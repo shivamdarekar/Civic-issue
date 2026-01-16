@@ -1,43 +1,99 @@
 import { Router } from "express";
 import { verifyJWT } from "../../middlewares/auth.middleware";
 import { requireRole } from "../../middlewares/rbac.middleware";
-import { addAfterMediaSchema, validateBody, validateParams, validateQuery } from "./issue.schema";
+import { validateRequest } from "../../middlewares/validation.middleware";
 import { IssuesController } from "./issue.controller";
-import { createIssueSchema, issueIdParamsSchema, listIssuesQuerySchema } from "./issue.schema";
+import { 
+  createIssueSchema, 
+  issueIdParamsSchema, 
+  listIssuesQuerySchema, 
+  addAfterMediaWithParamsSchema,
+  updateStatusWithParamsSchema,
+  addCommentWithParamsSchema,
+  reassignIssueWithParamsSchema,
+  verifyResolutionWithParamsSchema
+} from "./issue.schema";
 
 const router = Router();
 
 router.use(verifyJWT);
 
+// Get issue categories (for dropdown in create form)
+router.get(
+  "/categories",
+  requireRole(["FIELD_WORKER", "WARD_ENGINEER", "ZONE_OFFICER", "SUPER_ADMIN"]),
+  IssuesController.getCategories
+);
+
+// Get issue statistics
+router.get(
+  "/stats",
+  requireRole(["FIELD_WORKER", "WARD_ENGINEER", "ZONE_OFFICER", "SUPER_ADMIN"]),
+  IssuesController.getStats
+);
+
 // Field worker can create
 router.post(
   "/",
   requireRole(["FIELD_WORKER"]),
-  validateBody(createIssueSchema),
+  validateRequest(createIssueSchema, 'body'),
   IssuesController.create
 );
 
-// List (role-based filtering is up to you; this is generic)
+// List issues
 router.get(
   "/",
   requireRole(["FIELD_WORKER", "WARD_ENGINEER", "ZONE_OFFICER", "SUPER_ADMIN"]),
-  validateQuery(listIssuesQuerySchema),
+  validateRequest(listIssuesQuerySchema, 'query'),
   IssuesController.list 
 );
 
-// Dedicated issue get endpoint (all related info)
+// Get issue by ID
 router.get(
   "/:issueId",
   requireRole(["FIELD_WORKER", "WARD_ENGINEER", "ZONE_OFFICER", "SUPER_ADMIN"]),
-  validateParams(issueIdParamsSchema),
+  validateRequest(issueIdParamsSchema, 'params'),
   IssuesController.getById
 );
 
+// Upload after media
 router.post(
   "/:issueId/after-media",
-  requireRole(["FIELD_WORKER", ]),
-  validateParams(issueIdParamsSchema),
-  validateBody(addAfterMediaSchema),
+  requireRole(["FIELD_WORKER", "WARD_ENGINEER"]),
+  validateRequest(addAfterMediaWithParamsSchema, 'all'),
   IssuesController.uploadAfterMedia
 );
+
+// Update issue status
+router.patch(
+  "/:issueId/status",
+  requireRole(["WARD_ENGINEER", "ZONE_OFFICER", "SUPER_ADMIN"]),
+  validateRequest(updateStatusWithParamsSchema, 'all'),
+  IssuesController.updateStatus
+);
+
+// Add comment
+router.post(
+  "/:issueId/comments",
+  requireRole(["FIELD_WORKER", "WARD_ENGINEER", "ZONE_OFFICER", "SUPER_ADMIN"]),
+  validateRequest(addCommentWithParamsSchema, 'all'),
+  IssuesController.addComment
+);
+
+// Reassign issue
+router.patch(
+  "/:issueId/reassign",
+  requireRole(["WARD_ENGINEER", "ZONE_OFFICER", "SUPER_ADMIN"]),
+  validateRequest(reassignIssueWithParamsSchema, 'all'),
+  IssuesController.reassignIssue
+);
+
+// Verify/Reject resolution
+router.patch(
+  "/:issueId/verify",
+  requireRole(["ZONE_OFFICER", "SUPER_ADMIN"]),
+  validateRequest(verifyResolutionWithParamsSchema, 'all'),
+  IssuesController.verifyResolution
+);
+
 export default router;

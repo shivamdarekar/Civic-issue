@@ -2,14 +2,15 @@ import { prisma } from "../../lib/prisma";
 import { Prisma } from "@prisma/client";
 import { ApiError } from "../../utils/apiError";
 import { hashPassword } from "../auth/auth.utils";
-import { 
+import { EmailService } from "../../services/email/emailService";
+import {
   RegisterUserData,
-  DashboardPayload, 
-  ZoneOverview, 
-  ZoneDetail, 
-  WardOverview, 
-  WardDetailPayload, 
-  WardIssueListItem, 
+  DashboardPayload,
+  ZoneOverview,
+  ZoneDetail,
+  WardOverview,
+  WardDetailPayload,
+  WardIssueListItem,
   WardIssueFilters,
   UserUpdateData,
   UserStatistics,
@@ -110,6 +111,19 @@ export class AdminService {
       }
     });
 
+    // Send welcome email with credentials
+    try {
+      await EmailService.sendWelcomeEmail(
+        user.email,
+        user.fullName,
+        user.role,
+        password // Send original password (before hashing)
+      );
+    } catch (error) {
+      console.error('Failed to send welcome email:', error);
+      // Don't throw - user is created, email failure shouldn't block
+    }
+
     return user;
   }
 
@@ -184,7 +198,7 @@ export class AdminService {
 
     // Validate ward/zone if provided
     if (wardId) {
-      const ward = await prisma.ward.findUnique({ 
+      const ward = await prisma.ward.findUnique({
         where: { id: wardId },
         select: { id: true, zoneId: true }
       });
@@ -273,7 +287,7 @@ export class AdminService {
     });
 
     // Track significant assignment changes (for judges/auditors)
-    const assignmentChanged = 
+    const assignmentChanged =
       (role && role !== existingUser.role) ||
       (wardId !== undefined && wardId !== existingUser.wardId) ||
       (zoneId !== undefined && zoneId !== existingUser.zoneId) ||
@@ -318,7 +332,7 @@ export class AdminService {
   static async reassignUserWork(fromUserId: string, toUserId: string, reassignedBy: string): Promise<ReassignWorkResponse> {
     // Validate both users exist
     const [fromUser, toUser] = await Promise.all([
-      prisma.user.findUnique({ 
+      prisma.user.findUnique({
         where: { id: fromUserId },
         select: {
           id: true,
@@ -330,7 +344,7 @@ export class AdminService {
           isActive: true
         }
       }),
-      prisma.user.findUnique({ 
+      prisma.user.findUnique({
         where: { id: toUserId },
         select: {
           id: true,
@@ -450,15 +464,15 @@ export class AdminService {
     return {
       message: `Successfully reassigned ${activeIssues.length} active issue(s) from ${fromUser.fullName} to ${toUser.fullName}`,
       reassignedCount: activeIssues.length,
-      fromUser: { 
-        id: fromUser.id, 
+      fromUser: {
+        id: fromUser.id,
         fullName: fromUser.fullName,
-        role: fromUser.role 
+        role: fromUser.role
       },
-      toUser: { 
-        id: toUser.id, 
+      toUser: {
+        id: toUser.id,
         fullName: toUser.fullName,
-        role: toUser.role 
+        role: toUser.role
       },
       issues: activeIssues.map(i => ({
         ticketNumber: i.ticketNumber,
@@ -582,7 +596,7 @@ export class AdminService {
 
   // Get user work statistics
   static async getUserStatistics(userId: string): Promise<UserStatistics> {
-    const user = await prisma.user.findUnique({ 
+    const user = await prisma.user.findUnique({
       where: { id: userId },
       select: { id: true, fullName: true, role: true, isActive: true }
     });
@@ -705,7 +719,7 @@ export class AdminService {
     });
   }
 
-  
+
   // Get available departments for Ward Engineers
   static async getDepartments() {
     return [
@@ -771,7 +785,7 @@ export class AdminService {
   }
 
 
-   static async getZonesOverview() {
+  static async getZonesOverview() {
     const rows = await prisma.$queryRaw<ZoneOverview[]>`
       SELECT
         z."id" AS "zoneId",
@@ -803,7 +817,7 @@ export class AdminService {
       ORDER BY z."name" ASC;
     `;
 
-        // Ensure strict types and null-safety
+    // Ensure strict types and null-safety
     return (rows ?? []).map(r => ({
       zoneId: String(r.zoneId),
       name: r.name ?? "",
@@ -814,7 +828,7 @@ export class AdminService {
   }
 
 
-   static async getZoneDetail(zoneId: string): Promise<ZoneDetail | null> {
+  static async getZoneDetail(zoneId: string): Promise<ZoneDetail | null> {
     const rows = await prisma.$queryRaw<ZoneDetail[]>`
       SELECT
         z."name" AS "zoneName",
@@ -859,7 +873,7 @@ export class AdminService {
   }
 
 
-static async getZoneWards(zoneId: string): Promise<WardOverview[]> {
+  static async getZoneWards(zoneId: string): Promise<WardOverview[]> {
     const rows = await prisma.$queryRaw<WardOverview[]>`
       SELECT
         w."id"                         AS "wardId",
@@ -887,7 +901,7 @@ static async getZoneWards(zoneId: string): Promise<WardOverview[]> {
       GROUP BY w."id", w."ward_number", w."name"
       ORDER BY w."ward_number" ASC;
     `;
-   
+
     return (rows ?? []).map(r => ({
       wardId: String(r.wardId),
       wardNumber: Number(r.wardNumber ?? 0),
@@ -900,7 +914,7 @@ static async getZoneWards(zoneId: string): Promise<WardOverview[]> {
     }));
   }
 
-  
+
   static async getWardDetail(wardId: string): Promise<WardDetailPayload | null> {
     const rows = await prisma.$queryRaw<any[]>`
       SELECT
@@ -1065,7 +1079,7 @@ static async getZoneWards(zoneId: string): Promise<WardOverview[]> {
         hasAfterImage: Boolean(it.hasAfterImage ?? false),
       })),
     };
-  }  
+  }
 
 
   static async getWardIssues(

@@ -1,57 +1,148 @@
 import type { NextFunction, Request, Response } from "express";
 import { IssuesService } from "./issue.service";
+import { asyncHandler } from "../../utils/asyncHandler";
+import { ApiResponse } from "../../utils/apiResponse";
 
 export class IssuesController {
-  static async create(req: Request, res: Response, next: NextFunction) {
-    try {
-      // assumes verifyJWT sets req.user = { id, role, ... }
-      const reporterId = (req as any).user?.id as string;
+  // Get all issue categories
+  static getCategories = asyncHandler(async (req: Request, res: Response) => {
+    const categories = await IssuesService.getCategories();
 
-      const issue = await IssuesService.createIssue({
-        reporterId,
-        ...req.body,
-      });
+    res.status(200).json(
+      new ApiResponse(200, categories, "Categories retrieved successfully")
+    );
+  });
 
-      return res.status(201).json({ success: true, data: issue });
-    } catch (err) {
-      next(err);
-    }
-  }
+  // Get issue statistics
+  static getStats = asyncHandler(async (req: Request, res: Response) => {
+    const { wardId, zoneId, assigneeId } = req.query;
 
-  static async list(req: Request, res: Response, next: NextFunction) {
-    try {
-      const result = await IssuesService.listIssues(req.query as any);
-      return res.json({ success: true, data: result });
-    } catch (err) {
-      next(err);
-    }
-  }
+    const stats = await IssuesService.getIssueStats({
+      wardId: wardId as string,
+      zoneId: zoneId as string,
+      assigneeId: assigneeId as string,
+    });
 
-  static async getById(req: Request, res: Response, next: NextFunction) {
-    try {
-      const issue = await IssuesService.getIssueById(req.params.issueId);
-      return res.json({ success: true, data: issue });
-    } catch (err) {
-      next(err);
-    }
-  }
+    res.status(200).json(
+      new ApiResponse(200, stats, "Issue statistics retrieved successfully")
+    );
+  });
 
-  static async uploadAfterMedia(req: Request, res: Response, next: NextFunction) {
-    try {
-      const userId = (req as any).user?.id as string;
-      const userRole = (req as any).user?.role as string;
+  static create = asyncHandler(async (req: Request, res: Response) => {
+    const reporterId = req.user!.id;
 
-      const updated = await IssuesService.addAfterMediaIssue({
-        issueId: req.params.issueId,
-        userId,
-        userRole,
-        media: req.body.media,
-        markResolved: req.body.markResolved,
-      });
+    const issue = await IssuesService.createIssue({
+      reporterId,
+      ...req.body,
+    });
 
-      return res.json({ success: true, data: updated });
-    } catch (err) {
-      next(err);
-    }
-  }
+    res.status(201).json(
+      new ApiResponse(201, issue, "Issue created successfully")
+    );
+  });
+
+  static list = asyncHandler(async (req: Request, res: Response) => {
+    // Query params are already validated and transformed by middleware
+    // Ensure defaults are set if validation didn't populate them
+    const query = req.query as any;
+    const input = {
+      ...query,
+      page: query.page || 1,
+      pageSize: query.pageSize || 20
+    };
+    
+    const result = await IssuesService.listIssues(input);
+
+    res.status(200).json(
+      new ApiResponse(200, result, "Issues retrieved successfully")
+    );
+  });
+
+  static getById = asyncHandler(async (req: Request, res: Response) => {
+    const issue = await IssuesService.getIssueById(req.params.issueId);
+
+    res.status(200).json(
+      new ApiResponse(200, issue, "Issue retrieved successfully")
+    );
+  });
+
+  static uploadAfterMedia = asyncHandler(async (req: Request, res: Response) => {
+    const userId = req.user!.id;
+    const userRole = req.user!.role;
+
+    const updated = await IssuesService.addAfterMediaIssue({
+      issueId: req.params.issueId,
+      userId,
+      userRole,
+      media: req.body.media,
+      markResolved: req.body.markResolved,
+    });
+
+    res.status(200).json(
+      new ApiResponse(200, updated, "After media uploaded successfully")
+    );
+  });
+
+  static updateStatus = asyncHandler(async (req: Request, res: Response) => {
+    const userId = req.user!.id;
+    const { status, comment } = req.body;
+
+    const updated = await IssuesService.updateIssueStatus({
+      issueId: req.params.issueId,
+      userId,
+      newStatus: status,
+      comment
+    });
+
+    res.status(200).json(
+      new ApiResponse(200, updated, "Issue status updated successfully")
+    );
+  });
+
+  static addComment = asyncHandler(async (req: Request, res: Response) => {
+    const userId = req.user!.id;
+    const { comment } = req.body;
+
+    const result = await IssuesService.addComment({
+      issueId: req.params.issueId,
+      userId,
+      comment
+    });
+
+    res.status(201).json(
+      new ApiResponse(201, result, "Comment added successfully")
+    );
+  });
+
+  static reassignIssue = asyncHandler(async (req: Request, res: Response) => {
+    const userId = req.user!.id;
+    const { assigneeId, reason } = req.body;
+
+    const updated = await IssuesService.reassignIssue({
+      issueId: req.params.issueId,
+      reassignedBy: userId,
+      newAssigneeId: assigneeId,
+      reason
+    });
+
+    res.status(200).json(
+      new ApiResponse(200, updated, "Issue reassigned successfully")
+    );
+  });
+
+  static verifyResolution = asyncHandler(async (req: Request, res: Response) => {
+    const userId = req.user!.id;
+    const { approved, comment } = req.body;
+
+    const updated = await IssuesService.verifyResolution({
+      issueId: req.params.issueId,
+      verifiedBy: userId,
+      approved,
+      comment
+    });
+
+    res.status(200).json(
+      new ApiResponse(200, updated, approved ? "Issue verified successfully" : "Issue reopened for rework")
+    );
+  });
 }

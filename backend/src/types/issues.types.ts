@@ -27,3 +27,43 @@ export type ListIssuesInput = {
   department?: Department;
   q?: string;
 };
+
+// Update Issue Status
+export type UpdateIssueStatusInput = {
+  issueId: string;
+  userId: string;
+  newStatus: IssueStatus;
+  comment?: string;
+};
+
+// Add Comment
+export type AddCommentInput = {
+  issueId: string;
+  userId: string;
+  comment: string;
+};
+
+// Reassign Issue
+export type ReassignIssueInput = {
+  issueId: string;
+  reassignedBy: string;
+  newAssigneeId: string;
+  reason?: string;
+};
+
+// Verify Resolution
+export type VerifyResolutionInput = {
+  issueId: string;
+  verifiedBy: string;
+  approved: boolean;
+  comment?: string;
+};
+
+// Add After Media
+export type AddAfterMediaInput = {
+  issueId: string;
+  userId: string;
+  userRole: string;
+  media: Array<{ url: string; mimeType?: string; fileSize?: number }>;
+  markResolved: boolean;
+};

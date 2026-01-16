@@ -30,12 +30,14 @@ app.get("/api/health", (req, res) => {
     res.json({ status: "OK", timestamp: new Date().toISOString() });
 });
 
-// Auth routes
+// Import routes
 import authRoutes from "./modules/auth/auth.routes";
 import adminRoutes from "./modules/admin/admin.routes";
+import issueRoutes from "./modules/issues/issue.routes";
 
 app.use("/api/v1/auth", authRoutes);
 app.use("/api/v1/admin", adminRoutes);
+app.use("/api/v1/issues", issueRoutes);
 
 
 // Error handling middleware (must be last)

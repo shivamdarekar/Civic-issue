@@ -7,8 +7,8 @@ export * from './auth.types';
 // Admin types
 export * from './admin.types';
 
-// Issue types (for future)
-// export * from './issue.types';
+// Issue types
+export * from './issues.types';
 
 // User types (for future)
 // export * from './user.types';

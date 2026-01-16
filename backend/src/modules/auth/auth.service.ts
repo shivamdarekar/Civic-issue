@@ -104,7 +104,7 @@ export class AuthService {
       // Continue execution - don't fail the request if email fails
     }
 
-    return { 
+    return {
       message: "If email exists, OTP has been sent",
       // For development only - remove in production
       ...(process.env.NODE_ENV === 'development' && { otp })
@@ -153,7 +153,7 @@ export class AuthService {
         where: { id: otpRecord.id },
         data: { attempts: { increment: 1 } }
       });
-      
+
       const remainingAttempts = 3 - (otpRecord.attempts + 1);
       throw new ApiError(400, `Invalid OTP. ${remainingAttempts} attempt(s) remaining`);
     }
@@ -167,7 +167,7 @@ export class AuthService {
       }
     });
 
-    return { 
+    return {
       message: "OTP verified successfully",
       verified: true
     };
@@ -238,5 +238,58 @@ export class AuthService {
     });
 
     return { success: true };
+  }
+
+  // Get user profile
+  static async getProfile(userId: string) {
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        id: true,
+        fullName: true,
+        email: true,
+        phoneNumber: true,
+        role: true,
+        department: true,
+        isActive: true,
+        wardId: true,
+        zoneId: true,
+        ward: {
+          select: {
+            id: true,
+            wardNumber: true,
+            name: true,
+            zone: {
+              select: {
+                id: true,
+                name: true,
+                code: true
+              }
+            }
+          }
+        },
+        zone: {
+          select: {
+            id: true,
+            name: true,
+            code: true
+          }
+        },
+        gamification: {
+          select: {
+            points: true,
+            level: true,
+            badges: true
+          }
+        },
+        createdAt: true
+      }
+    });
+
+    if (!user) {
+      throw new ApiError(404, "User not found");
+    }
+
+    return user;
   }
 }

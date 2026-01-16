@@ -1,48 +1,89 @@
 import { z } from "zod";
-import { UserRole, Department } from "@prisma/client";
 
-export const updateUserSchema = z.object({
-  fullName: z.string().min(2).max(100).optional(),
-  email: z.string().email().transform(val => val.toLowerCase()).optional(),
-  phoneNumber: z.string().regex(/^[6-9]\d{9}$/, "Invalid Indian phone number").optional(),
-  role: z.nativeEnum(UserRole).optional(),
-  wardId: z.string().uuid().nullable().optional(),
-  zoneId: z.string().uuid().nullable().optional(),
-  department: z.nativeEnum(Department).nullable().optional()
+// Define enum values explicitly for Zod
+const UserRoleEnum = z.enum(["SUPER_ADMIN", "ZONE_OFFICER", "WARD_ENGINEER", "FIELD_WORKER", "CITIZEN"]);
+const DepartmentEnum = z.enum(["ROAD", "STORM_WATER_DRAINAGE", "SEWAGE_DISPOSAL", "WATER_WORKS", "STREET_LIGHT", "BRIDGE_CELL"]);
+
+// Validation patterns
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const PHONE_REGEX = /^(\+91)?[6-9]\d{9}$/;
+const PASSWORD_REGEX = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/;
+
+export const registerUserSchema = z.object({
+  fullName: z.string().min(2, "Full name must be at least 2 characters").max(100),
+  email: z.string().email("Invalid email format").transform(val => val.toLowerCase()),
+  phoneNumber: z.string().refine(val => PHONE_REGEX.test(val), { message: "Invalid Indian phone number" }),
+  password: z.string()
+    .min(8, "Password must be at least 8 characters")
+    .refine(val => PASSWORD_REGEX.test(val), { message: "Password must contain uppercase, lowercase and number" }),
+  role: UserRoleEnum,
+  wardId: z.string().refine(val => UUID_REGEX.test(val), { message: "Invalid UUID" }).nullable().optional(),
+  zoneId: z.string().refine(val => UUID_REGEX.test(val), { message: "Invalid UUID" }).nullable().optional(),
+  department: DepartmentEnum.nullable().optional()
 }).refine((data) => {
-  // Ward Engineer must have department
-  if (data.role === 'WARD_ENGINEER' && data.department === null) {
-    return false;
+  if (data.role === 'FIELD_WORKER') return true;
+  if (data.role === 'ZONE_OFFICER') {
+    if (!data.zoneId) return false;
+    if (data.wardId) return false;
+    return true;
   }
-  // Non-engineers cannot have department
-  if (data.role && data.role !== 'WARD_ENGINEER' && data.department) {
-    return false;
+  if (data.role === 'WARD_ENGINEER') {
+    if (!data.wardId || !data.zoneId || !data.department) return false;
+    return true;
   }
-  // Ward-level roles must have wardId
-  if (data.role && ['WARD_ENGINEER', 'FIELD_WORKER'].includes(data.role) && !data.wardId) {
-    return false;
-  }
-  // Zone officer must have zoneId
-  if (data.role === 'ZONE_OFFICER' && !data.zoneId) {
-    return false;
-  }
+  if (data.role === 'SUPER_ADMIN') return true;
   return true;
 }, {
   message: "Invalid role-specific requirements"
 });
 
-export const reassignWorkSchema = z.object({
-  toUserId: z.string().uuid("Invalid user ID format")
-});
-
 export const getUsersByFilterSchema = z.object({
-  role: z.nativeEnum(UserRole).optional(),
-  wardId: z.string().uuid().optional(),
-  zoneId: z.string().uuid().optional(),
+  role: UserRoleEnum.optional(),
+  wardId: z.string().refine(val => UUID_REGEX.test(val), { message: "Invalid UUID" }).optional(),
+  zoneId: z.string().refine(val => UUID_REGEX.test(val), { message: "Invalid UUID" }).optional(),
   isActive: z.enum(['true', 'false']).transform(val => val === 'true').optional(),
-  department: z.nativeEnum(Department).optional()
+  department: DepartmentEnum.optional()
 });
 
-export type UpdateUserData = z.infer<typeof updateUserSchema>;
-export type ReassignWorkData = z.infer<typeof reassignWorkSchema>;
+// Params only schemas
+export const userIdParamsSchema = z.object({
+  userId: z.string().refine(val => UUID_REGEX.test(val), { message: "Invalid UUID" })
+});
+
+export const zoneIdParamsSchema = z.object({
+  zoneId: z.string().refine(val => UUID_REGEX.test(val), { message: "Invalid UUID" })
+});
+
+export const wardIdParamsSchema = z.object({
+  wardId: z.string().refine(val => UUID_REGEX.test(val), { message: "Invalid UUID" })
+});
+
+// Combined schemas for routes with both params and body (using 'all' source)
+export const updateUserWithParamsSchema = z.object({
+  userId: z.string().refine(val => UUID_REGEX.test(val), { message: "Invalid UUID" }),
+  fullName: z.string().min(2).max(100).optional(),
+  email: z.string().email().transform(val => val.toLowerCase()).optional(),
+  phoneNumber: z.string().refine(val => PHONE_REGEX.test(val), { message: "Invalid Indian phone number" }).optional(),
+  role: UserRoleEnum.optional(),
+  wardId: z.string().refine(val => UUID_REGEX.test(val), { message: "Invalid UUID" }).nullable().optional(),
+  zoneId: z.string().refine(val => UUID_REGEX.test(val), { message: "Invalid UUID" }).nullable().optional(),
+  department: DepartmentEnum.nullable().optional()
+}).refine((data) => {
+  if (data.role === 'WARD_ENGINEER' && data.department === null) return false;
+  if (data.role && data.role !== 'WARD_ENGINEER' && data.department) return false;
+  if (data.role && ['WARD_ENGINEER', 'FIELD_WORKER'].includes(data.role) && !data.wardId) return false;
+  if (data.role === 'ZONE_OFFICER' && !data.zoneId) return false;
+  return true;
+}, {
+  message: "Invalid role-specific requirements"
+});
+
+export const reassignWorkWithParamsSchema = z.object({
+  userId: z.string().refine(val => UUID_REGEX.test(val), { message: "Invalid UUID" }),
+  toUserId: z.string().refine(val => UUID_REGEX.test(val), { message: "Invalid UUID" })
+});
+
+export type RegisterUserData = z.infer<typeof registerUserSchema>;
+export type UpdateUserData = z.infer<typeof updateUserWithParamsSchema>;
+export type ReassignWorkData = z.infer<typeof reassignWorkWithParamsSchema>;
 export type GetUsersByFilterData = z.infer<typeof getUsersByFilterSchema>;

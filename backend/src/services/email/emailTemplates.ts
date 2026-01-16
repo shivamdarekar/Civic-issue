@@ -68,6 +68,8 @@ Please do not reply to this email.
     `
   },
 
+
+  
   // Welcome Email Templates
   welcome: {
     subject: 'Welcome to VMC Civic Issues System',

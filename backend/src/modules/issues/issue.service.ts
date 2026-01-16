@@ -1,6 +1,16 @@
 import { Prisma, type Department, type IssueStatus, type Priority } from "@prisma/client";
 import { prisma } from "../../lib/prisma";
-import type { CreateIssueInput,ListIssuesInput } from "../../types/issues.types";
+import { ApiError } from "../../utils/apiError";
+import type { 
+  CreateIssueInput, 
+  ListIssuesInput, 
+  UpdateIssueStatusInput, 
+  AddCommentInput, 
+  ReassignIssueInput, 
+  VerifyResolutionInput, 
+  AddAfterMediaInput 
+} from "../../types";
+import { EmailService } from "../../services/email/emailService";
 
 
 const SYSTEM_COUNTER_KEY = (year: number) => `ticket_counter_${year}`;
@@ -29,20 +39,31 @@ async function nextTicketNumber(tx: Prisma.TransactionClient) {
 }
 
 async function findWardIdByLatLng(latitude: number, longitude: number): Promise<string | null> {
-  // Uses wards.boundary geometry(Polygon, 4326)
-  // Point: ST_SetSRID(ST_MakePoint(lon, lat), 4326)
-  const rows = await prisma.$queryRaw<Array<{ id: string }>>`
-    SELECT w.id
-    FROM wards w
-    WHERE w.boundary IS NOT NULL
-      AND ST_Contains(
-        w.boundary,
-        ST_SetSRID(ST_MakePoint(${longitude}, ${latitude}), 4326)
-      )
-    LIMIT 1;
-  `;
+  try {
+    // Uses wards.boundary geometry(Polygon, 4326)
+    // Point: ST_SetSRID(ST_MakePoint(lon, lat), 4326)
+    const rows = await prisma.$queryRaw<Array<{ id: string }>>`
+      SELECT w.id
+      FROM wards w
+      WHERE w.boundary IS NOT NULL
+        AND ST_Contains(
+          w.boundary,
+          ST_SetSRID(ST_MakePoint(${longitude}, ${latitude}), 4326)
+        )
+      LIMIT 1;
+    `;
 
-  return rows?.[0]?.id ?? null;
+    if (rows && rows.length > 0) {
+      console.log(`✅ Issue location mapped to ward: ${rows[0].id}`);
+      return rows[0].id;
+    }
+    
+    console.warn(`⚠️  No ward found for coordinates: ${latitude}, ${longitude}`);
+    return null;
+  } catch (error) {
+    console.error('❌ Error finding ward by coordinates:', error);
+    return null;
+  }
 }
 
 async function pickAssigneeId(args: { wardId: string | null; department: Department | null }): Promise<string | null> {
@@ -72,7 +93,70 @@ async function pickAssigneeId(args: { wardId: string | null; department: Departm
   return fallback?.id ?? null;
 }
 
+
 export class IssuesService {
+  // Get all active issue categories
+  static async getCategories() {
+    const categories = await prisma.issueCategory.findMany({
+      select: {
+        id: true,
+        name: true,
+        slug: true,
+        description: true,
+        department: true,
+        slaHours: true,
+        formSchema: true,
+        isActive: true
+      },
+      where: {
+        isActive: true
+      },
+      orderBy: {
+        name: 'asc'
+      }
+    });
+
+    return categories;
+  }
+
+  // Get issue statistics
+  static async getIssueStats(filters?: { wardId?: string; zoneId?: string; assigneeId?: string }) {
+    const where: Prisma.IssueWhereInput = {
+      deletedAt: null,
+      ...(filters?.wardId ? { wardId: filters.wardId } : {}),
+      ...(filters?.zoneId ? { ward: { zoneId: filters.zoneId } } : {}),
+      ...(filters?.assigneeId ? { assigneeId: filters.assigneeId } : {}),
+    };
+
+    const [total, open, assigned, inProgress, resolved, verified, slaBreached] = await Promise.all([
+      prisma.issue.count({ where }),
+      prisma.issue.count({ where: { ...where, status: 'OPEN' } }),
+      prisma.issue.count({ where: { ...where, status: 'ASSIGNED' } }),
+      prisma.issue.count({ where: { ...where, status: 'IN_PROGRESS' } }),
+      prisma.issue.count({ where: { ...where, status: 'RESOLVED' } }),
+      prisma.issue.count({ where: { ...where, status: 'VERIFIED' } }),
+      prisma.issue.count({
+        where: {
+          ...where,
+          resolvedAt: null,
+          slaTargetAt: { lt: new Date() }
+        }
+      }),
+    ]);
+
+    return {
+      total,
+      open,
+      assigned,
+      inProgress,
+      resolved,
+      verified,
+      slaBreached,
+      activeCount: open + assigned + inProgress,
+      completedCount: resolved + verified,
+    };
+  }
+
   static async createIssue(input: CreateIssueInput) {
     return prisma.$transaction(async (tx) => {
       const category = await tx.issueCategory.findUnique({
@@ -80,7 +164,7 @@ export class IssuesService {
         select: { id: true, slaHours: true, department: true },
       });
       if (!category) {
-        throw Object.assign(new Error("Invalid categoryId"), { statusCode: 400 });
+        throw new ApiError(400, "Invalid categoryId");
       }
 
       const wardId = await findWardIdByLatLng(input.latitude, input.longitude);
@@ -145,16 +229,36 @@ export class IssuesService {
           media: true,
           ward: { select: { id: true, wardNumber: true, name: true, zone: { select: { id: true, name: true, code: true } } } },
           reporter: { select: { id: true, fullName: true, role: true } },
-          assignee: { select: { id: true, fullName: true, role: true, department: true } },
+          assignee: { select: { id: true, fullName: true, email: true, role: true, department: true } },
         },
       });
+
+      // Send email notification if issue was assigned
+      if (assigneeId && issue.assignee) {
+        try {
+          await EmailService.sendIssueAssignmentEmail(
+            issue.assignee.email,
+            issue.assignee.fullName,
+            issue.ticketNumber,
+            issue.category.name,
+            input.address || `${input.latitude}, ${input.longitude}`,
+            issue.priority
+          );
+          console.log(`✅ Assignment email sent to ${issue.assignee.email} for ticket ${issue.ticketNumber}`);
+        } catch (emailError) {
+          console.error('❌ Failed to send assignment email:', emailError);
+          // Don't fail the transaction if email fails
+        }
+      }
 
       return issue;
     });
   }
 
+
   static async listIssues(input: ListIssuesInput) {
     const skip = (input.page - 1) * input.pageSize;
+    const take = input.pageSize;
 
     const where: Prisma.IssueWhereInput = {
       deletedAt: null,
@@ -177,12 +281,12 @@ export class IssuesService {
         : {}),
     };
 
-    const [items, total] = await Promise.all([
+    const [rawItems, total] = await Promise.all([
       prisma.issue.findMany({
         where,
         orderBy: { updatedAt: "desc" },
         skip,
-        take: input.pageSize,
+        take,
         select: {
           id: true,
           ticketNumber: true,
@@ -194,17 +298,26 @@ export class IssuesService {
           address: true,
           eloc: true,
           slaTargetAt: true,
+          resolvedAt: true,
           createdAt: true,
           updatedAt: true,
           category: { select: { id: true, name: true, slug: true, department: true } },
           ward: { select: { id: true, wardNumber: true, name: true, zone: { select: { id: true, name: true, code: true } } } },
           reporter: { select: { id: true, fullName: true, role: true } },
-          assignee: { select: { id: true, fullName: true, role: true, department: true } },
+          assignee: { select: { id: true, fullName: true, email: true, phoneNumber: true, role: true, department: true } },
           media: { select: { id: true, type: true, url: true, createdAt: true } },
         },
       }),
       prisma.issue.count({ where }),
     ]);
+
+    // Add SLA breach indicator
+    const items = rawItems.map(issue => ({
+      ...issue,
+      slaBreached: issue.slaTargetAt && !issue.resolvedAt
+        ? new Date() > new Date(issue.slaTargetAt)
+        : false
+    }));
 
     return {
       items,
@@ -214,6 +327,7 @@ export class IssuesService {
       totalPages: Math.ceil(total / input.pageSize),
     };
   }
+
 
   static async getIssueById(issueId: string) {
     const issue = await prisma.issue.findFirst({
@@ -232,41 +346,33 @@ export class IssuesService {
       },
     });
 
-    if (!issue) throw Object.assign(new Error("Issue not found"), { statusCode: 404 });
+    if (!issue) throw new ApiError(404, "Issue not found");
     return issue;
   }
 
-   static async addAfterMediaIssue(args: {
-    issueId: string;
-    userId: string;
-    userRole: string;
-    media: Array<{ url: string; mimeType?: string; fileSize?: number }>;
-    markResolved: boolean;
-  }) {
+
+   static async addAfterMediaIssue(args: AddAfterMediaInput) {
     return prisma.$transaction(async (tx) => {
       const issue = await tx.issue.findFirst({
         where: { id: args.issueId, deletedAt: null },
         select: { id: true, status: true, assigneeId: true },
       });
 
-      if (!issue) throw Object.assign(new Error("Issue not found"), { statusCode: 404 });
+      if (!issue) throw new ApiError(404, "Issue not found");
 
       // Field worker must be the assignee (admins/engineers can bypass if you want)
       const canBypass =
         args.userRole === "SUPER_ADMIN" || args.userRole === "WARD_ENGINEER" || args.userRole === "ZONE_OFFICER";
 
       if (!canBypass && issue.assigneeId !== args.userId) {
-        throw Object.assign(new Error("Not allowed to update this issue"), { statusCode: 403 });
+        throw new ApiError(403, "Not allowed to update this issue");
       }
 
       // If marking resolved, ensure it's in a workable state
       if (args.markResolved) {
         const allowed = issue.status === "ASSIGNED" || issue.status === "IN_PROGRESS";
         if (!allowed) {
-          throw Object.assign(
-            new Error(`Cannot resolve issue from status: ${issue.status}`),
-            { statusCode: 400 }
-          );
+          throw new ApiError(400, `Cannot resolve issue from status: ${issue.status}`);
         }
       }
 
@@ -319,6 +425,224 @@ export class IssuesService {
           assignee: { select: { id: true, fullName: true, role: true, department: true } },
           media: true,
         },
+      });
+
+      return updated;
+    });
+  }
+
+
+  // Update issue status
+  static async updateIssueStatus(args: UpdateIssueStatusInput) {
+    return prisma.$transaction(async (tx) => {
+      const issue = await tx.issue.findFirst({
+        where: { id: args.issueId, deletedAt: null },
+        select: { id: true, status: true, assigneeId: true }
+      });
+
+      if (!issue) throw new ApiError(404, "Issue not found");
+
+      // Validate status transition workflow
+      const validTransitions: Record<IssueStatus, IssueStatus[]> = {
+        OPEN: ["ASSIGNED", "REJECTED"],
+        ASSIGNED: ["IN_PROGRESS", "OPEN"],
+        IN_PROGRESS: ["RESOLVED", "ASSIGNED"],
+        RESOLVED: ["VERIFIED", "REOPENED"], // Handled by verify endpoint
+        VERIFIED: [], // Final state
+        REOPENED: ["ASSIGNED", "IN_PROGRESS"],
+        REJECTED: ["OPEN"]
+      };
+
+      const allowedStatuses = validTransitions[issue.status] || [];
+      if (!allowedStatuses.includes(args.newStatus)) {
+        throw new ApiError(
+          400, 
+          `Cannot transition from ${issue.status} to ${args.newStatus}. Allowed: ${allowedStatuses.join(", ")}`
+        );
+      }
+
+      const now = new Date();
+      const updates: any = { status: args.newStatus };
+
+      // Set timestamps based on status
+      if (args.newStatus === "IN_PROGRESS" && issue.status !== "IN_PROGRESS") {
+        updates.assignedAt = now;
+      }
+      if (args.newStatus === "RESOLVED") {
+        updates.resolvedAt = now;
+      }
+      if (args.newStatus === "VERIFIED") {
+        updates.verifiedAt = now;
+      }
+
+      const updated = await tx.issue.update({
+        where: { id: args.issueId },
+        data: {
+          ...updates,
+          history: {
+            create: {
+              changedBy: args.userId,
+              changeType: "STATUS_CHANGE",
+              oldValue: { status: issue.status } as any,
+              newValue: { status: args.newStatus, comment: args.comment } as any
+            }
+          },
+          ...(args.comment ? {
+            comments: {
+              create: {
+                userId: args.userId,
+                text: args.comment
+              }
+            }
+          } : {})
+        },
+        include: {
+          category: true,
+          ward: { include: { zone: true } },
+          assignee: { select: { id: true, fullName: true, role: true } }
+        }
+      });
+
+      return updated;
+    });
+  }
+
+
+  // Add comment to issue
+  static async addComment(args: AddCommentInput) {
+    const issue = await prisma.issue.findFirst({
+      where: { id: args.issueId, deletedAt: null },
+      select: { id: true }
+    });
+
+    if (!issue) throw new ApiError(404, "Issue not found");
+
+    const comment = await prisma.comment.create({
+      data: {
+        issueId: args.issueId,
+        userId: args.userId,
+        text: args.comment
+      },
+      include: {
+        user: { select: { id: true, fullName: true, role: true } }
+      }
+    });
+
+    return comment;
+  }
+
+
+  // Reassign issue to different engineer
+  static async reassignIssue(args: ReassignIssueInput) {
+    return prisma.$transaction(async (tx) => {
+      const [issue, newAssignee] = await Promise.all([
+        tx.issue.findFirst({
+          where: { id: args.issueId, deletedAt: null },
+          include: { 
+            assignee: { select: { id: true, fullName: true } },
+            category: { select: { name: true } }
+          }
+        }),
+        tx.user.findUnique({
+          where: { id: args.newAssigneeId },
+          select: { id: true, fullName: true, email: true, role: true, wardId: true, isActive: true }
+        })
+      ]);
+
+      if (!issue) throw new ApiError(404, "Issue not found");
+      if (!newAssignee) throw new ApiError(404, "Assignee not found");
+      if (!newAssignee.isActive) throw new ApiError(400, "Cannot assign to inactive user");
+
+      // Validate assignee is in same ward
+      if (issue.wardId && newAssignee.wardId !== issue.wardId) {
+        throw new ApiError(400, "Assignee must be in the same ward");
+      }
+
+      const updated = await tx.issue.update({
+        where: { id: args.issueId },
+        data: {
+          assigneeId: args.newAssigneeId,
+          status: "ASSIGNED",
+          assignedAt: new Date(),
+          history: {
+            create: {
+              changedBy: args.reassignedBy,
+              changeType: "ASSIGNMENT",
+              oldValue: { assigneeId: issue.assigneeId, assigneeName: issue.assignee?.fullName } as any,
+              newValue: { assigneeId: args.newAssigneeId, assigneeName: newAssignee.fullName, reason: args.reason } as any
+            }
+          }
+        },
+        include: {
+          category: true,
+          ward: { include: { zone: true } },
+          assignee: { select: { id: true, fullName: true, email: true, role: true } }
+        }
+      });
+
+      // Send email notification to new assignee
+      try {
+        await EmailService.sendIssueAssignmentEmail(
+          newAssignee.email,
+          newAssignee.fullName,
+          issue.ticketNumber,
+          issue.category.name,
+          issue.address || `${issue.latitude}, ${issue.longitude}`,
+          issue.priority
+        );
+        console.log(`✅ Reassignment email sent to ${newAssignee.email} for ticket ${issue.ticketNumber}`);
+      } catch (emailError) {
+        console.error('❌ Failed to send reassignment email:', emailError);
+      }
+
+      return updated;
+    });
+  }
+
+
+  // Verify or reject resolved issue
+  static async verifyResolution(args: VerifyResolutionInput) {
+    return prisma.$transaction(async (tx) => {
+      const issue = await tx.issue.findFirst({
+        where: { id: args.issueId, deletedAt: null },
+        select: { id: true, status: true }
+      });
+
+      if (!issue) throw new ApiError(404, "Issue not found");
+      if (issue.status !== "RESOLVED") {
+        throw new ApiError(400, "Only resolved issues can be verified");
+      }
+
+      const newStatus = args.approved ? "VERIFIED" : "REOPENED";
+      const now = new Date();
+
+      const updated = await tx.issue.update({
+        where: { id: args.issueId },
+        data: {
+          status: newStatus,
+          ...(args.approved ? { verifiedAt: now } : { resolvedAt: null }),
+          history: {
+            create: {
+              changedBy: args.verifiedBy,
+              changeType: args.approved ? "VERIFICATION" : "REJECTION",
+              oldValue: { status: "RESOLVED" } as any,
+              newValue: { status: newStatus, comment: args.comment, approved: args.approved } as any
+            }
+          },
+          ...(args.comment ? {
+            comments: {
+              create: {
+                userId: args.verifiedBy,
+                text: args.comment
+              }
+            }
+          } : {})
+        },
+        include: {
+          category: true,
+          ward: { include: { zone: true } },
+          assignee: { select: { id: true, fullName: true, role: true } }
+        }
       });
 
       return updated;
