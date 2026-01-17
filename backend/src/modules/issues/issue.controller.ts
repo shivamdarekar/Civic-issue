@@ -1,7 +1,9 @@
 import type { NextFunction, Request, Response } from "express";
 import { IssuesService } from "./issue.service";
+import { IssueUploadService } from "./issue.upload.service";
 import { asyncHandler } from "../../utils/asyncHandler";
 import { ApiResponse } from "../../utils/apiResponse";
+import { ApiError } from "../../utils/apiError";
 
 export class IssuesController {
   // Get all issue categories
@@ -143,6 +145,51 @@ export class IssuesController {
 
     res.status(200).json(
       new ApiResponse(200, updated, approved ? "Issue verified successfully" : "Issue reopened for rework")
+    );
+  });
+
+  // Upload images for issue creation (BEFORE images)
+  static uploadBeforeImages = asyncHandler(async (req: Request, res: Response) => {
+    const files = req.files as Express.Multer.File[];
+    
+    if (!files || files.length === 0) {
+      throw new ApiError(400, "No files uploaded");
+    }
+
+    const uploadedImages = await IssueUploadService.uploadMultipleImages(files, "BEFORE");
+
+    res.status(200).json(
+      new ApiResponse(200, uploadedImages, `${uploadedImages.length} image(s) uploaded successfully`)
+    );
+  });
+
+  // Upload images after issue resolution (AFTER images)
+  static uploadAfterImages = asyncHandler(async (req: Request, res: Response) => {
+    const files = req.files as Express.Multer.File[];
+    
+    if (!files || files.length === 0) {
+      throw new ApiError(400, "No files uploaded");
+    }
+
+    const uploadedImages = await IssueUploadService.uploadMultipleImages(files, "AFTER");
+
+    res.status(200).json(
+      new ApiResponse(200, uploadedImages, `${uploadedImages.length} after image(s) uploaded successfully`)
+    );
+  });
+
+  // Delete an image from cloud storage
+  static deleteImage = asyncHandler(async (req: Request, res: Response) => {
+    const { publicId, url } = req.body;
+
+    if (!publicId && !url) {
+      throw new ApiError(400, "publicId or url is required");
+    }
+
+    await IssueUploadService.deleteImage(publicId || url);
+
+    res.status(200).json(
+      new ApiResponse(200, { deleted: true }, "Image deleted successfully")
     );
   });
 }
