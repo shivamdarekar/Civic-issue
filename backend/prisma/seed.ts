@@ -133,6 +133,7 @@ async function main() {
         slug: 'pothole',
         description: 'Road potholes and surface damage',
         slaHours: 48,
+        department: 'ROAD',
         formSchema: {
           fields: [
             { name: 'depth_cm', type: 'number', label: 'Depth (cm)', required: true },
@@ -145,6 +146,7 @@ async function main() {
         slug: 'stray-cattle',
         description: 'Stray animals on roads',
         slaHours: 24,
+        department: 'HEALTH',
         formSchema: {
           fields: [
             { name: 'animal_count', type: 'number', label: 'Number of Animals', required: true },
@@ -157,10 +159,84 @@ async function main() {
         slug: 'garbage',
         description: 'Illegal garbage dumping',
         slaHours: 24,
+        department: 'SOLID_WASTE_MANAGEMENT',
         formSchema: {
           fields: [
             { name: 'volume', type: 'select', label: 'Volume', required: true, options: ['small', 'medium', 'large'] },
             { name: 'waste_type', type: 'select', label: 'Waste Type', required: true, options: ['dry', 'wet', 'mixed'] }
+          ]
+        }
+      },
+      {
+        name: 'Street Light Not Working',
+        slug: 'street-light',
+        description: 'Street light is not functioning',
+        slaHours: 12,
+        department: 'STREET_LIGHT',
+        formSchema: {
+          fields: [
+            { name: 'pole_number', type: 'text', label: 'Pole Number', required: false },
+            { name: 'issue_type', type: 'select', label: 'Issue Type', required: true, options: ['not_working', 'flickering', 'broken'] }
+          ]
+        }
+      },
+      {
+        name: 'Water Supply Issue',
+        slug: 'water-supply',
+        description: 'Water supply problems',
+        slaHours: 24,
+        department: 'WATER_WORKS',
+        formSchema: {
+          fields: [
+            { name: 'issue_type', type: 'select', label: 'Issue Type', required: true, options: ['no_water', 'low_pressure', 'dirty_water', 'leakage'] }
+          ]
+        }
+      },
+      {
+        name: 'Drainage Blockage',
+        slug: 'drainage',
+        description: 'Blocked or overflowing drainage',
+        slaHours: 24,
+        department: 'STORM_WATER_DRAINAGE',
+        formSchema: {
+          fields: [
+            { name: 'severity', type: 'select', label: 'Severity', required: true, options: ['minor', 'major', 'overflowing'] }
+          ]
+        }
+      },
+      {
+        name: 'Sewage Issue',
+        slug: 'sewage',
+        description: 'Sewage overflow or blockage',
+        slaHours: 12,
+        department: 'SEWAGE_DISPOSAL',
+        formSchema: {
+          fields: [
+            { name: 'issue_type', type: 'select', label: 'Issue Type', required: true, options: ['overflow', 'blockage', 'broken_pipeline'] }
+          ]
+        }
+      },
+      {
+        name: 'Tree Cutting Required',
+        slug: 'tree-cutting',
+        description: 'Fallen or dangerous tree',
+        slaHours: 48,
+        department: 'PARKS_GARDENS',
+        formSchema: {
+          fields: [
+            { name: 'tree_status', type: 'select', label: 'Status', required: true, options: ['fallen', 'dangerous', 'blocking_road'] }
+          ]
+        }
+      },
+      {
+        name: 'Illegal Encroachment',
+        slug: 'encroachment',
+        description: 'Unauthorized construction or occupation',
+        slaHours: 72,
+        department: 'ENCROACHMENT',
+        formSchema: {
+          fields: [
+            { name: 'type', type: 'select', label: 'Type', required: true, options: ['footpath', 'road', 'public_space'] }
           ]
         }
       }

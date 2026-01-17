@@ -264,9 +264,9 @@ export class AdminService {
         ...(email && { email }),
         ...(phoneNumber && { phoneNumber }),
         ...(role && { role }),
-        ...(wardId !== undefined && { wardId: wardId }),
-        ...(zoneId !== undefined && { zoneId: zoneId }),
-        ...(department !== undefined && { department: department })
+        ...(wardId !== undefined && { wardId: wardId === null ? null : wardId }),
+        ...(zoneId !== undefined && { zoneId: zoneId === null ? null : zoneId }),
+        ...(department !== undefined && { department: department === null ? null : department })
       },
       select: {
         id: true,
@@ -731,7 +731,11 @@ export class AdminService {
       { value: 'BRIDGE_CELL', label: 'Bridge Cell' },
       { value: 'SOLID_WASTE_MANAGEMENT', label: 'Solid Waste Management' },
       { value: 'HEALTH', label: 'Health Department' },
-      { value: 'TOWN_PLANNING', label: 'Town Planning' }
+      { value: 'TOWN_PLANNING', label: 'Town Planning' },
+      { value: 'PARKS_GARDENS', label: 'Parks & Gardens' },
+      { value: 'ENCROACHMENT', label: 'Encroachment' },
+      { value: 'FIRE', label: 'Fire Department' },
+      { value: 'ELECTRICAL', label: 'Electrical Department' }
     ];
   }
 
