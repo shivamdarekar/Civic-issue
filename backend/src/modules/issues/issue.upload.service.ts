@@ -5,43 +5,8 @@ import type { UploadedFile, UploadedMediaResult } from "../../types";
 
 export class IssueUploadService {
   /**
-   * Upload a single image to Cloudinary
-   */
-  static async uploadSingleImage(
-    file: UploadedFile,
-    mediaType: MediaType = "BEFORE"
-  ): Promise<UploadedMediaResult> {
-    if (!file?.buffer) {
-      throw new ApiError(400, "No image file provided");
-    }
-
-    const folder = mediaType === "BEFORE" ? "civic-issues/before" : "civic-issues/after";
-
-    try {
-      const result = await uploadOnCloudinary(file.buffer, {
-        resource_type: "image",
-        folder,
-        transformation: [
-          { width: 1200, height: 1200, crop: "limit" },
-          { quality: "auto:good" },
-          { format: "auto" }
-        ]
-      });
-
-      return {
-        url: result.secure_url,
-        publicId: result.public_id,
-        mimeType: `image/${result.format}`,
-        fileSize: result.bytes
-      };
-    } catch (error) {
-      console.error("❌ Failed to upload image:", error);
-      throw new ApiError(500, "Failed to upload image to cloud storage");
-    }
-  }
-
-  /**
    * Upload multiple images to Cloudinary
+   * Used for BEFORE images (issue creation) and AFTER images (issue resolution)
    */
   static async uploadMultipleImages(
     files: UploadedFile[],
