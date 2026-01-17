@@ -67,3 +67,23 @@ export type AddAfterMediaInput = {
   media: Array<{ url: string; mimeType?: string; fileSize?: number }>;
   markResolved: boolean;
 };
+
+// Image Upload Types
+export type UploadedFile = {
+  buffer: Buffer;
+  originalname: string;
+  mimetype: string;
+  size: number;
+};
+
+export type UploadedMediaResult = {
+  url: string;
+  publicId: string;
+  mimeType: string;
+  fileSize: number;
+};
+
+export type DeleteImageInput = {
+  publicId?: string;
+  url?: string;
+};
