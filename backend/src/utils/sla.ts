@@ -2,9 +2,8 @@
  * Calculate SLA target date based on category SLA hours
  */
 export function calculateSlaTarget(createdAt: Date, slaHours: number): Date {
-  const target = new Date(createdAt);
-  target.setHours(target.getHours() + slaHours);
-  return target;
+  // Use milliseconds to support SLA > 24 hours correctly
+  return new Date(createdAt.getTime() + slaHours * 60 * 60 * 1000);
 }
 
 /**

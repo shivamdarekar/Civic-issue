@@ -1,6 +1,7 @@
 import { Prisma, type Department, type IssueStatus, type Priority } from "@prisma/client";
 import { prisma } from "../../lib/prisma";
 import { ApiError } from "../../utils/apiError";
+import { calculateSlaTarget } from "../../utils/sla";
 import type { 
   CreateIssueInput, 
   ListIssuesInput, 
@@ -171,7 +172,7 @@ export class IssuesService {
 
       const ticketNumber = await nextTicketNumber(tx);
       const now = new Date();
-      const slaTargetAt = category.slaHours ? new Date(now.getTime() + category.slaHours * 60 * 60 * 1000) : null;
+      const slaTargetAt = category.slaHours ? calculateSlaTarget(now, category.slaHours) : null;
 
       const assigneeId = await pickAssigneeId({
         wardId,
