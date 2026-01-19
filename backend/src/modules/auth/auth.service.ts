@@ -278,7 +278,6 @@ export class AuthService {
         gamification: {
           select: {
             points: true,
-            level: true,
             badges: true
           }
         },

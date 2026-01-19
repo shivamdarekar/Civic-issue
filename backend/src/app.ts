@@ -1,8 +1,11 @@
 import express from "express";
 import cors from "cors";
+import cookieParser from "cookie-parser";
 import { errorHandler, notFoundHandler } from "./middlewares/error.middleware";
 
+
 const app = express();
+
 
 // CORS configuration
 app.use(cors({
@@ -15,6 +18,7 @@ app.use(cors({
 // Middleware
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+app.use(cookieParser());
 
 // Health check route
 app.get("/", (req, res) => {

@@ -85,3 +85,9 @@ export const verifyResolutionWithParamsSchema = z.object({
   approved: z.boolean(),
   comment: z.string().trim().min(1).max(1000).optional()
 });
+
+export const statsQuerySchema = z.object({
+  wardId: z.string().refine(val => UUID_REGEX.test(val), { message: "Invalid UUID" }).optional(),
+  zoneId: z.string().refine(val => UUID_REGEX.test(val), { message: "Invalid UUID" }).optional(),
+  assigneeId: z.string().refine(val => UUID_REGEX.test(val), { message: "Invalid UUID" }).optional()
+});

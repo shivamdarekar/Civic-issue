@@ -12,7 +12,8 @@ import {
   updateStatusWithParamsSchema,
   addCommentWithParamsSchema,
   reassignIssueWithParamsSchema,
-  verifyResolutionWithParamsSchema
+  verifyResolutionWithParamsSchema,
+  statsQuerySchema
 } from "./issue.schema";
 
 const router = Router();
@@ -30,6 +31,7 @@ router.get(
 router.get(
   "/stats",
   requireRole(["FIELD_WORKER", "WARD_ENGINEER", "ZONE_OFFICER", "SUPER_ADMIN"]),
+  validateRequest(statsQuerySchema, 'query'),
   IssuesController.getStats
 );
 
