@@ -2,6 +2,7 @@ import { Router } from "express";
 import { verifyJWT } from "../../middlewares/auth.middleware";
 import { requireRole } from "../../middlewares/rbac.middleware";
 import { validateRequest } from "../../middlewares/validation.middleware";
+import { uploadMultiple } from "../../utils/multer";
 import { IssuesController } from "./issue.controller";
 import { 
   createIssueSchema, 
@@ -96,6 +97,31 @@ router.patch(
   requireRole(["ZONE_OFFICER", "SUPER_ADMIN"]),
   validateRequest(verifyResolutionWithParamsSchema, 'all'),
   IssuesController.verifyResolution
+);
+
+// ============= IMAGE UPLOAD ROUTES =============
+
+// Upload BEFORE images (for issue creation)
+router.post(
+  "/upload/before",
+  requireRole(["FIELD_WORKER", "WARD_ENGINEER", "ZONE_OFFICER", "SUPER_ADMIN"]),
+  uploadMultiple,
+  IssuesController.uploadBeforeImages
+);
+
+// Upload AFTER images (for issue resolution)
+router.post(
+  "/upload/after",
+  requireRole(["FIELD_WORKER", "WARD_ENGINEER"]),
+  uploadMultiple,
+  IssuesController.uploadAfterImages
+);
+
+// Delete image from cloud storage
+router.delete(
+  "/upload/delete",
+  requireRole(["FIELD_WORKER", "WARD_ENGINEER", "ZONE_OFFICER", "SUPER_ADMIN"]),
+  IssuesController.deleteImage
 );
 
 export default router;

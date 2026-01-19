@@ -38,10 +38,12 @@ app.get("/api/health", (req, res) => {
 import authRoutes from "./modules/auth/auth.routes";
 import adminRoutes from "./modules/admin/admin.routes";
 import issueRoutes from "./modules/issues/issue.routes";
+import userRoutes from "./modules/users/user.routes";
 
 app.use("/api/v1/auth", authRoutes);
 app.use("/api/v1/admin", adminRoutes);
 app.use("/api/v1/issues", issueRoutes);
+app.use("/api/v1/users", userRoutes);
 
 
 // Error handling middleware (must be last)

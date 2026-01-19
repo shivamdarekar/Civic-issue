@@ -42,7 +42,11 @@ export type Department =
   | "BRIDGE_CELL"
   | "SOLID_WASTE_MANAGEMENT"
   | "HEALTH"
-  | "TOWN_PLANNING";
+  | "TOWN_PLANNING"
+  | "PARKS_GARDENS"
+  | "ENCROACHMENT"
+  | "FIRE"
+  | "ELECTRICAL";
 
 export interface WardEngineer {
   id: string;

@@ -41,7 +41,7 @@ export const listIssuesQuerySchema = z.object({
   categoryId: z.string().refine(val => UUID_REGEX.test(val), { message: "Invalid UUID" }).optional(),
   reporterId: z.string().refine(val => UUID_REGEX.test(val), { message: "Invalid UUID" }).optional(),
   assigneeId: z.string().refine(val => UUID_REGEX.test(val), { message: "Invalid UUID" }).optional(),
-  department: z.enum(["ROAD", "STORM_WATER_DRAINAGE", "SEWAGE_DISPOSAL", "WATER_WORKS", "STREET_LIGHT", "BRIDGE_CELL", "SOLID_WASTE_MANAGEMENT", "HEALTH", "TOWN_PLANNING"]).optional(),
+  department: z.enum(["ROAD", "STORM_WATER_DRAINAGE", "SEWAGE_DISPOSAL", "WATER_WORKS", "STREET_LIGHT", "BRIDGE_CELL", "SOLID_WASTE_MANAGEMENT", "HEALTH", "TOWN_PLANNING", "PARKS_GARDENS", "ENCROACHMENT", "FIRE", "ELECTRICAL"]).optional(),
   q: z.string().trim().max(100).optional(),
   page: z.coerce.number().int().min(1).default(1),
   pageSize: z.coerce.number().int().min(1).max(100).default(20),

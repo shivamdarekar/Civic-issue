@@ -10,8 +10,8 @@ export * from './admin.types';
 // Issue types
 export * from './issues.types';
 
-// User types (for future)
-// export * from './user.types';
+// User types
+export * from './user.types';
 
 // Common/shared types
 export interface ApiResponse<T = any> {
