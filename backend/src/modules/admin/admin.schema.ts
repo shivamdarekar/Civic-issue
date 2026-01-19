@@ -2,7 +2,7 @@ import { z } from "zod";
 
 // Define enum values explicitly for Zod
 const UserRoleEnum = z.enum(["SUPER_ADMIN", "ZONE_OFFICER", "WARD_ENGINEER", "FIELD_WORKER", "CITIZEN"]);
-const DepartmentEnum = z.enum(["ROAD", "STORM_WATER_DRAINAGE", "SEWAGE_DISPOSAL", "WATER_WORKS", "STREET_LIGHT", "BRIDGE_CELL"]);
+const DepartmentEnum = z.enum(["ROAD", "STORM_WATER_DRAINAGE", "SEWAGE_DISPOSAL", "WATER_WORKS", "STREET_LIGHT", "BRIDGE_CELL", "SOLID_WASTE_MANAGEMENT", "HEALTH", "TOWN_PLANNING"]);
 
 // Validation patterns
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;

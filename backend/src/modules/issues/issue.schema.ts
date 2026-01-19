@@ -41,7 +41,7 @@ export const listIssuesQuerySchema = z.object({
   categoryId: z.string().refine(val => UUID_REGEX.test(val), { message: "Invalid UUID" }).optional(),
   reporterId: z.string().refine(val => UUID_REGEX.test(val), { message: "Invalid UUID" }).optional(),
   assigneeId: z.string().refine(val => UUID_REGEX.test(val), { message: "Invalid UUID" }).optional(),
-  department: z.enum(["ROAD", "STORM_WATER_DRAINAGE", "SEWAGE_DISPOSAL", "WATER_WORKS", "STREET_LIGHT", "BRIDGE_CELL"]).optional(),
+  department: z.enum(["ROAD", "STORM_WATER_DRAINAGE", "SEWAGE_DISPOSAL", "WATER_WORKS", "STREET_LIGHT", "BRIDGE_CELL", "SOLID_WASTE_MANAGEMENT", "HEALTH", "TOWN_PLANNING"]).optional(),
   q: z.string().trim().max(100).optional(),
   page: z.coerce.number().int().min(1).default(1),
   pageSize: z.coerce.number().int().min(1).max(100).default(20),
@@ -84,4 +84,10 @@ export const verifyResolutionWithParamsSchema = z.object({
   issueId: z.string().refine(val => UUID_REGEX.test(val), { message: "Invalid UUID" }),
   approved: z.boolean(),
   comment: z.string().trim().min(1).max(1000).optional()
+});
+
+export const statsQuerySchema = z.object({
+  wardId: z.string().refine(val => UUID_REGEX.test(val), { message: "Invalid UUID" }).optional(),
+  zoneId: z.string().refine(val => UUID_REGEX.test(val), { message: "Invalid UUID" }).optional(),
+  assigneeId: z.string().refine(val => UUID_REGEX.test(val), { message: "Invalid UUID" }).optional()
 });
