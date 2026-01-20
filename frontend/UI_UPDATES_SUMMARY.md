@@ -72,3 +72,4 @@
 - **Better accessibility** for field workers with varying technical expertise
 - **Faster loading perception** with branded loading animations
 - **Cleaner visual hierarchy** making important actions more prominent
+xghchgfjfjk
