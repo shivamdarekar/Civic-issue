@@ -5,6 +5,7 @@ import PWAInstaller from "@/components/PWAInstaller";
 import { LanguageProvider } from "@/lib/language-context";
 import { useOfflineInit } from "@/lib/useOfflineInit";
 import { ReduxProvider } from "@/redux";
+import ProtectWrapper from "@/components/ProtectWrapper";
 
 export default function RootLayout({
   children,
@@ -25,7 +26,9 @@ export default function RootLayout({
         <ReduxProvider>
           <LanguageProvider>
             <OfflineInitializer />
-            {children}
+            <ProtectWrapper>
+              {children}
+            </ProtectWrapper>
             <PWAInstaller />
           </LanguageProvider>
         </ReduxProvider>

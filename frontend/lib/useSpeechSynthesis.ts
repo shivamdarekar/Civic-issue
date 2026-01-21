@@ -141,7 +141,7 @@ export function useSpeechSynthesis(
       };
 
       utterance.onerror = (event) => {
-        console.error('🔊 TTS Error:', event);
+        // console.error('🔊 TTS Error:', event);
         setIsSpeaking(false);
         setIsPaused(false);
         utteranceRef.current = null;

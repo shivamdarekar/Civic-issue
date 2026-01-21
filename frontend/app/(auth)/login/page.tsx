@@ -77,7 +77,11 @@ export default function LoginPage() {
       }
     } catch (error) {
       // Error is already set in Redux state
-      console.error('Login error:', error);
+      console.error('Login error details:', {
+        error,
+        credentials: { email: credentials.email, password: '[REDACTED]' },
+        apiUrl: process.env.NEXT_PUBLIC_API_URL
+      });
     }
   }
 

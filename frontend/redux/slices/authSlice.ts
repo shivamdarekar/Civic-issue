@@ -69,6 +69,7 @@ export const loginUser = createAsyncThunk(
   "auth/loginUser",
   async (credentials: LoginCredentials, { rejectWithValue }) => {
     try {
+      console.log('Attempting login with:', { email: credentials.email, apiUrl: process.env.NEXT_PUBLIC_API_URL });
       const response = await axiosInstance.post("/auth/login", credentials);
       
       const { token, user } = response.data.data;
@@ -79,6 +80,7 @@ export const loginUser = createAsyncThunk(
       
       return user;
     } catch (error: unknown) {
+      console.error('Login API error:', error);
       return rejectWithValue(handleAxiosError(error, "Login failed"));
     }
   }
@@ -171,7 +173,12 @@ const authSlice = createSlice({
         } catch {
           localStorage.removeItem('authToken');
           localStorage.removeItem('user');
+          state.user = null;
+          state.isAuthenticated = false;
         }
+      } else {
+        state.user = null;
+        state.isAuthenticated = false;
       }
       state.authLoading = false;
     }

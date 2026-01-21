@@ -365,17 +365,17 @@ export default function UserManagement() {
 
                       {user.role !== 'SUPER_ADMIN' && (
                         <>
-                      {user.role !== 'SUPER_ADMIN' && user.isActive && (
-                        <Button
-                          onClick={() => handleReassignWork(user)}
-                          size="sm"
-                          variant="outline"
-                          className="h-8 w-8 p-0"
-                          title="Reassign Work"
-                        >
-                          <RefreshCw className="w-3 h-3" />
-                        </Button>
-                      )}
+                          {user.isActive && (
+                            <Button
+                              onClick={() => handleReassignWork(user)}
+                              size="sm"
+                              variant="outline"
+                              className="h-8 w-8 p-0"
+                              title="Reassign Work"
+                            >
+                              <RefreshCw className="w-3 h-3" />
+                            </Button>
+                          )}
 
                           <Button
                             onClick={() => handleToggleUserStatus(user)}

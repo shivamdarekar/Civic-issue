@@ -70,7 +70,7 @@ export default function WardEngineerDashboard() {
             Reports
           </Button>
         </div>
-      </div>
+      </Card>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <Card className="p-6">

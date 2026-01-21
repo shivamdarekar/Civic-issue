@@ -61,11 +61,11 @@ export default function ZonePerformance() {
     setLoading(true);
     try {
       // const response = await apiClient.get('/admin/zones/performance');
-      const zonesData = [
-        { id: '1', name: 'East Zone', direction: 'East', totalIssues: Math.floor(Math.random() * 20) + 40, resolvedIssues: Math.floor(Math.random() * 15) + 35, performance: Math.floor(Math.random() * 15) + 80 },
-        { id: '2', name: 'West Zone', direction: 'West', totalIssues: Math.floor(Math.random() * 20) + 45, resolvedIssues: Math.floor(Math.random() * 15) + 40, performance: Math.floor(Math.random() * 15) + 85 },
-        { id: '3', name: 'North Zone', direction: 'North', totalIssues: Math.floor(Math.random() * 20) + 35, resolvedIssues: Math.floor(Math.random() * 15) + 30, performance: Math.floor(Math.random() * 15) + 80 },
-        { id: '4', name: 'South Zone', direction: 'South', totalIssues: Math.floor(Math.random() * 20) + 38, resolvedIssues: Math.floor(Math.random() * 15) + 35, performance: Math.floor(Math.random() * 15) + 90 }
+      const zonesData: Zone[] = [
+        { id: '1', name: 'East Zone', direction: 'East' as const, totalIssues: Math.floor(Math.random() * 20) + 40, resolvedIssues: Math.floor(Math.random() * 15) + 35, performance: Math.floor(Math.random() * 15) + 80 },
+        { id: '2', name: 'West Zone', direction: 'West' as const, totalIssues: Math.floor(Math.random() * 20) + 45, resolvedIssues: Math.floor(Math.random() * 15) + 40, performance: Math.floor(Math.random() * 15) + 85 },
+        { id: '3', name: 'North Zone', direction: 'North' as const, totalIssues: Math.floor(Math.random() * 20) + 35, resolvedIssues: Math.floor(Math.random() * 15) + 30, performance: Math.floor(Math.random() * 15) + 80 },
+        { id: '4', name: 'South Zone', direction: 'South' as const, totalIssues: Math.floor(Math.random() * 20) + 38, resolvedIssues: Math.floor(Math.random() * 15) + 35, performance: Math.floor(Math.random() * 15) + 90 }
       ];
       setZones(zonesData);
       setLastUpdated(new Date());
