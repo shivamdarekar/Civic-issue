@@ -13,7 +13,8 @@ import {
   addCommentWithParamsSchema,
   reassignIssueWithParamsSchema,
   verifyResolutionWithParamsSchema,
-  statsQuerySchema
+  statsQuerySchema,
+  analyzeImageSchema
 } from "./issue.schema";
 
 const router = Router();
@@ -122,6 +123,13 @@ router.delete(
   "/upload/delete",
   requireRole(["FIELD_WORKER", "WARD_ENGINEER", "ZONE_OFFICER", "SUPER_ADMIN"]),
   IssuesController.deleteImage
+);
+
+router.post(
+  "/analyze-image",
+  requireRole(["FIELD_WORKER", "WARD_ENGINEER", "ZONE_OFFICER", "SUPER_ADMIN"]),
+  validateRequest(analyzeImageSchema, "body"),
+  IssuesController.analyzeImage
 );
 
 export default router;

@@ -91,3 +91,7 @@ export const statsQuerySchema = z.object({
   zoneId: z.string().refine(val => UUID_REGEX.test(val), { message: "Invalid UUID" }).optional(),
   assigneeId: z.string().refine(val => UUID_REGEX.test(val), { message: "Invalid UUID" }).optional()
 });
+
+export const analyzeImageSchema = z.object({
+  imageUrl: z.string().refine((val) => URL_REGEX.test(val), { message: "Invalid URL" }),
+});
