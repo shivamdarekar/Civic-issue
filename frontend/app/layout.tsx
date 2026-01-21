@@ -4,6 +4,7 @@ import "./globals.css";
 import PWAInstaller from "@/components/PWAInstaller";
 import { LanguageProvider } from "@/lib/language-context";
 import { useOfflineInit } from "@/lib/useOfflineInit";
+import { ReduxProvider } from "@/redux";
 
 export default function RootLayout({
   children,
@@ -21,11 +22,13 @@ export default function RootLayout({
         <link rel="apple-touch-icon" href="/icons/icon-192x192.png" />
       </head>
       <body className="bg-gray-50 text-gray-800">
-        <LanguageProvider>
-          <OfflineInitializer />
-          {children}
-          <PWAInstaller />
-        </LanguageProvider>
+        <ReduxProvider>
+          <LanguageProvider>
+            <OfflineInitializer />
+            {children}
+            <PWAInstaller />
+          </LanguageProvider>
+        </ReduxProvider>
       </body>
     </html>
   );
@@ -33,5 +36,16 @@ export default function RootLayout({
 
 function OfflineInitializer() {
   useOfflineInit();
+  
+  // Unregister any existing service workers during development
+  if (typeof window !== 'undefined' && 'serviceWorker' in navigator) {
+    navigator.serviceWorker.getRegistrations().then(registrations => {
+      registrations.forEach(registration => {
+        registration.unregister();
+        console.log('Service worker unregistered for development');
+      });
+    });
+  }
+  
   return null;
 }

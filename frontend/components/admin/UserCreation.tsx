@@ -1,42 +1,71 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Plus, UserPlus } from "lucide-react";
-import { adminAPI } from "@/lib/api";
-import { authService } from "@/lib/auth";
+import { useAppDispatch, useAppSelector } from "@/redux/hooks";
+import { registerUser, fetchDepartments, fetchZonesOverview, fetchWardsForZone } from "@/redux";
 
 interface UserCreationProps {
   onUserCreated: () => void;
 }
 
+// Role requirements for fields
+const ROLE_REQUIREMENTS = {
+  SUPER_ADMIN: { showZone: false, showWard: false, showDepartment: false },
+  ZONE_OFFICER: { showZone: true, showWard: false, showDepartment: false },
+  WARD_ENGINEER: { showZone: true, showWard: true, showDepartment: true },
+  FIELD_WORKER: { showZone: true, showWard: true, showDepartment: false },
+};
+
 export default function UserCreation({ onUserCreated }: UserCreationProps) {
-  const [showDialog, setShowDialog] = useState(false);
-  const [loading, setLoading] = useState(false);
+  const dispatch = useAppDispatch();
+  const { departments, zonesOverview: zones, wardsByZone, loading, loadingWards } = useAppSelector(state => state.admin);
   
+  const [showDialog, setShowDialog] = useState(false);
   const [formData, setFormData] = useState({
     fullName: "",
     email: "",
     phoneNumber: "",
+    password: "TempPass@123",
     role: "",
-    department: "",
+    departmentId: "",
     wardId: "",
     zoneId: ""
   });
-
   const [errors, setErrors] = useState<Record<string, string>>({});
 
+  // Fetch departments and zones when dialog opens
+  useEffect(() => {
+    if (showDialog) {
+      dispatch(fetchDepartments());
+      dispatch(fetchZonesOverview());
+    }
+  }, [showDialog, dispatch]);
+
+  // Fetch wards when zone is selected
+  const handleZoneChange = (zoneId: string) => {
+    setFormData({ ...formData, zoneId, wardId: "" });
+    setErrors({ ...errors, zoneId: "", wardId: "" });
+    
+    // Fetch wards if not already cached
+    if (!wardsByZone[zoneId]) {
+      dispatch(fetchWardsForZone(zoneId));
+    }
+  };
+
+  // Client-side validation
   const validateForm = () => {
     const newErrors: Record<string, string> = {};
 
     if (!formData.fullName.trim()) {
-      newErrors.fullName = "Full name is required";
+      newErrors.fullName = "Name is required";
     } else if (formData.fullName.length < 2 || formData.fullName.length > 100) {
-      newErrors.fullName = "Full name must be between 2-100 characters";
+      newErrors.fullName = "Name must be 2-100 characters";
     }
 
     if (!formData.email.trim()) {
@@ -46,34 +75,30 @@ export default function UserCreation({ onUserCreated }: UserCreationProps) {
     }
 
     if (!formData.phoneNumber.trim()) {
-      newErrors.phoneNumber = "Phone number is required";
+      newErrors.phoneNumber = "Phone is required";
     } else if (!/^[6-9]\d{9}$/.test(formData.phoneNumber)) {
       newErrors.phoneNumber = "Invalid Indian mobile number";
+    }
+
+    if (!formData.password || formData.password.length < 8) {
+      newErrors.password = "Password must be at least 8 characters";
     }
 
     if (!formData.role) {
       newErrors.role = "Role is required";
     }
 
-    // Role-specific validations
-    if (formData.role === 'WARD_ENGINEER') {
-      if (!formData.department) {
-        newErrors.department = "Department is required for Ward Engineers";
+    // Role-specific validation
+    const roleReq = ROLE_REQUIREMENTS[formData.role as keyof typeof ROLE_REQUIREMENTS];
+    if (roleReq) {
+      if (roleReq.showDepartment && !formData.departmentId) {
+        newErrors.departmentId = "Department is required for this role";
       }
-      if (!formData.wardId) {
-        newErrors.wardId = "Ward assignment is required for Ward Engineers";
+      if (roleReq.showZone && !formData.zoneId) {
+        newErrors.zoneId = "Zone is required for this role";
       }
-    }
-
-    if (formData.role === 'FIELD_WORKER') {
-      if (!formData.wardId) {
-        newErrors.wardId = "Ward assignment is required for Field Workers";
-      }
-    }
-
-    if (formData.role === 'ZONE_OFFICER') {
-      if (!formData.zoneId) {
-        newErrors.zoneId = "Zone assignment is required for Zone Officers";
+      if (roleReq.showWard && !formData.wardId) {
+        newErrors.wardId = "Ward is required for this role";
       }
     }
 
@@ -84,47 +109,31 @@ export default function UserCreation({ onUserCreated }: UserCreationProps) {
   const handleSubmit = async () => {
     if (!validateForm()) return;
 
-    setLoading(true);
     try {
-      // Prepare data for API
-      const userData: any = {
+      // Prepare payload matching backend schema
+      const payload: any = {
         fullName: formData.fullName,
         email: formData.email,
         phoneNumber: formData.phoneNumber,
+        password: formData.password,
         role: formData.role,
       };
 
-      if (formData.department) userData.department = formData.department;
-      if (formData.wardId) userData.wardId = formData.wardId;
-      if (formData.zoneId) userData.zoneId = formData.zoneId;
+      // Add optional fields only if they have values
+      if (formData.departmentId) payload.department = formData.departmentId;
+      if (formData.wardId) payload.wardId = formData.wardId;
+      if (formData.zoneId) payload.zoneId = formData.zoneId;
 
-      // Call the actual API
-      const result = await authService.registerUser(userData);
+      await dispatch(registerUser(payload)).unwrap();
       
-      if (!result.success) {
-        throw new Error(result.message);
-      }
-      
-      // Reset form
-      setFormData({
-        fullName: "",
-        email: "",
-        phoneNumber: "",
-        role: "",
-        department: "",
-        wardId: "",
-        zoneId: ""
-      });
-      
+      // Reset form and close dialog
+      resetForm();
       setShowDialog(false);
       onUserCreated();
       alert('User created successfully!');
-      
     } catch (error: any) {
       console.error('Error creating user:', error);
-      alert(error.message || 'Failed to create user');
-    } finally {
-      setLoading(false);
+      alert(error || 'Failed to create user');
     }
   };
 
@@ -133,13 +142,17 @@ export default function UserCreation({ onUserCreated }: UserCreationProps) {
       fullName: "",
       email: "",
       phoneNumber: "",
+      password: "TempPass@123",
       role: "",
-      department: "",
+      departmentId: "",
       wardId: "",
       zoneId: ""
     });
     setErrors({});
   };
+
+  const roleReq = ROLE_REQUIREMENTS[formData.role as keyof typeof ROLE_REQUIREMENTS];
+  const currentWards = formData.zoneId ? (wardsByZone[formData.zoneId] || []) : [];
 
   return (
     <Dialog open={showDialog} onOpenChange={(open) => {
@@ -196,6 +209,17 @@ export default function UserCreation({ onUserCreated }: UserCreationProps) {
                 />
                 {errors.phoneNumber && <p className="text-red-500 text-xs mt-1">{errors.phoneNumber}</p>}
               </div>
+
+              <div>
+                <Input
+                  placeholder="Temporary Password *"
+                  type="password"
+                  value={formData.password}
+                  onChange={(e) => setFormData({...formData, password: e.target.value})}
+                  className={errors.password ? "border-red-500" : ""}
+                />
+                {errors.password && <p className="text-red-500 text-xs mt-1">{errors.password}</p>}
+              </div>
             </div>
           </Card>
 
@@ -206,7 +230,7 @@ export default function UserCreation({ onUserCreated }: UserCreationProps) {
               <div>
                 <Select 
                   value={formData.role} 
-                  onValueChange={(value) => setFormData({...formData, role: value, department: "", wardId: "", zoneId: ""})}
+                  onValueChange={(value) => setFormData({...formData, role: value, departmentId: "", wardId: "", zoneId: ""})}
                 >
                   <SelectTrigger className={errors.role ? "border-red-500" : ""}>
                     <SelectValue placeholder="Select Role *" />
@@ -220,80 +244,78 @@ export default function UserCreation({ onUserCreated }: UserCreationProps) {
                 {errors.role && <p className="text-red-500 text-xs mt-1">{errors.role}</p>}
               </div>
 
-              {(formData.role === 'WARD_ENGINEER' || formData.role === 'ZONE_OFFICER') && (
+              {roleReq?.showDepartment && (
                 <div>
-                  <Select value={formData.department} onValueChange={(value) => setFormData({...formData, department: value})}>
-                    <SelectTrigger className={errors.department ? "border-red-500" : ""}>
-                      <SelectValue placeholder={`Select Department ${formData.role === 'WARD_ENGINEER' ? '*' : ''}`} />
+                  <Select value={formData.departmentId} onValueChange={(value) => setFormData({...formData, departmentId: value})}>
+                    <SelectTrigger className={errors.departmentId ? "border-red-500" : ""}>
+                      <SelectValue placeholder={loading ? "Loading departments..." : "Select Department *"} />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="ROAD">Road</SelectItem>
-                      <SelectItem value="STORM_WATER_DRAINAGE">Storm Water Drainage</SelectItem>
-                      <SelectItem value="SOLID_WASTE_MANAGEMENT">Solid Waste Management</SelectItem>
-                      <SelectItem value="WATER_SUPPLY">Water Supply</SelectItem>
-                      <SelectItem value="STREET_LIGHTING">Street Lighting</SelectItem>
+                      {departments.map((dept: any) => (
+                        <SelectItem key={dept.value} value={dept.value}>
+                          {dept.label}
+                        </SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
-                  {errors.department && <p className="text-red-500 text-xs mt-1">{errors.department}</p>}
+                  {errors.departmentId && <p className="text-red-500 text-xs mt-1">{errors.departmentId}</p>}
                 </div>
               )}
             </div>
           </Card>
 
-          {/* Assignment */}
-          <Card className="p-4">
-            <h4 className="font-semibold mb-3">Assignment</h4>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      {(formData.role === 'WARD_ENGINEER' || formData.role === 'FIELD_WORKER') && (
-                        <div>
-                          <Select value={formData.wardId} onValueChange={(value) => setFormData({...formData, wardId: value})}>
-                            <SelectTrigger className={errors.wardId ? "border-red-500" : ""}>
-                              <SelectValue placeholder="Select Ward *" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="ward-1">Ward 1 - Fatehgunj</SelectItem>
-                              <SelectItem value="ward-2">Ward 2 - Alkapuri</SelectItem>
-                              <SelectItem value="ward-3">Ward 3 - Manjalpur</SelectItem>
-                              <SelectItem value="ward-4">Ward 4 - Gotri</SelectItem>
-                              <SelectItem value="ward-5">Ward 5 - Akota</SelectItem>
-                            </SelectContent>
-                          </Select>
-                          {errors.wardId && <p className="text-red-500 text-xs mt-1">{errors.wardId}</p>}
-                        </div>
-                      )}
-
-                      {formData.role === 'ZONE_OFFICER' && (
-                        <div>
-                          <Select value={formData.zoneId} onValueChange={(value) => setFormData({...formData, zoneId: value})}>
-                            <SelectTrigger className={errors.zoneId ? "border-red-500" : ""}>
-                              <SelectValue placeholder="Select Zone *" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="zone-1">North Zone</SelectItem>
-                              <SelectItem value="zone-2">South Zone</SelectItem>
-                              <SelectItem value="zone-3">East Zone</SelectItem>
-                              <SelectItem value="zone-4">West Zone</SelectItem>
-                            </SelectContent>
-                          </Select>
-                          {errors.zoneId && <p className="text-red-500 text-xs mt-1">{errors.zoneId}</p>}
-                        </div>
-                      )}
-            </div>
-          </Card>
-
-          {/* Role Information */}
-          {formData.role && (
-            <Card className="p-4 bg-blue-50">
-              <h4 className="font-semibold mb-2">Role Information</h4>
-              <div className="text-sm text-gray-600">
-                {formData.role === 'FIELD_WORKER' && (
-                  <p>Field Workers handle on-ground issue resolution and data collection within assigned wards.</p>
+          {/* Geographic Assignment */}
+          {(roleReq?.showZone || roleReq?.showWard) && (
+            <Card className="p-4">
+              <h4 className="font-semibold mb-3">Geographic Assignment</h4>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {roleReq?.showZone && (
+                  <div>
+                    <Select value={formData.zoneId} onValueChange={handleZoneChange}>
+                      <SelectTrigger className={errors.zoneId ? "border-red-500" : ""}>
+                        <SelectValue placeholder={loading ? "Loading zones..." : "Select Zone *"} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {zones.map((zone: any, index: number) => (
+                          <SelectItem key={`${zone.id}-${index}`} value={String(zone.id)}>
+                            {zone.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    {errors.zoneId && <p className="text-red-500 text-xs mt-1">{errors.zoneId}</p>}
+                  </div>
                 )}
-                {formData.role === 'WARD_ENGINEER' && (
-                  <p>Ward Engineers supervise technical aspects of issue resolution and manage field workers in their department and ward.</p>
-                )}
-                {formData.role === 'ZONE_OFFICER' && (
-                  <p>Zone Officers oversee multiple wards within a zone and coordinate between different departments.</p>
+
+                {roleReq?.showWard && (
+                  <div>
+                    <Select 
+                      value={formData.wardId} 
+                      onValueChange={(value) => setFormData({...formData, wardId: value})}
+                      disabled={!formData.zoneId || loadingWards}
+                    >
+                      <SelectTrigger className={errors.wardId ? "border-red-500" : ""}>
+                        <SelectValue placeholder={
+                          !formData.zoneId 
+                            ? "Select zone first" 
+                            : loadingWards 
+                            ? "Loading wards..." 
+                            : "Select Ward *"
+                        } />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {currentWards.length === 0 && formData.zoneId && !loadingWards && (
+                          <SelectItem value="" disabled>No wards for selected zone</SelectItem>
+                        )}
+                        {currentWards.map((ward: any) => (
+                          <SelectItem key={ward.wardId} value={ward.wardId}>
+                            Ward {ward.wardNumber} - {ward.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    {errors.wardId && <p className="text-red-500 text-xs mt-1">{errors.wardId}</p>}
+                  </div>
                 )}
               </div>
             </Card>

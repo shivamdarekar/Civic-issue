@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { HardHat, Building2, Shield, User, Eye, EyeOff, ArrowLeft } from "lucide-react";
@@ -9,6 +9,8 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { useLanguage } from "@/lib/language-context";
 import { authService } from "@/lib/auth";
+import { useAppDispatch, useAppSelector } from "@/redux/hooks";
+import { loginUser, clearError } from "@/redux/slices/authSlice";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 
@@ -17,14 +19,22 @@ type UserRole = "FIELD_WORKER" | "WARD_ENGINEER" | "ZONE_OFFICER" | "SUPER_ADMIN
 export default function LoginPage() {
   const router = useRouter();
   const { t } = useLanguage();
+  const dispatch = useAppDispatch();
+  const { loading: authLoading, error: authError } = useAppSelector((state) => state.auth);
+  
   const [selectedRole, setSelectedRole] = useState<UserRole>(null);
   const [showPassword, setShowPassword] = useState(false);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
   const [credentials, setCredentials] = useState({
     email: "",
     password: ""
   });
+
+  // Clear errors when component unmounts
+  useEffect(() => {
+    return () => {
+      dispatch(clearError());
+    };
+  }, [dispatch]);
 
   const roleInfo = {
     FIELD_WORKER: {
@@ -52,30 +62,29 @@ export default function LoginPage() {
   function handleRoleSelect(role: UserRole) {
     setSelectedRole(role);
     setCredentials({ email: "", password: "" });
-    setError("");
+    dispatch(clearError());
   }
 
   async function handleFormLogin(e: React.FormEvent) {
     e.preventDefault();
-    setLoading(true);
-    setError("");
     
-    const result = await authService.login(credentials.email, credentials.password);
-    
-    if (result.success && result.user) {
-      const dashboardUrl = authService.getDashboardUrl(result.user.role);
-      router.push(dashboardUrl);
-    } else {
-      setError(result.message || 'Login failed');
+    try {
+      const result = await dispatch(loginUser(credentials)).unwrap();
+      
+      if (result) {
+        const dashboardUrl = authService.getDashboardUrl(result.role);
+        router.push(dashboardUrl);
+      }
+    } catch (error) {
+      // Error is already set in Redux state
+      console.error('Login error:', error);
     }
-    
-    setLoading(false);
   }
 
   function handleBack() {
     setSelectedRole(null);
     setCredentials({ email: "", password: "" });
-    setError("");
+    dispatch(clearError());
   }
 
   return (
@@ -140,7 +149,7 @@ export default function LoginPage() {
                 bgColor="bg-yellow-50 border-yellow-200"
               />
             </div>
-          ) : (
+          ) : selectedRole ? (
             <div className="max-w-md mx-auto">
               <div className="bg-white border border-gray-200 rounded-xl p-8 shadow-sm">
                 <div className="flex items-center justify-center gap-3 mb-8 p-4 bg-gray-50 rounded-lg border border-gray-200">
@@ -157,9 +166,9 @@ export default function LoginPage() {
                   </div>
                 </div>
 
-                {error && (
+                {authError && (
                   <div className="mb-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded">
-                    {error}
+                    {authError}
                   </div>
                 )}
 
@@ -224,10 +233,10 @@ export default function LoginPage() {
 
                   <Button
                     type="submit"
-                    disabled={loading}
+                    disabled={authLoading}
                     className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3"
                   >
-                    {loading ? (
+                    {authLoading ? (
                       <>
                         <img src="/VMC.webp" alt="Loading" className="w-4 h-4 animate-pulse mr-2" />
                         Logging in...
@@ -248,7 +257,7 @@ export default function LoginPage() {
                 </form>
               </div>
             </div>
-          )}
+          ) : null}
         </div>
       </main>
       

@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import Header from "@/components/Header";
+import StatCard from "@/components/dashboard/StatCard";
 import { Users, FileText, Map, Layers, Settings, BarChart3, Plus, Shield, AlertTriangle, Clock, TrendingUp, Award } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -18,13 +19,36 @@ import ReassignmentModal from "@/components/admin/ReassignmentModal";
 import DeactivationConfirmation from "@/components/admin/DeactivationConfirmation";
 import { offlineStorage } from "@/lib/offline-storage";
 import BaseMap from "@/components/maps/BaseMap";
+import { useAppDispatch, useAppSelector } from "@/redux/hooks";
+import { registerUser, fetchDepartments, fetchZonesOverview, fetchWardsForZone } from "@/redux";
+
+// Role requirements for field visibility
+const ROLE_REQUIREMENTS = {
+  SUPER_ADMIN: { showZone: false, showWard: false, showDepartment: false },
+  ZONE_OFFICER: { showZone: true, showWard: false, showDepartment: false },
+  WARD_ENGINEER: { showZone: true, showWard: true, showDepartment: true },
+  FIELD_WORKER: { showZone: true, showWard: true, showDepartment: false },
+};
 
 export default function AdminDashboard() {
+  const dispatch = useAppDispatch();
+  const { departments, zonesOverview: zones, wardsByZone, loading, loadingWards } = useAppSelector(state => state.admin);
+  
   const [activeTab, setActiveTab] = useState('overview');
   const [showUserForm, setShowUserForm] = useState(false);
   const [statistics, setStatistics] = useState({ total: 0, pending: 0, resolved: 0, inProgress: 0, resolutionRate: 0 });
   const [users, setUsers] = useState<any[]>([]);
-  const [newUser, setNewUser] = useState({ id: '', name: '', role: '', ward: '', zone: '', phone: '', email: '' });
+  const [newUser, setNewUser] = useState({ 
+    fullName: '', 
+    email: '', 
+    phoneNumber: '', 
+    password: 'TempPass@123',
+    role: '', 
+    departmentId: '',
+    wardId: '', 
+    zoneId: '' 
+  });
+  const [errors, setErrors] = useState<Record<string, string>>({});
   const [editingUser, setEditingUser] = useState<any>(null);
   const [viewingUser, setViewingUser] = useState<any>(null);
   
@@ -37,24 +61,23 @@ export default function AdminDashboard() {
   const [userStats, setUserStats] = useState<any>(null);
   const [deactivationAction, setDeactivationAction] = useState<'deactivate' | 'reactivate'>('deactivate');
   
-  // Mock data for wards and zones
+  // Mock data for modals (will be replaced with API calls)
   const wards = [
     { id: 'W1', wardNumber: 1, name: 'Ward 1' },
     { id: 'W2', wardNumber: 2, name: 'Ward 2' },
-    { id: 'W3', wardNumber: 3, name: 'Ward 3' },
-    { id: 'W4', wardNumber: 4, name: 'Ward 4' },
-    { id: 'W5', wardNumber: 5, name: 'Ward 5' }
-  ];
-  const zones = [
-    { id: 'ZA', name: 'Zone A' },
-    { id: 'ZB', name: 'Zone B' },
-    { id: 'ZC', name: 'Zone C' },
-    { id: 'ZD', name: 'Zone D' }
   ];
 
   useEffect(() => {
     loadDashboardData();
   }, []);
+
+  // Fetch departments and zones when user form opens
+  useEffect(() => {
+    if (showUserForm) {
+      dispatch(fetchDepartments());
+      dispatch(fetchZonesOverview());
+    }
+  }, [showUserForm, dispatch]);
 
   const loadDashboardData = async () => {
     try {
@@ -73,20 +96,64 @@ export default function AdminDashboard() {
     }
   };
 
-  const handleAddUser = async () => {
-    if (!newUser.id || !newUser.name || !newUser.role) {
-      alert('Please fill all required fields');
-      return;
+  // Handle zone selection - lazy load wards
+  const handleZoneChange = (zoneId: string) => {
+    setNewUser({ ...newUser, zoneId, wardId: '' });
+    setErrors({ ...errors, zoneId: '', wardId: '' });
+    
+    // Fetch wards if not cached
+    if (!wardsByZone[zoneId]) {
+      dispatch(fetchWardsForZone(zoneId));
     }
+  };
+
+  // Client-side validation
+  const validateForm = () => {
+    const newErrors: Record<string, string> = {};
+
+    if (!newUser.fullName.trim()) newErrors.fullName = "Name is required";
+    if (!newUser.email.match(/^\S+@\S+\.\S+$/)) newErrors.email = "Invalid email";
+    if (!newUser.phoneNumber.match(/^[6-9]\d{9}$/)) newErrors.phoneNumber = "Invalid phone";
+    if (!newUser.role) newErrors.role = "Role is required";
+
+    const roleReq = ROLE_REQUIREMENTS[newUser.role as keyof typeof ROLE_REQUIREMENTS];
+    if (roleReq) {
+      if (roleReq.showDepartment && !newUser.departmentId) newErrors.departmentId = "Department required";
+      if (roleReq.showZone && !newUser.zoneId) newErrors.zoneId = "Zone required";
+      if (roleReq.showWard && !newUser.wardId) newErrors.wardId = "Ward required";
+    }
+
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
+  const handleAddUser = async () => {
+    if (!validateForm()) return;
     
     try {
-      const userToAdd = { ...newUser, status: 'Active' };
-      setUsers([...users, userToAdd]);
-      setNewUser({ id: '', name: '', role: '', ward: '', zone: '', phone: '', email: '' });
+      // Prepare payload
+      const payload: any = {
+        fullName: newUser.fullName,
+        email: newUser.email,
+        phoneNumber: newUser.phoneNumber,
+        password: newUser.password,
+        role: newUser.role,
+      };
+
+      if (newUser.departmentId) payload.department = newUser.departmentId;
+      if (newUser.wardId) payload.wardId = newUser.wardId;
+      if (newUser.zoneId) payload.zoneId = newUser.zoneId;
+
+      await dispatch(registerUser(payload)).unwrap();
+      
+      // Reset and reload
+      setNewUser({ fullName: '', email: '', phoneNumber: '', password: 'TempPass@123', role: '', departmentId: '', wardId: '', zoneId: '' });
       setShowUserForm(false);
+      setErrors({});
+      loadDashboardData();
       alert('User added successfully!');
-    } catch (error) {
-      alert('Error adding user');
+    } catch (error: any) {
+      alert(error || 'Error adding user');
     }
   };
 
@@ -97,12 +164,16 @@ export default function AdminDashboard() {
   };
 
   const handleUpdateUser = async () => {
+    if (!validateForm()) return;
+    
     try {
+      // TODO: Wire up to updateUser Redux action
       const updatedUsers = users.map(u => u.id === editingUser.id ? { ...newUser, status: u.status } : u);
       setUsers(updatedUsers);
-      setNewUser({ id: '', name: '', role: '', ward: '', zone: '', phone: '', email: '' });
+      setNewUser({ fullName: '', email: '', phoneNumber: '', password: 'TempPass@123', role: '', departmentId: '', wardId: '', zoneId: '' });
       setEditingUser(null);
       setShowUserForm(false);
+      setErrors({});
       alert('User updated successfully!');
     } catch (error) {
       alert('Error updating user');
@@ -205,27 +276,135 @@ export default function AdminDashboard() {
         <Card className="p-6">
           <h4 className="text-lg font-semibold mb-4">{editingUser ? 'Edit User' : 'Add New User'}</h4>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <Input placeholder="Employee ID" value={newUser.id} onChange={(e) => setNewUser({...newUser, id: e.target.value})} disabled={!!editingUser} />
-            <Input placeholder="Full Name" value={newUser.name} onChange={(e) => setNewUser({...newUser, name: e.target.value})} />
-            <Select value={newUser.role} onValueChange={(value) => setNewUser({...newUser, role: value})}>
-              <SelectTrigger><SelectValue placeholder="Select Role" /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="FIELD_WORKER">Field Worker</SelectItem>
-                <SelectItem value="WARD_ENGINEER">Ward Engineer</SelectItem>
-                <SelectItem value="ZONE_OFFICER">Zone Officer</SelectItem>
-                <SelectItem value="SUPER_ADMIN">Super Admin</SelectItem>
-              </SelectContent>
-            </Select>
-            <Input placeholder="Ward (if applicable)" value={newUser.ward} onChange={(e) => setNewUser({...newUser, ward: e.target.value})} />
-            <Input placeholder="Zone" value={newUser.zone} onChange={(e) => setNewUser({...newUser, zone: e.target.value})} />
-            <Input placeholder="Phone Number" value={newUser.phone} onChange={(e) => setNewUser({...newUser, phone: e.target.value})} />
-            <Input placeholder="Email" value={newUser.email} onChange={(e) => setNewUser({...newUser, email: e.target.value})} />
+            <div>
+              <Input 
+                placeholder="Full Name *" 
+                value={newUser.fullName} 
+                onChange={(e) => setNewUser({...newUser, fullName: e.target.value})} 
+                className={errors.fullName ? "border-red-500" : ""}
+              />
+              {errors.fullName && <p className="text-red-500 text-xs mt-1">{errors.fullName}</p>}
+            </div>
+
+            <div>
+              <Input 
+                placeholder="Email *" 
+                type="email"
+                value={newUser.email} 
+                onChange={(e) => setNewUser({...newUser, email: e.target.value})} 
+                className={errors.email ? "border-red-500" : ""}
+              />
+              {errors.email && <p className="text-red-500 text-xs mt-1">{errors.email}</p>}
+            </div>
+
+            <div>
+              <Input 
+                placeholder="Phone Number *" 
+                value={newUser.phoneNumber} 
+                onChange={(e) => setNewUser({...newUser, phoneNumber: e.target.value})} 
+                className={errors.phoneNumber ? "border-red-500" : ""}
+              />
+              {errors.phoneNumber && <p className="text-red-500 text-xs mt-1">{errors.phoneNumber}</p>}
+            </div>
+
+            <div>
+              <Select 
+                value={newUser.role} 
+                onValueChange={(value) => setNewUser({...newUser, role: value, departmentId: '', wardId: '', zoneId: ''})}
+              >
+                <SelectTrigger className={errors.role ? "border-red-500" : ""}>
+                  <SelectValue placeholder="Select Role *" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="FIELD_WORKER">Field Worker</SelectItem>
+                  <SelectItem value="WARD_ENGINEER">Ward Engineer</SelectItem>
+                  <SelectItem value="ZONE_OFFICER">Zone Officer</SelectItem>
+                </SelectContent>
+              </Select>
+              {errors.role && <p className="text-red-500 text-xs mt-1">{errors.role}</p>}
+            </div>
+
+            {ROLE_REQUIREMENTS[newUser.role as keyof typeof ROLE_REQUIREMENTS]?.showDepartment && (
+              <div>
+                <Select value={newUser.departmentId} onValueChange={(value) => setNewUser({...newUser, departmentId: value})}>
+                  <SelectTrigger className={errors.departmentId ? "border-red-500" : ""}>
+                    <SelectValue placeholder={loading ? "Loading..." : "Department *"} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {departments.map((dept: any) => (
+                      <SelectItem key={dept.value} value={dept.value}>{dept.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {errors.departmentId && <p className="text-red-500 text-xs mt-1">{errors.departmentId}</p>}
+              </div>
+            )}
+
+            {ROLE_REQUIREMENTS[newUser.role as keyof typeof ROLE_REQUIREMENTS]?.showZone && (
+              <div>
+                <Select value={newUser.zoneId} onValueChange={handleZoneChange}>
+                  <SelectTrigger className={errors.zoneId ? "border-red-500" : ""}>
+                    <SelectValue placeholder={loading ? "Loading..." : "Zone *"} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {zones.map((zone: any, index: number) => (
+                      <SelectItem key={`${zone.id}-${index}`} value={String(zone.id)}>{zone.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {errors.zoneId && <p className="text-red-500 text-xs mt-1">{errors.zoneId}</p>}
+              </div>
+            )}
+
+            {ROLE_REQUIREMENTS[newUser.role as keyof typeof ROLE_REQUIREMENTS]?.showWard && (
+              <div>
+                <Select 
+                  value={newUser.wardId} 
+                  onValueChange={(value) => setNewUser({...newUser, wardId: value})}
+                  disabled={!newUser.zoneId || loadingWards}
+                >
+                  <SelectTrigger className={errors.wardId ? "border-red-500" : ""}>
+                    <SelectValue placeholder={
+                      !newUser.zoneId ? "Select zone first" :
+                      loadingWards ? "Loading wards..." :
+                      "Ward *"
+                    } />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {wardsByZone[newUser.zoneId]?.length === 0 && (
+                      <SelectItem value="" disabled>No wards for this zone</SelectItem>
+                    )}
+                    {wardsByZone[newUser.zoneId]?.map((ward: any) => (
+                      <SelectItem key={ward.wardId} value={ward.wardId}>
+                        Ward {ward.wardNumber} - {ward.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {errors.wardId && <p className="text-red-500 text-xs mt-1">{errors.wardId}</p>}
+              </div>
+            )}
           </div>
           <div className="flex gap-2 mt-4">
-            <Button onClick={editingUser ? handleUpdateUser : handleAddUser} className="bg-green-600 hover:bg-green-700">
-              {editingUser ? 'Update User' : 'Add User'}
+            <Button 
+              onClick={editingUser ? handleUpdateUser : handleAddUser} 
+              disabled={loading}
+              className="bg-green-600 hover:bg-green-700"
+            >
+              {loading ? 'Processing...' : editingUser ? 'Update User' : 'Add User'}
             </Button>
-            <Button onClick={() => { setShowUserForm(false); setEditingUser(null); setNewUser({ id: '', name: '', role: '', ward: '', zone: '', phone: '', email: '' }); }} variant="outline">Cancel</Button>
+            <Button 
+              onClick={() => { 
+                setShowUserForm(false); 
+                setEditingUser(null); 
+                setNewUser({ fullName: '', email: '', phoneNumber: '', password: 'TempPass@123', role: '', departmentId: '', wardId: '', zoneId: '' }); 
+                setErrors({});
+              }} 
+              variant="outline"
+              disabled={loading}
+            >
+              Cancel
+            </Button>
           </div>
         </Card>
       )}

@@ -73,8 +73,93 @@ function getAuthHeaders(): HeadersInit {
 
 
 // ============================================
+// Type Definitions
+// ============================================
+
+export type UserRole = 'FIELD_WORKER' | 'WARD_ENGINEER' | 'ZONE_OFFICER' | 'SUPER_ADMIN';
+export type Department = 'ROAD' | 'STORM_WATER_DRAINAGE' | 'STREET_LIGHT' | 'GARBAGE';
+
+export interface Ward {
+  wardNumber: number;
+  name: string;
+}
+
+export interface Zone {
+  name: string;
+}
+
+// ============================================
 // Authentication API Methods
 // ============================================
+
+export interface LoginRequest {
+  email: string;
+  password: string;
+}
+
+export interface LoginResponse {
+  token: string;
+  user: {
+    id: string;
+    fullName: string;
+    email: string;
+    phoneNumber: string;
+    role: UserRole;
+    department?: Department;
+    wardId?: string;
+    zoneId?: string;
+    ward?: Ward;
+    zone?: Zone;
+    isActive: boolean;
+  };
+}
+
+export interface UserProfile {
+  id: string;
+  fullName: string;
+  email: string;
+  phoneNumber: string;
+  role: UserRole;
+  department?: Department;
+  wardId?: string;
+  zoneId?: string;
+  ward?: Ward;
+  zone?: Zone;
+  isActive: boolean;
+}
+
+/**
+ * Login user
+ */
+export async function login(
+  email: string,
+  password: string
+): Promise<ApiResponse<LoginResponse>> {
+  return apiRequest<LoginResponse>('/auth/login', {
+    method: 'POST',
+    body: JSON.stringify({ email, password }),
+  });
+}
+
+/**
+ * Get current user profile
+ */
+export async function getProfile(): Promise<ApiResponse<UserProfile>> {
+  return apiRequest<UserProfile>('/auth/profile', {
+    method: 'GET',
+    headers: getAuthHeaders(),
+  });
+}
+
+/**
+ * Logout user
+ */
+export async function logout(): Promise<ApiResponse<null>> {
+  return apiRequest<null>('/auth/logout', {
+    method: 'POST',
+    headers: getAuthHeaders(),
+  });
+}
 
 export interface ForgotPasswordRequest {
   email: string;
@@ -107,18 +192,6 @@ export interface ResetPasswordResponse {
 // ============================================
 // Admin User Management Interfaces
 // ============================================
-
-export type UserRole = 'FIELD_WORKER' | 'WARD_ENGINEER' | 'ZONE_OFFICER' | 'SUPER_ADMIN';
-export type Department = 'ROAD' | 'STORM_WATER_DRAINAGE' | 'STREET_LIGHT' | 'GARBAGE';
-
-export interface Ward {
-  wardNumber: number;
-  name: string;
-}
-
-export interface Zone {
-  name: string;
-}
 
 export interface User {
   id: string;
@@ -235,6 +308,84 @@ export async function resetPassword(
 // Admin User Management API Methods
 // ============================================
 
+export interface RegisterUserRequest {
+  fullName: string;
+  email: string;
+  phoneNumber: string;
+  password: string;
+  role: UserRole;
+  department?: Department;
+  wardId?: string;
+  zoneId?: string;
+}
+
+export interface ZoneWithWards {
+  id: string;
+  name: string;
+  wards: Array<{
+    id: string;
+    wardNumber: number;
+    name: string;
+  }>;
+}
+
+/**
+ * Register new user (Super Admin only)
+ */
+export async function registerUser(
+  userData: RegisterUserRequest
+): Promise<ApiResponse<User>> {
+  return apiRequest<User>('/admin/register', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      ...getAuthHeaders(),
+    },
+    body: JSON.stringify(userData),
+  });
+}
+
+/**
+ * Get all departments (Super Admin only)
+ */
+export async function getDepartments(): Promise<ApiResponse<Array<{value: string, label: string}>>> {
+  return apiRequest<Array<{value: string, label: string}>>(`${ADMIN_BASE_URL}/departments`, {
+    method: 'GET',
+    headers: getAuthHeaders(),
+  });
+}
+
+/**
+ * Get all zones (Super Admin only)
+ */
+export async function getZones(): Promise<ApiResponse<Array<{id: string, name: string}>>> {
+  return apiRequest<Array<{id: string, name: string}>>(`${ADMIN_BASE_URL}/zones`, {
+    method: 'GET',
+    headers: getAuthHeaders(),
+  });
+}
+
+/**
+ * Get wards for a specific zone (Super Admin only)
+ */
+export async function getWardsForZone(zoneId: string): Promise<ApiResponse<Array<{wardId: string, wardNumber: number, name: string}>>> {
+  return apiRequest<Array<{wardId: string, wardNumber: number, name: string}>>(`${ADMIN_BASE_URL}/zones/${zoneId}/wards`, {
+    method: 'GET',
+    headers: getAuthHeaders(),
+   });
+}
+
+/**
+ * Get zones and wards for dropdowns (Super Admin only)
+ * @deprecated Use getZones() and getWardsForZone() instead
+ */
+export async function getZonesAndWards(): Promise<ApiResponse<ZoneWithWards[]>> {
+  return apiRequest<ZoneWithWards[]>('/admin/zones-wards', {
+    method: 'GET',
+    headers: getAuthHeaders(),
+  });
+}
+
 /**
  * Get all users (Super Admin only)
  */
@@ -350,11 +501,19 @@ export async function reactivateUser(userId: string): Promise<ApiResponse<User>>
 // Export API client object for organized imports
 export const apiClient = {
   auth: {
+    login,
+    getProfile,
+    logout,
     requestPasswordResetOtp,
     verifyOtp,
     resetPassword,
   },
   admin: {
+    registerUser,
+    getDepartments,
+    getZones,
+    getWardsForZone,
+    getZonesAndWards, // deprecated
     getAllUsers,
     getUserById,
     updateUser,

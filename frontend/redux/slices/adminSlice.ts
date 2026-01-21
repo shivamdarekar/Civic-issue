@@ -61,10 +61,12 @@ interface AdminState {
   departments: Department[];
   dashboard: AdminDashboard | null;
   zonesOverview: ZoneOverview[];
+  wardsByZone: Record<string, Array<{wardId: string, wardNumber: number, name: string}>>; // NEW: Cache wards by zoneId
   currentZoneDetail: any | null;
   currentWardDetail: WardDetail | null;
   userStatistics: UserStatistics | null;
   loading: boolean;
+  loadingWards: boolean; // NEW: Loading state for wards
   error: string | null;
 }
 
@@ -104,10 +106,12 @@ const initialState: AdminState = {
   departments: [],
   dashboard: null,
   zonesOverview: [],
+  wardsByZone: {},
   currentZoneDetail: null,
   currentWardDetail: null,
   userStatistics: null,
   loading: false,
+  loadingWards: false,
   error: null,
 };
 
@@ -237,6 +241,19 @@ export const fetchZonesOverview = createAsyncThunk(
       return response.data.data;
     } catch (error: unknown) {
       return rejectWithValue(handleAxiosError(error, "Failed to fetch zones overview"));
+    }
+  }
+);
+
+// Fetch wards for a specific zone (lazy-loading)
+export const fetchWardsForZone = createAsyncThunk(
+  "admin/fetchWardsForZone",
+  async (zoneId: string, { rejectWithValue }) => {
+    try {
+      const response = await axiosInstance.get(`/admin/zones/${zoneId}/wards`);
+      return { zoneId, wards: response.data.data };
+    } catch (error: unknown) {
+      return rejectWithValue(handleAxiosError(error, "Failed to fetch wards for zone"));
     }
   }
 );
@@ -395,6 +412,18 @@ const adminSlice = createSlice({
         state.zonesOverview = action.payload;
       })
       .addCase(fetchZonesOverview.rejected, (state, action) => {
+        state.error = action.payload as string;
+      })
+      .addCase(fetchWardsForZone.pending, (state) => {
+        state.loadingWards = true;
+      })
+      .addCase(fetchWardsForZone.fulfilled, (state, action) => {
+        state.loadingWards = false;
+        const { zoneId, wards } = action.payload;
+        state.wardsByZone[zoneId] = wards;
+      })
+      .addCase(fetchWardsForZone.rejected, (state, action) => {
+        state.loadingWards = false;
         state.error = action.payload as string;
       });
 

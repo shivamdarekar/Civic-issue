@@ -63,6 +63,7 @@ export {
   fetchDepartments,
   fetchAdminDashboard,
   fetchZonesOverview,
+  fetchWardsForZone, // NEW
   fetchZoneDetail,
   fetchWardDetail,
   fetchUserStatistics,
