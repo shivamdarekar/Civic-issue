@@ -256,18 +256,24 @@ export class AdminService {
       throw new ApiError(400, "Department can only be assigned to Ward Engineers");
     }
 
+    const data: any = {
+      ...(fullName && { fullName }),
+      ...(email && { email }),
+      ...(phoneNumber && { phoneNumber }),
+      ...(role && { role }),
+      ...(department !== undefined && { department: department === null ? null : department }),
+      ...(zoneId !== undefined && {
+        zone: zoneId === null ? { disconnect: true } : { connect: { id: zoneId } },
+      }),
+      ...(wardId !== undefined && {
+        ward: wardId === null ? { disconnect: true } : { connect: { id: wardId } },
+      }),
+    };
+
     // Update user
     const updatedUser = await prisma.user.update({
       where: { id: userId },
-      data: {
-        ...(fullName && { fullName }),
-        ...(email && { email }),
-        ...(phoneNumber && { phoneNumber }),
-        ...(role && { role }),
-        ...(wardId !== undefined && { wardId: wardId === null ? null : wardId }),
-        ...(zoneId !== undefined && { zoneId: zoneId === null ? null : zoneId }),
-        ...(department !== undefined && { department: department === null ? null : department })
-      },
+      data,
       select: {
         id: true,
         fullName: true,
