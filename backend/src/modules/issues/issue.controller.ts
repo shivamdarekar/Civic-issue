@@ -4,6 +4,7 @@ import { IssueUploadService } from "./issue.upload.service";
 import { asyncHandler } from "../../utils/asyncHandler";
 import { ApiResponse } from "../../utils/apiResponse";
 import { ApiError } from "../../utils/apiError";
+import { analyzeImageSchema } from "./issue.schema";
 
 export class IssuesController {
   // Get all issue categories
@@ -190,6 +191,15 @@ export class IssuesController {
 
     res.status(200).json(
       new ApiResponse(200, { deleted: true }, "Image deleted successfully")
+    );
+  });
+
+    static analyzeImage = asyncHandler(async (req: Request, res: Response) => {
+    const { imageUrl } = analyzeImageSchema.parse(req.body);
+    const analysis = await IssueUploadService.analyzeImageWithAI(imageUrl);
+
+    res.status(200).json(
+      new ApiResponse(200, analysis, "Image analyzed successfully")
     );
   });
 }

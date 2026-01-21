@@ -1,7 +1,9 @@
 import { uploadOnCloudinary, deleteFromCloudinary, extractPublicId } from "../../utils/cloudinary";
 import { ApiError } from "../../utils/apiError";
+import { prisma } from "../../lib/prisma";
 import type { MediaType } from "@prisma/client";
 import type { UploadedFile, UploadedMediaResult } from "../../types";
+import { VisionAIService, CONFIDENCE_THRESHOLDS } from "../../services/vision/vision.service";
 
 export class IssueUploadService {
   /**
@@ -94,5 +96,54 @@ export class IssueUploadService {
     });
 
     await Promise.all(deletePromises);
+  }
+
+  //analyze image
+  static async analyzeImageWithAI(imageUrl: string) {
+    try {
+      const visionResult = await VisionAIService.analyzeImage(imageUrl);
+
+      let suggestedCategoryId: string | null = null;
+      let description = "Please describe the civic issue you want to report.";
+
+      if (
+        visionResult.suggestedCategory &&
+        visionResult.confidence >= CONFIDENCE_THRESHOLDS.WEAK_EVIDENCE_THRESHOLD
+      ) {
+        const category = await prisma.issueCategory.findUnique({
+          where: { slug: visionResult.suggestedCategory.slug },
+          select: { name: true },
+        });
+
+        if (category) {
+          description = visionResult.suggestedCategory.description;
+          return {
+            categoryName: category.name,
+            description,
+            aiTags: visionResult.detectedTags.slice(0, 10),
+            confidence: visionResult.confidence,
+            detectedLabels: visionResult.rawVisionResult.labels?.map((l: any) => l.description) || [],
+          };
+        }
+      }
+
+      return {
+        categoryName: null,
+        description: visionResult.detectedTags.length > 0 
+          ? `Civic issue detected. Tags: ${visionResult.detectedTags.slice(0, 3).join(', ')}`
+          : "Please describe the civic issue you want to report.",
+        aiTags: visionResult.detectedTags.slice(0, 10),
+        confidence: visionResult.confidence,
+        detectedLabels: visionResult.rawVisionResult.labels?.map((l: any) => l.description) || [],
+      };
+    } catch {
+      return {
+        categoryName: null,
+        description: "Please describe the civic issue you want to report.",
+        aiTags: [],
+        confidence: 0,
+        detectedLabels: [],
+      };
+    }
   }
 }
