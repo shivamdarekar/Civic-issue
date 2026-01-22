@@ -30,7 +30,7 @@ router.get("/users",
 );
 
 router.get("/users/:userId", 
-  requireRole(["SUPER_ADMIN"]),
+  requireRole(["SUPER_ADMIN", "ZONE_OFFICER"]),
   validateRequest(userIdParamsSchema, 'params'),
   AdminController.getUserById
 );
@@ -79,9 +79,9 @@ router.get("/departments",
 // Dashboard Routes (Super Admin only)
 router.get("/dashboard", requireRole(["SUPER_ADMIN"]), AdminController.getDashboard);
 router.get("/zones", requireRole(["SUPER_ADMIN"]), AdminController.getZonesOverview);
-router.get("/zones/:zoneId", requireRole(["SUPER_ADMIN"]), validateRequest(zoneIdParamsSchema, 'params'), AdminController.getZoneDetail);
-router.get("/zones/:zoneId/wards", requireRole(["SUPER_ADMIN"]), validateRequest(zoneIdParamsSchema, 'params'), AdminController.getZoneWards);
-router.get("/wards/:wardId", requireRole(["SUPER_ADMIN"]), validateRequest(wardIdParamsSchema, 'params'), AdminController.getWardDetail);
-router.get("/wards/:wardId/issues", requireRole(["SUPER_ADMIN"]), validateRequest(wardIdParamsSchema, 'params'), AdminController.getWardIssues);
+router.get("/zones/:zoneId", requireRole(["SUPER_ADMIN", "ZONE_OFFICER"]), validateRequest(zoneIdParamsSchema, 'params'), AdminController.getZoneDetail);
+router.get("/zones/:zoneId/wards", requireRole(["SUPER_ADMIN", "ZONE_OFFICER"]), validateRequest(zoneIdParamsSchema, 'params'), AdminController.getZoneWards);
+router.get("/wards/:wardId", requireRole(["SUPER_ADMIN", "ZONE_OFFICER", "WARD_ENGINEER"]), validateRequest(wardIdParamsSchema, 'params'), AdminController.getWardDetail);
+router.get("/wards/:wardId/issues", requireRole(["SUPER_ADMIN", "ZONE_OFFICER", "WARD_ENGINEER"]), validateRequest(wardIdParamsSchema, 'params'), AdminController.getWardIssues);
 
 export default router;

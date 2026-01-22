@@ -174,6 +174,7 @@ Production: https://your-domain.com/api/v1
   "message": "User registered successfully",
   "data": {
     "id": "uuid-string",
+    
     "fullName": "John Doe",
     "email": "john@vmc.gov.in",
     "phoneNumber": "9876543210",

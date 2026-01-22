@@ -872,7 +872,7 @@ export class AdminService {
       FROM "zones" z
       LEFT JOIN "wards" w ON w."zone_id" = z."id"
       LEFT JOIN "issues" i ON i."ward_id" = w."id" AND i."deleted_at" IS NULL
-      WHERE z."id" = ${zoneId}
+      WHERE z."id" = ${zoneId}::uuid
       GROUP BY z."id", z."name";
     `;
 
@@ -913,7 +913,7 @@ export class AdminService {
       LEFT JOIN "issues" i
         ON i."ward_id" = w."id"
        AND i."deleted_at" IS NULL
-      WHERE w."zone_id" = ${zoneId}
+      WHERE w."zone_id" = ${zoneId}::uuid
       GROUP BY w."id", w."ward_number", w."name"
       ORDER BY w."ward_number" ASC;
     `;
@@ -952,45 +952,53 @@ export class AdminService {
         ) AS "engineers",
 
         -- Core issue stats
-        COALESCE(COUNT(i."id"), 0) FILTER (WHERE i."deleted_at" IS NULL) AS "totalIssues",
-        COALESCE(COUNT(i."id") FILTER (WHERE i."status" = 'OPEN'         AND i."deleted_at" IS NULL), 0) AS "open",
-        COALESCE(COUNT(i."id") FILTER (WHERE i."status" = 'ASSIGNED'     AND i."deleted_at" IS NULL), 0) AS "assigned",
-        COALESCE(COUNT(i."id") FILTER (WHERE i."status" = 'IN_PROGRESS'  AND i."deleted_at" IS NULL), 0) AS "inProgress",
-        COALESCE(COUNT(i."id") FILTER (WHERE i."status" = 'RESOLVED'     AND i."deleted_at" IS NULL), 0) AS "resolved",
-        COALESCE(COUNT(i."id") FILTER (WHERE i."status" = 'VERIFIED'     AND i."deleted_at" IS NULL), 0) AS "verified",
-        COALESCE(COUNT(i."id") FILTER (WHERE i."status" = 'REOPENED'     AND i."deleted_at" IS NULL), 0) AS "reopened",
-        COALESCE(COUNT(i."id") FILTER (WHERE i."status" = 'REJECTED'     AND i."deleted_at" IS NULL), 0) AS "rejected",
-        COALESCE(COUNT(i."id") FILTER (
+        COALESCE(COUNT(DISTINCT i."id"), 0) AS "totalIssues",
+        COALESCE(COUNT(DISTINCT i."id") FILTER (WHERE i."status" = 'OPEN'), 0) AS "open",
+        COALESCE(COUNT(DISTINCT i."id") FILTER (WHERE i."status" = 'ASSIGNED'), 0) AS "assigned",
+        COALESCE(COUNT(DISTINCT i."id") FILTER (WHERE i."status" = 'IN_PROGRESS'), 0) AS "inProgress",
+        COALESCE(COUNT(DISTINCT i."id") FILTER (WHERE i."status" = 'RESOLVED'), 0) AS "resolved",
+        COALESCE(COUNT(DISTINCT i."id") FILTER (WHERE i."status" = 'VERIFIED'), 0) AS "verified",
+        COALESCE(COUNT(DISTINCT i."id") FILTER (WHERE i."status" = 'REOPENED'), 0) AS "reopened",
+        COALESCE(COUNT(DISTINCT i."id") FILTER (WHERE i."status" = 'REJECTED'), 0) AS "rejected",
+        COALESCE(COUNT(DISTINCT i."id") FILTER (
           WHERE i."resolved_at" IS NULL
             AND i."sla_target_at" < NOW()
-            AND i."deleted_at" IS NULL
         ), 0) AS "slaBreached",
 
         CASE
-          WHEN COALESCE(COUNT(i."id") FILTER (WHERE i."deleted_at" IS NULL), 0) = 0 THEN 100
+          WHEN COALESCE(COUNT(DISTINCT i."id"), 0) = 0 THEN 100
           ELSE ROUND(
             100.0
-            * (COUNT(i."id") FILTER (
+            * (COUNT(DISTINCT i."id") FILTER (
                 WHERE i."resolved_at" IS NOT NULL
                   AND i."sla_target_at" IS NOT NULL
                   AND i."resolved_at" <= i."sla_target_at"
-                  AND i."deleted_at" IS NULL
               ))::numeric
-            / NULLIF(COUNT(i."id") FILTER (WHERE i."deleted_at" IS NULL), 0)
+            / NULLIF(COUNT(DISTINCT i."id"), 0)
           )::int
         END AS "slaCompliance",
 
         -- Priority distribution
-        COALESCE(COUNT(i."id") FILTER (WHERE i."priority" = 'CRITICAL' AND i."deleted_at" IS NULL), 0) AS "critical",
-        COALESCE(COUNT(i."id") FILTER (WHERE i."priority" = 'HIGH'     AND i."deleted_at" IS NULL), 0) AS "high",
-        COALESCE(COUNT(i."id") FILTER (WHERE i."priority" = 'MEDIUM'   AND i."deleted_at" IS NULL), 0) AS "medium",
-        COALESCE(COUNT(i."id") FILTER (WHERE i."priority" = 'LOW'      AND i."deleted_at" IS NULL), 0) AS "low",
+        COALESCE(COUNT(DISTINCT i."id") FILTER (WHERE i."priority" = 'CRITICAL'), 0) AS "critical",
+        COALESCE(COUNT(DISTINCT i."id") FILTER (WHERE i."priority" = 'HIGH'), 0) AS "high",
+        COALESCE(COUNT(DISTINCT i."id") FILTER (WHERE i."priority" = 'MEDIUM'), 0) AS "medium",
+        COALESCE(COUNT(DISTINCT i."id") FILTER (WHERE i."priority" = 'LOW'), 0) AS "low",
 
         -- Aging for active issues
-        COALESCE(ROUND(AVG(EXTRACT(EPOCH FROM (NOW() - i."created_at")) / 86400)
-          FILTER (WHERE i."status" IN ('OPEN','ASSIGNED','IN_PROGRESS') AND i."deleted_at" IS NULL)::numeric, 2), 0) AS "avgOpenDays",
-        COALESCE(MAX(EXTRACT(EPOCH FROM (NOW() - i."created_at")) / 86400)
-          FILTER (WHERE i."status" IN ('OPEN','ASSIGNED','IN_PROGRESS') AND i."deleted_at" IS NULL), 0) AS "oldestOpenDays",
+        COALESCE(
+          ROUND(
+            (AVG(DISTINCT EXTRACT(EPOCH FROM (NOW() - i."created_at")) / 86400)
+              FILTER (WHERE i."status" IN ('OPEN','ASSIGNED','IN_PROGRESS'))
+            )::numeric,
+            2
+          ),
+          0
+        ) AS "avgOpenDays",
+        COALESCE(
+          MAX(EXTRACT(EPOCH FROM (NOW() - i."created_at")) / 86400)
+            FILTER (WHERE i."status" IN ('OPEN','ASSIGNED','IN_PROGRESS')),
+          0
+        ) AS "oldestOpenDays",
 
         -- Top issues list (include category department)
         (
@@ -1014,11 +1022,11 @@ export class AdminService {
               END                                                  AS "priorityWeight",
               EXISTS (
                 SELECT 1 FROM "issue_media" m
-                WHERE m."issue_id" = i2."id" AND m."media_type" = 'BEFORE'
+                WHERE m."issue_id" = i2."id" AND m."type" = 'BEFORE'
               )                                                    AS "hasBeforeImage",
               EXISTS (
                 SELECT 1 FROM "issue_media" m
-                WHERE m."issue_id" = i2."id" AND m."media_type" = 'AFTER'
+                WHERE m."issue_id" = i2."id" AND m."type" = 'AFTER'
               )                                                    AS "hasAfterImage"
             FROM "issues" i2
             LEFT JOIN "issue_categories" ic ON ic."id" = i2."category_id"
@@ -1104,7 +1112,7 @@ export class AdminService {
   ): Promise<WardIssueListItem[]> {
     const { status, priority, categoryId } = filters ?? {};
 
-    const rows = await prisma.$queryRaw<any[]>`
+    const rows = await prisma.$queryRawUnsafe(`
       SELECT
         i."id"                               AS "id",
         i."ticket_number"                    AS "ticketNumber",
@@ -1119,13 +1127,13 @@ export class AdminService {
       FROM "issues" i
       LEFT JOIN "issue_categories" ic ON ic."id" = i."category_id"
       LEFT JOIN "users" a ON a."id" = i."assignee_id"
-      WHERE i."ward_id" = ${wardId}::uuid
+      WHERE i."ward_id" = $1
         AND i."deleted_at" IS NULL
-        ${status ? Prisma.sql`AND i."status" = ${status}::"IssueStatus"` : Prisma.empty}
-        ${priority ? Prisma.sql`AND i."priority" = ${priority}::"Priority"` : Prisma.empty}
-        ${categoryId ? Prisma.sql`AND i."category_id" = ${categoryId}::uuid` : Prisma.empty}
+        ${status ? `AND i."status" = '${status}'` : ''}
+        ${priority ? `AND i."priority" = '${priority}'` : ''}
+        ${categoryId ? `AND i."category_id" = '${categoryId}'` : ''}
       ORDER BY i."updated_at" DESC;
-    `;
+    `, wardId) as any[];
 
     return (rows ?? []).map((r) => ({
       id: String(r.id),

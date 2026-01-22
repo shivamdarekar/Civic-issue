@@ -3,6 +3,7 @@ import { asyncHandler } from "../../utils/asyncHandler";
 import { ApiResponse } from "../../utils/apiResponse";
 import { AdminService } from "./admin.service";
 import { serializeBigInt } from "../../utils/bigint-serializer";
+import { prisma } from "../../lib/prisma";
 
 export class AdminController {
   // User Management Functions
@@ -140,6 +141,12 @@ export class AdminController {
 
   static getZoneDetail = asyncHandler(async (req: Request, res: Response) => {
     const { zoneId } = req.params;
+    
+    // Access control: Zone officers can only access their own zone
+    if (req.user!.role === "ZONE_OFFICER" && req.user!.zoneId !== zoneId) {
+      return res.status(403).json(new ApiResponse(403, null, "Access denied to this zone"));
+    }
+    
     const data = await AdminService.getZoneDetail(zoneId);
 
     if (!data) {
@@ -153,6 +160,12 @@ export class AdminController {
 
   static getZoneWards = asyncHandler(async (req: Request, res: Response) => {
     const { zoneId } = req.params;
+    
+    // Access control: Zone officers can only access their own zone
+    if (req.user!.role === "ZONE_OFFICER" && req.user!.zoneId !== zoneId) {
+      return res.status(403).json(new ApiResponse(403, null, "Access denied to this zone"));
+    }
+    
     const data = await AdminService.getZoneWards(zoneId);
     const serializedData = serializeBigInt(data);
     return res.status(200).json(new ApiResponse(200, serializedData, "Zone wards overview retrieved"));
@@ -161,6 +174,23 @@ export class AdminController {
 
   static getWardDetail = asyncHandler(async (req: Request, res: Response) => {
     const { wardId } = req.params;
+    
+    // Access control: Zone officers can only access wards in their zone, Ward engineers can only access their ward
+    if (req.user!.role === "ZONE_OFFICER") {
+      // Check if ward belongs to zone officer's zone
+      const ward = await prisma.ward.findUnique({
+        where: { id: wardId },
+        select: { zoneId: true }
+      });
+      if (!ward || ward.zoneId !== req.user!.zoneId) {
+        return res.status(403).json(new ApiResponse(403, null, "Access denied to this ward"));
+      }
+    } else if (req.user!.role === "WARD_ENGINEER") {
+      if (req.user!.wardId !== wardId) {
+        return res.status(403).json(new ApiResponse(403, null, "Access denied to this ward"));
+      }
+    }
+    
     const data = await AdminService.getWardDetail(wardId);
 
     if (!data) {
@@ -174,6 +204,22 @@ export class AdminController {
 
   static getWardIssues = asyncHandler(async (req: Request, res: Response) => {
     const { wardId } = req.params;
+    
+    // Access control: Zone officers can only access wards in their zone, Ward engineers can only access their ward
+    if (req.user!.role === "ZONE_OFFICER") {
+      // Check if ward belongs to zone officer's zone
+      const ward = await prisma.ward.findUnique({
+        where: { id: wardId },
+        select: { zoneId: true }
+      });
+      if (!ward || ward.zoneId !== req.user!.zoneId) {
+        return res.status(403).json(new ApiResponse(403, null, "Access denied to this ward"));
+      }
+    } else if (req.user!.role === "WARD_ENGINEER") {
+      if (req.user!.wardId !== wardId) {
+        return res.status(403).json(new ApiResponse(403, null, "Access denied to this ward"));
+      }
+    }
 
     // Parse and validate query filters
     const statusQ = req.query.status as string | undefined;
