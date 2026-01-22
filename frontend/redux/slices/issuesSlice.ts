@@ -234,6 +234,21 @@ export const uploadAfterImages = createAsyncThunk(
   }
 );
 
+// Delete image
+export const deleteImage = createAsyncThunk(
+  "issues/deleteImage",
+  async (urlOrPublicId: string, { rejectWithValue }) => {
+    try {
+      const response = await axiosInstance.delete("/issues/upload/delete", {
+        data: { url: urlOrPublicId }
+      });
+      return response.data.data;
+    } catch (error: unknown) {
+      return rejectWithValue(handleAxiosError(error, "Failed to delete image"));
+    }
+  }
+);
+
 // Issues slice
 const issuesSlice = createSlice({
   name: "issues",
