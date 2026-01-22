@@ -105,6 +105,58 @@ export function WardDetailSkeleton() {
   );
 }
 
+export function WardOverviewSkeleton() {
+  return (
+    <div className="space-y-6">
+      {/* Header Skeleton */}
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 sm:p-6">
+        <div className="flex items-center justify-between mb-4">
+          <div className="h-8 w-48 bg-gray-200 rounded animate-pulse"></div>
+          <div className="h-6 w-24 bg-gray-200 rounded animate-pulse"></div>
+        </div>
+      </div>
+
+      {/* Key Metrics Skeleton */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+        {[1, 2, 3, 4].map((i) => (
+          <Card key={i}>
+            <CardContent className="p-3 sm:p-4">
+              <div className="flex items-center gap-3">
+                <div className="w-6 h-6 sm:w-8 sm:h-8 bg-gray-200 rounded animate-pulse"></div>
+                <div>
+                  <div className="h-3 w-20 bg-gray-200 rounded mb-2 animate-pulse"></div>
+                  <div className="h-5 w-16 bg-gray-200 rounded animate-pulse"></div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+
+      {/* Status and Priority Distribution Skeleton */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {[1, 2].map((i) => (
+          <Card key={i}>
+            <CardHeader>
+              <div className="h-6 w-32 bg-gray-200 rounded animate-pulse"></div>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-3">
+                {[1, 2, 3, 4].map((j) => (
+                  <div key={j} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                    <div className="h-4 w-24 bg-gray-200 rounded animate-pulse"></div>
+                    <div className="h-6 w-8 bg-gray-200 rounded animate-pulse"></div>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export function ZoneOverviewSkeleton() {
   return (
     <div className="space-y-6">

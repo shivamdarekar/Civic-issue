@@ -6,6 +6,17 @@ export type DashboardIssueListItem = {
   status: IssueStatus;
   priority: Priority | null;
   createdAt: Date;
+  category?: {
+    name: string;
+    department: Department;
+  };
+  ward?: {
+    wardNumber: number;
+    name: string;
+  };
+  assignee?: {
+    fullName: string;
+  };
 };
 
 export type FieldWorkerDashboardPayload = {

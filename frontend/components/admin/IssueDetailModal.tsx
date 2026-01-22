@@ -26,6 +26,13 @@ export default function IssueDetailModal({ isOpen, onClose, issueId }: IssueDeta
     }
   }, [dispatch, issueId, isOpen]);
 
+  useEffect(() => {
+    if (currentIssue) {
+      console.log('Current issue data:', currentIssue);
+      console.log('Media data:', currentIssue.media);
+    }
+  }, [currentIssue]);
+
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('en-IN', {
       year: 'numeric',
@@ -71,7 +78,7 @@ export default function IssueDetailModal({ isOpen, onClose, issueId }: IssueDeta
                 {loading ? 'Loading...' : currentIssue?.ticketNumber || 'Issue Details'}
               </h2>
               {!loading && currentIssue && (
-                <p className="text-blue-600 font-medium mt-1">{(currentIssue as any).categoryName || 'N/A'}</p>
+                <p className="text-blue-600 font-medium mt-1">{currentIssue.category?.name || 'N/A'}</p>
               )}
             </div>
             <Button variant="ghost" size="sm" onClick={onClose} className="hover:bg-white/50">
@@ -114,11 +121,11 @@ export default function IssueDetailModal({ isOpen, onClose, issueId }: IssueDeta
                       </div>
                       <div className="flex items-center justify-between py-2 border-b border-gray-100">
                         <span className="text-gray-600 font-medium">Department</span>
-                        <span className="font-medium text-gray-900">{(currentIssue as any).department?.replace('_', ' ') || 'N/A'}</span>
+                        <span className="font-medium text-gray-900">{currentIssue.category?.department?.replace('_', ' ') || 'N/A'}</span>
                       </div>
                       <div className="flex items-center justify-between py-2">
                         <span className="text-gray-600 font-medium">Assignee</span>
-                        <span className="font-medium text-gray-900">{(currentIssue as any).assigneeName || 'Unassigned'}</span>
+                        <span className="font-medium text-gray-900">{currentIssue.assignee?.fullName || 'Unassigned'}</span>
                       </div>
                     </div>
                   </div>
@@ -133,8 +140,8 @@ export default function IssueDetailModal({ isOpen, onClose, issueId }: IssueDeta
                       <div className="flex items-start gap-3 py-2">
                         <MapPin className="w-5 h-5 text-blue-500 mt-0.5" />
                         <div>
-                          <p className="font-semibold text-gray-900">{(currentIssue as any).wardName || 'N/A'}</p>
-                          <p className="text-sm text-gray-600">{(currentIssue as any).zoneName || 'N/A'}</p>
+                          <p className="font-semibold text-gray-900">{currentIssue.ward ? `Ward ${currentIssue.ward.wardNumber} - ${currentIssue.ward.name}` : 'N/A'}</p>
+                          <p className="text-sm text-gray-600">{currentIssue.ward?.zone?.name || 'N/A'}</p>
                         </div>
                       </div>
                       <div className="flex items-start gap-3 py-2">
@@ -144,12 +151,12 @@ export default function IssueDetailModal({ isOpen, onClose, issueId }: IssueDeta
                           <p className="font-semibold text-gray-900">{formatDate(currentIssue.createdAt)}</p>
                         </div>
                       </div>
-                      {(currentIssue as any).slaTargetAt && (
+                      {currentIssue.slaTargetAt && (
                         <div className="flex items-start gap-3 py-2">
                           <Clock className="w-5 h-5 text-orange-500 mt-0.5" />
                           <div>
                             <p className="text-sm font-medium text-gray-600">SLA Target</p>
-                            <p className="font-semibold text-gray-900">{formatDate((currentIssue as any).slaTargetAt)}</p>
+                            <p className="font-semibold text-gray-900">{formatDate(currentIssue.slaTargetAt)}</p>
                           </div>
                         </div>
                       )}
@@ -171,62 +178,50 @@ export default function IssueDetailModal({ isOpen, onClose, issueId }: IssueDeta
                 </div>
 
                 {/* Images Card */}
-                {((currentIssue as any).beforeImages?.length > 0 || (currentIssue as any).afterImages?.length > 0) && (
+                {currentIssue.media && currentIssue.media.length > 0 && (
                   <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
                     <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
                       <div className="w-2 h-2 bg-indigo-500 rounded-full"></div>
-                      Images
+                      Images ({currentIssue.media.length} total)
                     </h3>
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                      {(currentIssue as any).beforeImages?.length > 0 && (
+                      {(currentIssue.media?.filter(m => m.type === 'BEFORE').length || 0) > 0 && (
                         <div>
                           <h4 className="font-semibold text-gray-800 mb-3 flex items-center gap-2">
                             <ImageIcon className="w-4 h-4 text-blue-500" />
-                            Before Images ({(currentIssue as any).beforeImages.length})
+                            Before Images ({currentIssue.media?.filter(m => m.type === 'BEFORE').length})
                           </h4>
                           <div className="grid grid-cols-2 gap-3">
-                            {(currentIssue as any).beforeImages.map((image: any, index: number) => (
-                              <div key={index} className="relative group">
+                            {currentIssue.media?.filter(m => m.type === 'BEFORE').map((image, index) => (
+                              <div key={index} className="relative">
                                 <img
                                   src={image.url}
                                   alt={`Before ${index + 1}`}
-                                  className="w-full h-28 object-cover rounded-lg cursor-pointer transition-all duration-200 hover:scale-105 hover:shadow-lg border border-gray-200"
+                                  className="w-full h-28 object-cover rounded-lg cursor-pointer border border-gray-200"
                                   onClick={() => setSelectedImage(image.url)}
+                                  crossOrigin="anonymous"
                                 />
-                                <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-20 transition-all duration-200 rounded-lg flex items-center justify-center">
-                                  <div className="opacity-0 group-hover:opacity-100 transition-opacity duration-200">
-                                    <div className="bg-white rounded-full p-2 shadow-lg">
-                                      <ImageIcon className="w-4 h-4 text-gray-700" />
-                                    </div>
-                                  </div>
-                                </div>
                               </div>
                             ))}
                           </div>
                         </div>
                       )}
-                      {(currentIssue as any).afterImages?.length > 0 && (
+                      {(currentIssue.media?.filter(m => m.type === 'AFTER').length || 0) > 0 && (
                         <div>
                           <h4 className="font-semibold text-gray-800 mb-3 flex items-center gap-2">
                             <ImageIcon className="w-4 h-4 text-green-500" />
-                            After Images ({(currentIssue as any).afterImages.length})
+                            After Images ({currentIssue.media?.filter(m => m.type === 'AFTER').length})
                           </h4>
                           <div className="grid grid-cols-2 gap-3">
-                            {(currentIssue as any).afterImages.map((image: any, index: number) => (
-                              <div key={index} className="relative group">
+                            {currentIssue.media?.filter(m => m.type === 'AFTER').map((image, index) => (
+                              <div key={index} className="relative">
                                 <img
                                   src={image.url}
                                   alt={`After ${index + 1}`}
-                                  className="w-full h-28 object-cover rounded-lg cursor-pointer transition-all duration-200 hover:scale-105 hover:shadow-lg border border-gray-200"
+                                  className="w-full h-28 object-cover rounded-lg cursor-pointer border border-gray-200"
                                   onClick={() => setSelectedImage(image.url)}
+                                  crossOrigin="anonymous"
                                 />
-                                <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-20 transition-all duration-200 rounded-lg flex items-center justify-center">
-                                  <div className="opacity-0 group-hover:opacity-100 transition-opacity duration-200">
-                                    <div className="bg-white rounded-full p-2 shadow-lg">
-                                      <ImageIcon className="w-4 h-4 text-gray-700" />
-                                    </div>
-                                  </div>
-                                </div>
                               </div>
                             ))}
                           </div>

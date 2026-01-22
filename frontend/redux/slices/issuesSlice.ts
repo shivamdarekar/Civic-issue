@@ -18,12 +18,64 @@ interface Issue {
   address?: string;
   createdAt: string;
   updatedAt: string;
+  category?: {
+    id: string;
+    name: string;
+    slug: string;
+    department: string;
+    slaHours: number;
+  };
+  ward?: {
+    id: string;
+    wardNumber: number;
+    name: string;
+    zone: {
+      id: string;
+      name: string;
+      code: string;
+    };
+  };
+  reporter?: {
+    id: string;
+    fullName: string;
+    role: string;
+    phoneNumber?: string;
+  };
+  assignee?: {
+    id: string;
+    fullName: string;
+    role: string;
+    department?: string;
+    phoneNumber?: string;
+  };
   media?: Array<{
     id: string;
     type: 'BEFORE' | 'AFTER';
     url: string;
     mimeType: string;
+    createdAt: string;
   }>;
+  comments?: Array<{
+    id: string;
+    text: string;
+    createdAt: string;
+    user: {
+      id: string;
+      fullName: string;
+      role: string;
+    };
+  }>;
+  history?: Array<{
+    id: string;
+    changeType: string;
+    oldValue: any;
+    newValue: any;
+    createdAt: string;
+  }>;
+  slaTargetAt?: string;
+  assignedAt?: string;
+  resolvedAt?: string;
+  verifiedAt?: string;
 }
 
 interface Category {
@@ -160,6 +212,7 @@ export const fetchIssueById = createAsyncThunk(
   async (issueId: string, { rejectWithValue }) => {
     try {
       const response = await axiosInstance.get(`/issues/${issueId}`);
+      console.log('Raw issue detail response:', response.data);
       return response.data.data;
     } catch (error: unknown) {
       return rejectWithValue(handleAxiosError(error, "Failed to fetch issue"));
