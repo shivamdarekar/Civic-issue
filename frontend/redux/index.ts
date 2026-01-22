@@ -71,6 +71,8 @@ export {
   fetchWardsForZone, // NEW
   fetchZoneDetail,
   fetchWardDetail,
+  getWardIssues,
+  reassignUserWork,
   fetchUserStatistics,
   clearError as clearAdminError,
   clearCurrentDetails,

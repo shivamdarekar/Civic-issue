@@ -41,12 +41,49 @@ interface ZoneOverview {
 }
 
 interface WardDetail {
-  id: string;
-  name: string;
-  zoneId: string;
+  wardNumber: number;
+  wardName: string;
+  zoneName: string;
+  engineers: Array<{
+    id: string;
+    fullName: string;
+    email: string;
+    phoneNumber: string;
+    isActive: boolean;
+    department: string;
+  }>;
+  totalEngineers: number;
   totalIssues: number;
-  issuesByStatus: Record<string, number>;
-  issuesByPriority: Record<string, number>;
+  open: number;
+  inProgress: number;
+  assigned: number;
+  resolved: number;
+  verified: number;
+  reopened: number;
+  rejected: number;
+  slaBreached: number;
+  slaCompliance: number;
+  priorities: {
+    critical: number;
+    high: number;
+    medium: number;
+    low: number;
+  };
+  avgOpenDays: number;
+  oldestOpenDays: number;
+  issues: Array<{
+    id: string;
+    status: string;
+    priority: string;
+    categoryName: string;
+    department: string;
+    createdAt: string;
+    resolvedAt: string | null;
+    slaTargetAt: string | null;
+    priorityWeight: number;
+    hasBeforeImage: boolean;
+    hasAfterImage: boolean;
+  }>;
 }
 
 interface UserStatistics {
@@ -58,17 +95,49 @@ interface UserStatistics {
   performanceScore: number;
 }
 
+interface ZoneDetail {
+  zoneName: string;
+  zoneOfficer: string;
+  totalWards: number;
+  totalIssues: number;
+  slaCompliance: number;
+}
+
+interface WardInZone {
+  wardId: string;
+  wardNumber: number;
+  name: string;
+  open: number;
+  inProgress: number;
+  slaBreached: number;
+  totalIssues: number;
+}
+
+interface WardIssue {
+  id: string;
+  ticketNumber: string;
+  status: string;
+  priority: string;
+  category: string;
+  department: string;
+  assignee: string | null;
+  slaBreached: boolean;
+  updatedAt: string;
+}
+
 interface AdminState {
   users: User[];
   departments: Department[];
   dashboard: AdminDashboard | null;
   zonesOverview: ZoneOverview[];
-  wardsByZone: Record<string, Array<{wardId: string, wardNumber: number, name: string}>>; // NEW: Cache wards by zoneId
-  currentZoneDetail: any | null;
+  wardsByZone: Record<string, WardInZone[]>;
+  currentZoneDetail: ZoneDetail | null;
   currentWardDetail: WardDetail | null;
+  wardIssues: WardIssue[];
   userStatistics: UserStatistics | null;
   loading: boolean;
-  loadingWards: boolean; // NEW: Loading state for wards
+  loadingWards: boolean;
+  loadingIssues: boolean;
   error: string | null;
 }
 
@@ -111,9 +180,11 @@ const initialState: AdminState = {
   wardsByZone: {},
   currentZoneDetail: null,
   currentWardDetail: null,
+  wardIssues: [],
   userStatistics: null,
   loading: false,
   loadingWards: false,
+  loadingIssues: false,
   error: null,
 };
 
@@ -200,7 +271,7 @@ export const fetchUsersByFilter = createAsyncThunk(
   "admin/fetchUsersByFilter",
   async (filters: UserFilter, { rejectWithValue }) => {
     try {
-      const response = await axiosInstance.get("/admin/users/filter", { params: filters });
+      const response = await axiosInstance.get("/admin/users/filter/search", { params: filters });
       return response.data.data;
     } catch (error: unknown) {
       return rejectWithValue(handleAxiosError(error, "Failed to fetch filtered users"));
@@ -300,6 +371,19 @@ export const fetchWardDetail = createAsyncThunk(
   }
 );
 
+// Reassign user work
+export const reassignUserWork = createAsyncThunk(
+  "admin/reassignUserWork",
+  async ({ fromUserId, toUserId }: { fromUserId: string; toUserId: string }, { rejectWithValue }) => {
+    try {
+      const response = await axiosInstance.post(`/admin/users/${fromUserId}/reassign`, { toUserId });
+      return response.data.data;
+    } catch (error: unknown) {
+      return rejectWithValue(handleAxiosError(error, "Failed to reassign user work"));
+    }
+  }
+);
+
 // Fetch user statistics
 export const fetchUserStatistics = createAsyncThunk(
   "admin/fetchUserStatistics",
@@ -312,6 +396,20 @@ export const fetchUserStatistics = createAsyncThunk(
     }
   }
 );
+
+// Get ward issues
+export const getWardIssues = createAsyncThunk(
+  "admin/getWardIssues",
+  async ({ wardId, filters }: { wardId: string; filters?: any }, { rejectWithValue }) => {
+    try {
+      const response = await axiosInstance.get(`/admin/wards/${wardId}/issues`, { params: filters });
+      return response.data.data;
+    } catch (error: unknown) {
+      return rejectWithValue(handleAxiosError(error, "Failed to fetch ward issues"));
+    }
+  }
+);
+
 
 // Admin slice
 const adminSlice = createSlice({
@@ -461,12 +559,35 @@ const adminSlice = createSlice({
         state.error = action.payload as string;
       });
 
+    // Reassign user work
+    builder
+      .addCase(reassignUserWork.fulfilled, (state, action) => {
+        // Optionally update state based on reassignment result
+      })
+      .addCase(reassignUserWork.rejected, (state, action) => {
+        state.error = action.payload as string;
+      });
+
     // Fetch user statistics
     builder
       .addCase(fetchUserStatistics.fulfilled, (state, action) => {
         state.userStatistics = action.payload;
       })
       .addCase(fetchUserStatistics.rejected, (state, action) => {
+        state.error = action.payload as string;
+      });
+
+    // Get ward issues
+    builder
+      .addCase(getWardIssues.pending, (state) => {
+        state.loadingIssues = true;
+      })
+      .addCase(getWardIssues.fulfilled, (state, action) => {
+        state.loadingIssues = false;
+        state.wardIssues = action.payload;
+      })
+      .addCase(getWardIssues.rejected, (state, action) => {
+        state.loadingIssues = false;
         state.error = action.payload as string;
       });
   }
