@@ -1,11 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-<<<<<<< HEAD
-import { Shield, BarChart3, Users, Menu, X, User } from "lucide-react";
-=======
 import { Shield, BarChart3, Users, Menu, X, MapPin } from "lucide-react";
->>>>>>> 43198c6 (admin page updated)
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import Header from "@/components/admin/Header";
