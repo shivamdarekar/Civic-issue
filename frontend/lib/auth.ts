@@ -7,12 +7,32 @@ export interface User {
   id: string;
   fullName: string;
   email: string;
-  phoneNumber: string;
+  phoneNumber?: string;
   role: 'FIELD_WORKER' | 'WARD_ENGINEER' | 'ZONE_OFFICER' | 'SUPER_ADMIN';
-  department?: string;
-  wardId?: string;
-  zoneId?: string;
-  isActive: boolean;
+  department?: string | null;
+  wardId?: string | null;
+  zoneId?: string | null;
+  ward?: {
+    id: string;
+    wardNumber: number;
+    name: string;
+    zone?: {
+      id: string;
+      name: string;
+      code: string;
+    };
+  } | null;
+  zone?: {
+    id: string;
+    name: string;
+    code: string;
+  } | null;
+  gamification?: {
+    points: number;
+    badges: any;
+  } | null;
+  isActive?: boolean;
+  createdAt?: string;
 }
 
 export interface LoginResult {
@@ -34,9 +54,9 @@ export const authService = {
       localStorage.setItem('authToken', token);
       
       // Set user in Redux state
-      dispatch(setUserState(user));
+      dispatch(setUserState(user as any));
       
-      return { success: true, user, token };
+      return { success: true, user: user as User, token };
     }
     
     return {
@@ -65,8 +85,8 @@ export const authService = {
     const response = await apiClient.auth.getProfile();
     
     if (response.success && response.data) {
-      dispatch(setUserState(response.data));
-      return response.data;
+      dispatch(setUserState(response.data as any));
+      return response.data as User;
     }
     
     return null;
