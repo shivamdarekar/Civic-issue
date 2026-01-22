@@ -12,13 +12,26 @@ interface UserState {
     wardId?: string | null;
     zoneId?: string | null;
     ward?: {
+      id: string;
       wardNumber: number;
       name: string;
+      zone?: {
+        id: string;
+        name: string;
+        code: string;
+      };
     } | null;
     zone?: {
+      id: string;
       name: string;
+      code: string;
+    } | null;
+    gamification?: {
+      points: number;
+      badges: any;
     } | null;
     isActive?: boolean;
+    createdAt?: string;
   } | null;
 }
 

@@ -18,6 +18,7 @@ export default function LoginPage() {
   const { t } = useLanguage();
   const dispatch = useAppDispatch();
   const { loading: authLoading, error: authError } = useAppSelector((state) => state.auth);
+  const { user } = useAppSelector((state) => state.userState);
   
   const [showPassword, setShowPassword] = useState(false);
   const [credentials, setCredentials] = useState({
@@ -26,10 +27,17 @@ export default function LoginPage() {
   });
 
   useEffect(() => {
+    // Redirect if user is already logged in
+    if (user) {
+      const dashboardUrl = authService.getDashboardUrl(user.role);
+      router.push(dashboardUrl);
+      return;
+    }
+    
     return () => {
       dispatch(clearAuthError());
     };
-  }, [dispatch]);
+  }, [dispatch, user, router]);
 
   async function handleFormLogin(e: React.FormEvent) {
     e.preventDefault();
