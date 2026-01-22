@@ -44,10 +44,10 @@ export default function Header({ onMenuClick }: HeaderProps) {
                   VMC CiviSense
                 </h1>
                 <p className="text-xs text-blue-50 hidden sm:block">
-                  Admin Panel - Vadodara Municipal Corporation
+                  Zone Officer Panel - Vadodara Municipal Corporation
                 </p>
                 <p className="text-xs text-blue-50 sm:hidden">
-                  Admin Panel
+                  Zone Officer
                 </p>
               </div>
             </div>

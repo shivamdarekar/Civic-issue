@@ -1,6 +1,7 @@
 import express from "express";
 import cors from "cors";
 import cookieParser from "cookie-parser";
+import morgan from "morgan";
 import { errorHandler, notFoundHandler } from "./middlewares/error.middleware";
 
 
@@ -16,6 +17,7 @@ app.use(cors({
 }));
 
 // Middleware
+app.use(morgan('dev'));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());

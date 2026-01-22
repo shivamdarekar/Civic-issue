@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { Users, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import UserManagement from "@/components/admin/UserManagement";
 import AddUserDialog from "@/components/admin/AddUserDialog";
 import ViewUserDialog from "@/components/admin/ViewUserDialog";
@@ -66,22 +67,24 @@ export default function UserManagementPage() {
   return (
     <div className="space-y-4 sm:space-y-6 p-4 sm:p-0">
       {/* Header */}
-      <div className="bg-white rounded-xl shadow-sm p-4 sm:p-6 border border-gray-200">
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <div className="bg-blue-100 p-2 sm:p-3 rounded-lg">
-              <Users className="w-5 h-5 sm:w-6 sm:h-6 text-blue-600" />
+      <Card>
+        <CardContent className="p-4 sm:p-6">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <div className="bg-blue-100 p-2 sm:p-3 rounded-lg">
+                <Users className="w-5 h-5 sm:w-6 sm:h-6 text-blue-600" />
+              </div>
+              <div>
+                <CardTitle className="text-2xl sm:text-3xl font-bold text-gray-900">User Management</CardTitle>
+                <p className="text-sm sm:text-base text-gray-600">Manage system users and their permissions</p>
+              </div>
             </div>
-            <div>
-              <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">User Management</h1>
-              <p className="text-sm sm:text-base text-gray-600">Manage system users and their permissions</p>
-            </div>
+            <Button onClick={() => setShowAddDialog(true)} className="bg-blue-600 hover:bg-blue-700 w-full sm:w-auto">
+              <Plus className="w-4 h-4 mr-2" /> Add User
+            </Button>
           </div>
-          <Button onClick={() => setShowAddDialog(true)} className="bg-blue-600 hover:bg-blue-700 w-full sm:w-auto">
-            <Plus className="w-4 h-4 mr-2" /> Add User
-          </Button>
-        </div>
-      </div>
+        </CardContent>
+      </Card>
 
       {/* User Management Component */}
       <UserManagement 

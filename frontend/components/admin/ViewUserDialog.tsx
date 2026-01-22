@@ -5,6 +5,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
+import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
 import { User, Mail, Phone, Shield, Building, MapPin, Users, Calendar } from "lucide-react";
 import { useAppDispatch, useAppSelector } from "@/redux/hooks";
 import { fetchUserById } from "@/redux";
@@ -106,33 +108,30 @@ export default function ViewUserDialog({ open, onClose, userId }: ViewUserDialog
                   </div>
                 </div>
 
-                <div className="space-y-2">
-                  <Label className="text-sm font-medium text-gray-700 flex items-center gap-1">
-                    <Shield className="w-3 h-3" /> Role
-                  </Label>
-                  <div className="p-3 bg-gray-50 rounded-lg border">
-                    <span className={`inline-flex px-2 py-1 rounded-full text-xs font-medium ${
-                      userData.role === 'SUPER_ADMIN' ? 'bg-purple-100 text-purple-800' :
-                      userData.role === 'ZONE_OFFICER' ? 'bg-blue-100 text-blue-800' :
-                      userData.role === 'WARD_ENGINEER' ? 'bg-green-100 text-green-800' :
-                      userData.role === 'FIELD_WORKER' ? 'bg-orange-100 text-orange-800' :
-                      'bg-gray-100 text-gray-800'
-                    }`}>
-                      {userData.role.replace('_', ' ')}
-                    </span>
+                  <div className="space-y-2">
+                    <Label className="text-sm font-medium text-gray-700 flex items-center gap-1">
+                      <Shield className="w-3 h-3" /> Role
+                    </Label>
+                    <div className="p-3 bg-gray-50 rounded-lg border">
+                      <Badge variant={
+                        userData.role === 'SUPER_ADMIN' ? 'destructive' :
+                        userData.role === 'ZONE_OFFICER' ? 'secondary' :
+                        userData.role === 'WARD_ENGINEER' ? 'default' :
+                        'outline'
+                      }>
+                        {userData.role.replace('_', ' ')}
+                      </Badge>
+                    </div>
                   </div>
-                </div>
 
-                <div className="space-y-2">
-                  <Label className="text-sm font-medium text-gray-700">Status</Label>
-                  <div className="p-3 bg-gray-50 rounded-lg border">
-                    <span className={`inline-flex px-2 py-1 rounded-full text-xs font-medium ${
-                      userData.isActive ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
-                    }`}>
-                      {userData.isActive ? 'Active' : 'Inactive'}
-                    </span>
+                  <div className="space-y-2">
+                    <Label className="text-sm font-medium text-gray-700">Status</Label>
+                    <div className="p-3 bg-gray-50 rounded-lg border">
+                      <Badge variant={userData.isActive ? 'default' : 'destructive'}>
+                        {userData.isActive ? 'Active' : 'Inactive'}
+                      </Badge>
+                    </div>
                   </div>
-                </div>
 
                 <div className="space-y-2">
                   <Label className="text-sm font-medium text-gray-700 flex items-center gap-1">
@@ -193,15 +192,15 @@ export default function ViewUserDialog({ open, onClose, userId }: ViewUserDialog
             {/* Skeleton for Basic Information */}
             <div className="space-y-4">
               <div className="flex items-center gap-2 mb-3">
-                <div className="w-4 h-4 bg-gray-200 rounded animate-pulse" />
-                <div className="w-32 h-4 bg-gray-200 rounded animate-pulse" />
+                <Skeleton className="w-4 h-4" />
+                <Skeleton className="w-32 h-4" />
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {[...Array(6)].map((_, i) => (
                   <div key={i} className="space-y-2">
-                    <div className="w-20 h-4 bg-gray-200 rounded animate-pulse" />
+                    <Skeleton className="w-20 h-4" />
                     <div className="p-3 bg-gray-50 rounded-lg border">
-                      <div className="w-full h-4 bg-gray-200 rounded animate-pulse" />
+                      <Skeleton className="w-full h-4" />
                     </div>
                   </div>
                 ))}
@@ -210,17 +209,17 @@ export default function ViewUserDialog({ open, onClose, userId }: ViewUserDialog
             
             {/* Skeleton for Assignment Details */}
             <div className="space-y-4">
-              <div className="w-full h-px bg-gray-200" />
+              <Separator />
               <div className="flex items-center gap-2 mb-3">
-                <div className="w-4 h-4 bg-gray-200 rounded animate-pulse" />
-                <div className="w-32 h-4 bg-gray-200 rounded animate-pulse" />
+                <Skeleton className="w-4 h-4" />
+                <Skeleton className="w-32 h-4" />
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {[...Array(3)].map((_, i) => (
                   <div key={i} className="space-y-2">
-                    <div className="w-16 h-4 bg-gray-200 rounded animate-pulse" />
+                    <Skeleton className="w-16 h-4" />
                     <div className="p-3 bg-gray-50 rounded-lg border">
-                      <div className="w-full h-4 bg-gray-200 rounded animate-pulse" />
+                      <Skeleton className="w-full h-4" />
                     </div>
                   </div>
                 ))}

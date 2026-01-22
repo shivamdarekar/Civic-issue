@@ -4,6 +4,8 @@ import { useState, useEffect } from "react";
 import { Shield, FileText, Users, TrendingUp, AlertTriangle, Clock } from "lucide-react";
 import { useAppDispatch, useAppSelector } from "@/redux/hooks";
 import { fetchAdminDashboard, fetchZonesOverview } from "@/redux";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import StatCard from "@/components/admin/StatCard";
 import SystemOverview from "@/components/admin/SystemOverview";
 
@@ -24,32 +26,38 @@ export default function AdminPage() {
     return (
       <div className="flex items-center justify-center h-64">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+        <span className="ml-3 text-gray-600">Loading dashboard...</span>
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-        <p className="text-red-800">Error loading dashboard: {error}</p>
-      </div>
+      <Alert variant="destructive">
+        <AlertTriangle className="h-4 w-4" />
+        <AlertDescription>
+          Error loading dashboard: {error}
+        </AlertDescription>
+      </Alert>
     );
   }
 
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-200">
-        <div className="flex items-center gap-3 mb-4">
-          <div className="bg-red-100 p-3 rounded-lg">
-            <Shield className="w-6 h-6 text-red-600" />
+      <Card>
+        <CardContent className="p-6">
+          <div className="flex items-center gap-3 mb-4">
+            <div className="bg-red-100 p-3 rounded-lg">
+              <Shield className="w-6 h-6 text-red-600" />
+            </div>
+            <div>
+              <CardTitle className="text-3xl font-bold text-gray-800">System Overview</CardTitle>
+              <p className="text-gray-600">Vadodara Municipal Corporation - Complete system oversight</p>
+            </div>
           </div>
-          <div>
-            <h1 className="text-3xl font-bold text-gray-800">System Overview</h1>
-            <p className="text-gray-600">Vadodara Municipal Corporation - Complete system oversight</p>
-          </div>
-        </div>
-      </div>
+        </CardContent>
+      </Card>
 
       {/* Key Metrics */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-6">

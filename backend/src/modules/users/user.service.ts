@@ -95,7 +95,7 @@ export class UserDashboardService {
 
       prisma.issue.groupBy({
         by: ["priority"],
-        where: { ...where, priority: { not: null } as any },
+        where,
         _count: { _all: true },
       }),
 
@@ -161,12 +161,13 @@ export class UserDashboardService {
     };
   }
 
-  static async getAssignedIssuesDashboard(userId: string, limit = 10): Promise<AssignedIssuesDashboardPayload> {
+  static async getAssignedIssuesDashboard(userId: string, userDepartment: Department | null, limit = 10): Promise<AssignedIssuesDashboardPayload> {
     const safeLimit = Math.min(Math.max(Number(limit) || 10, 1), 50);
 
     const where: Prisma.IssueWhereInput = {
       deletedAt: null,
       assigneeId: userId,
+      ...(userDepartment && { category: { department: userDepartment } })
     };
 
     const [totalAssigned, byStatusRows, byPriorityRows, items] = await Promise.all([
@@ -182,7 +183,7 @@ export class UserDashboardService {
       // Group counts by Priority (exclude null priorities)
       prisma.issue.groupBy({
         by: ["priority"],
-        where: { ...where, priority: { not: null } as any },
+        where,
         _count: { _all: true },
       }),
 
@@ -196,6 +197,23 @@ export class UserDashboardService {
           status: true,
           priority: true,
           createdAt: true,
+          category: {
+            select: {
+              name: true,
+              department: true
+            }
+          },
+          ward: {
+            select: {
+              wardNumber: true,
+              name: true
+            }
+          },
+          assignee: {
+            select: {
+              fullName: true
+            }
+          }
         },
       }),
     ]);

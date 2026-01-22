@@ -71,11 +71,21 @@ export {
   fetchWardsForZone, // NEW
   fetchZoneDetail,
   fetchWardDetail,
+  getWardIssues,
+  reassignUserWork,
   fetchUserStatistics,
   clearError as clearAdminError,
   clearCurrentDetails,
   updateUserInList as updateAdminUserInList,
 } from './slices/adminSlice';
+
+// Zone slice
+export {
+  fetchZoneOfficerDetail,
+  fetchZoneOfficerWards,
+  clearError as clearZoneError,
+  clearZoneData,
+} from './slices/zoneSlice';
 
 // Types
 export type { RootState, AppDispatch } from './store';

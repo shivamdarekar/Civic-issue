@@ -45,9 +45,10 @@ export class UserDashboardController {
 
   static assigned = asyncHandler(async (req: Request, res: Response) => {
     const userId = req.user!.id;
+    const userDepartment = req.user!.department as Department | null;
     const limit = parseLimit(req);
 
-    const data = await UserDashboardService.getAssignedIssuesDashboard(userId, limit);
+    const data = await UserDashboardService.getAssignedIssuesDashboard(userId, userDepartment, limit);
     return res.status(200).json(new ApiResponse(200, data, "Assigned issues dashboard retrieved"));
   });
 

@@ -1,7 +1,10 @@
 "use client";
 
-import { Card } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { User, Shield } from "lucide-react";
+import { useRouter } from "next/navigation";
 
 interface ZoneData {
   zoneId: string;
@@ -25,12 +28,17 @@ interface SystemOverviewProps {
 }
 
 export default function SystemOverview({ dashboard, zonesOverview }: SystemOverviewProps) {
+  const router = useRouter();
+
+  const handleZoneClick = (zoneId: string) => {
+    router.push(`/admin/zones/${zoneId}`);
+  };
   if (!dashboard) {
     return (
       <div className="space-y-6">
-        <Card className="p-6">
-          <p className="text-gray-500">Loading dashboard data...</p>
-        </Card>
+        <Alert>
+          <AlertDescription>Loading dashboard data...</AlertDescription>
+        </Alert>
       </div>
     );
   }
@@ -43,70 +51,80 @@ export default function SystemOverview({ dashboard, zonesOverview }: SystemOverv
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
         {zonesOverview && zonesOverview.length > 0 ? (
           zonesOverview.map((zone) => (
-            <Card key={zone.zoneId} className="p-6">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-semibold text-gray-900">{zone.name}</h3>
-                <div className="bg-blue-100 p-2 rounded-lg">
-                  <Shield className="w-4 h-4 text-blue-600" />
+            <Card 
+              key={zone.zoneId} 
+              className="cursor-pointer hover:shadow-lg transition-shadow"
+              onClick={() => handleZoneClick(zone.zoneId)}
+            >
+              <CardHeader className="pb-3">
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-lg">{zone.name}</CardTitle>
+                  <div className="bg-blue-100 p-2 rounded-lg">
+                    <Shield className="w-4 h-4 text-blue-600" />
+                  </div>
                 </div>
-              </div>
-              <div className="space-y-3">
+              </CardHeader>
+              <CardContent className="space-y-3">
                 <div className="flex justify-between items-center">
                   <span className="text-sm text-gray-600">Total Issues</span>
-                  <span className="text-lg font-bold text-blue-600">{zone.totalIssues}</span>
+                  <Badge variant="outline" className="text-blue-600">{zone.totalIssues}</Badge>
                 </div>
                 <div className="flex justify-between items-center">
                   <span className="text-sm text-gray-600">Open Issues</span>
-                  <span className="text-lg font-bold text-orange-600">{zone.openIssues}</span>
+                  <Badge variant="secondary" className="text-orange-600">{zone.openIssues}</Badge>
                 </div>
                 <div className="flex justify-between items-center">
                   <span className="text-sm text-gray-600">SLA Compliance</span>
-                  <span className={`text-lg font-bold ${
-                    zone.slaCompliance >= 90 ? 'text-green-600' : 
-                    zone.slaCompliance >= 70 ? 'text-yellow-600' : 'text-red-600'
-                  }`}>
+                  <Badge variant={
+                    zone.slaCompliance >= 90 ? 'default' : 
+                    zone.slaCompliance >= 70 ? 'secondary' : 'destructive'
+                  }>
                     {zone.slaCompliance}%
-                  </span>
+                  </Badge>
                 </div>
                 <div className="flex items-center gap-2 pt-2 border-t border-gray-100">
                   <User className="w-4 h-4 text-gray-500" />
                   <span className="text-sm text-gray-700 truncate">{zone.zoneOfficer}</span>
                 </div>
-              </div>
+              </CardContent>
             </Card>
           ))
         ) : (
-          <Card className="p-6 col-span-full">
-            <p className="text-gray-500 text-center">No zones data available</p>
-          </Card>
+          <Alert className="col-span-full">
+            <AlertDescription>No zones data available</AlertDescription>
+          </Alert>
         )}
       </div>
 
       {/* System Health Summary */}
-      <Card className="p-6">
-        <h3 className="text-lg font-semibold mb-4 text-gray-900">System Health Summary</h3>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div className="text-center p-4 bg-green-50 rounded-lg">
-            <div className="text-2xl font-bold text-green-600 mb-1">
-              {((resolvedIssues / dashboard.totalIssues) * 100).toFixed(1)}%
+      <Card>
+        <CardHeader>
+          <CardTitle>System Health Summary</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="text-center p-4 bg-green-50 rounded-lg">
+              <div className="text-2xl font-bold text-green-600 mb-1">
+                {((resolvedIssues / dashboard.totalIssues) * 100).toFixed(1)}%
+              </div>
+              <div className="text-sm text-green-700">Issues Resolved</div>
             </div>
-            <div className="text-sm text-green-700">Issues Resolved</div>
-          </div>
-          
-          <div className="text-center p-4 bg-orange-50 rounded-lg">
-            <div className="text-2xl font-bold text-orange-600 mb-1">
-              {((dashboard.slaBreached / dashboard.totalIssues) * 100).toFixed(1)}%
+            
+            <div className="text-center p-4 bg-orange-50 rounded-lg">
+              <div className="text-2xl font-bold text-orange-600 mb-1">
+                {((dashboard.slaBreached / dashboard.totalIssues) * 100).toFixed(1)}%
+              </div>
+              <div className="text-sm text-orange-700">SLA Breach Rate</div>
             </div>
-            <div className="text-sm text-orange-700">SLA Breach Rate</div>
-          </div>
-          
-          <div className="text-center p-4 bg-blue-50 rounded-lg">
-            <div className="text-2xl font-bold text-blue-600 mb-1">
-              {Number(dashboard.avgSlaTimeHours).toFixed(0)}h
+            
+            <div className="text-center p-4 bg-blue-50 rounded-lg">
+              <div className="text-2xl font-bold text-blue-600 mb-1">
+                {Number(dashboard.avgSlaTimeHours).toFixed(0)}h
+              </div>
+              <div className="text-sm text-blue-700">Avg Response Time</div>
             </div>
-            <div className="text-sm text-blue-700">Avg Response Time</div>
           </div>
-        </div>
+        </CardContent>
       </Card>
     </div>
   );
