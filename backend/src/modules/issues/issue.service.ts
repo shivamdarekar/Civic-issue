@@ -159,7 +159,7 @@ export class IssuesService {
   }
 
   static async createIssue(input: CreateIssueInput) {
-    return prisma.$transaction(async (tx) => {
+    const issue = await prisma.$transaction(async (tx) => {
       const category = await tx.issueCategory.findUnique({
         where: { id: input.categoryId },
         select: { id: true, slaHours: true, department: true },
@@ -234,26 +234,28 @@ export class IssuesService {
         },
       });
 
-      // Send email notification if issue was assigned
-      if (assigneeId && issue.assignee) {
-        try {
-          await EmailService.sendIssueAssignmentEmail(
-            issue.assignee.email,
-            issue.assignee.fullName,
-            issue.ticketNumber,
-            issue.category.name,
-            input.address || `${input.latitude}, ${input.longitude}`,
-            issue.priority
-          );
-          console.log(`✅ Assignment email sent to ${issue.assignee.email} for ticket ${issue.ticketNumber}`);
-        } catch (emailError) {
-          console.error('❌ Failed to send assignment email:', emailError);
-          // Don't fail the transaction if email fails
-        }
-      }
-
       return issue;
     });
+
+    // Send email notification if issue was assigned (outside transaction)
+    if (issue.assigneeId && issue.assignee) {
+      try {
+        await EmailService.sendIssueAssignmentEmail(
+          issue.assignee.email,
+          issue.assignee.fullName,
+          issue.ticketNumber,
+          issue.category.name,
+          input.address || `${input.latitude}, ${input.longitude}`,
+          issue.priority
+        );
+        console.log(`✅ Assignment email sent to ${issue.assignee.email} for ticket ${issue.ticketNumber}`);
+      } catch (emailError) {
+        console.error('❌ Failed to send assignment email:', emailError);
+        // Don't fail the request if email fails
+      }
+    }
+
+    return issue;
   }
 
 

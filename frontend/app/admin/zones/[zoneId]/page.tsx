@@ -2,7 +2,7 @@
 
 import { useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { ArrowLeft, MapPin, Users, AlertTriangle, TrendingUp, Building } from "lucide-react";
+import { ArrowLeft, MapPin, Users, AlertTriangle, TrendingUp, Building, Clock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -97,72 +97,82 @@ export default function ZoneDetailPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="p-4 sm:p-6 space-y-4 sm:space-y-6">
       {/* Header */}
-      <div className="flex items-center gap-4">
-        <Button variant="ghost" size="sm" onClick={() => router.back()}>
-          <ArrowLeft className="w-4 h-4 mr-2" />
-          Back
-        </Button>
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900">{currentZoneDetail.zoneName}</h1>
-          <p className="text-gray-600">Zone Officer: {currentZoneDetail.zoneOfficer || 'Not assigned'}</p>
+      <div className="bg-white rounded-xl shadow-sm p-4 sm:p-6 border border-gray-200">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4">
+          <Button variant="ghost" size="sm" onClick={() => router.back()}>
+            <ArrowLeft className="w-4 h-4 mr-2" />
+            Back
+          </Button>
+        </div>
+        <div className="flex items-center gap-3">
+          <div className="bg-blue-100 p-2 sm:p-3 rounded-lg">
+            <Building className="w-5 h-5 sm:w-6 sm:h-6 text-blue-600" />
+          </div>
+          <div>
+            <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-gray-800">{currentZoneDetail.zoneName}</h1>
+            <p className="text-sm sm:text-base text-gray-600">Zone Officer: {currentZoneDetail.zoneOfficer || 'Not assigned'}</p>
+          </div>
         </div>
       </div>
 
       {/* Zone Statistics */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-600">Total Wards</p>
-                <p className="text-2xl font-bold text-blue-600">{currentZoneDetail.totalWards}</p>
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-6">
+        <Card className="hover:shadow-md transition-shadow">
+          <CardContent className="p-3 sm:p-6">
+            <div className="flex items-center gap-2 sm:gap-3">
+              <Building className="w-6 h-6 sm:w-8 sm:h-8 text-blue-600 flex-shrink-0" />
+              <div className="min-w-0">
+                <p className="text-xs sm:text-sm text-gray-600">Total Wards</p>
+                <p className="text-lg sm:text-2xl font-bold text-blue-600">{currentZoneDetail.totalWards}</p>
               </div>
-              <Building className="w-8 h-8 text-blue-600" />
             </div>
           </CardContent>
         </Card>
 
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-600">Total Issues</p>
-                <p className="text-2xl font-bold text-orange-600">{currentZoneDetail.totalIssues}</p>
+        <Card className="hover:shadow-md transition-shadow">
+          <CardContent className="p-3 sm:p-6">
+            <div className="flex items-center gap-2 sm:gap-3">
+              <AlertTriangle className="w-6 h-6 sm:w-8 sm:h-8 text-orange-600 flex-shrink-0" />
+              <div className="min-w-0">
+                <p className="text-xs sm:text-sm text-gray-600">Total Issues</p>
+                <p className="text-lg sm:text-2xl font-bold text-orange-600">{currentZoneDetail.totalIssues}</p>
               </div>
-              <AlertTriangle className="w-8 h-8 text-orange-600" />
             </div>
           </CardContent>
         </Card>
 
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-600">SLA Compliance</p>
-                <p className={`text-2xl font-bold ${
+        <Card className="hover:shadow-md transition-shadow">
+          <CardContent className="p-3 sm:p-6">
+            <div className="flex items-center gap-2 sm:gap-3">
+              <TrendingUp className={`w-6 h-6 sm:w-8 sm:h-8 flex-shrink-0 ${
+                currentZoneDetail.slaCompliance >= 90 ? 'text-green-600' :
+                currentZoneDetail.slaCompliance >= 70 ? 'text-yellow-600' : 'text-red-600'
+              }`} />
+              <div className="min-w-0">
+                <p className="text-xs sm:text-sm text-gray-600">SLA Compliance</p>
+                <p className={`text-lg sm:text-2xl font-bold ${
                   currentZoneDetail.slaCompliance >= 90 ? 'text-green-600' :
                   currentZoneDetail.slaCompliance >= 70 ? 'text-yellow-600' : 'text-red-600'
                 }`}>
                   {currentZoneDetail.slaCompliance}%
                 </p>
               </div>
-              <TrendingUp className="w-8 h-8 text-green-600" />
             </div>
           </CardContent>
         </Card>
 
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-600">Zone Officer</p>
-                <p className="text-sm font-medium text-gray-900 truncate">
+        <Card className="hover:shadow-md transition-shadow">
+          <CardContent className="p-3 sm:p-6">
+            <div className="flex items-center gap-2 sm:gap-3">
+              <Users className="w-6 h-6 sm:w-8 sm:h-8 text-purple-600 flex-shrink-0" />
+              <div className="min-w-0">
+                <p className="text-xs sm:text-sm text-gray-600">Zone Officer</p>
+                <p className="text-sm sm:text-base font-medium text-gray-900 truncate">
                   {currentZoneDetail.zoneOfficer || 'Not assigned'}
                 </p>
               </div>
-              <Users className="w-8 h-8 text-purple-600" />
             </div>
           </CardContent>
         </Card>
@@ -170,8 +180,8 @@ export default function ZoneDetailPage() {
 
       {/* Wards List */}
       <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
+        <CardHeader className="pb-3">
+          <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
             <MapPin className="w-5 h-5" />
             Wards in {currentZoneDetail.zoneName}
             {loadingWards && (
@@ -194,45 +204,80 @@ export default function ZoneDetailPage() {
             />
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {wards.map((ward) => (
-                <Card 
-                  key={ward.wardId} 
-                  className="cursor-pointer hover:shadow-md transition-all duration-200 hover:scale-[1.02]"
-                  onClick={() => handleWardClick(ward.wardId)}
-                >
-                  <CardContent className="p-4">
-                    <div className="flex items-center justify-between mb-3">
-                      <h3 className="font-semibold text-gray-900">
-                        Ward {ward.wardNumber} - {ward.name}
-                      </h3>
-                      {ward.slaBreached > 0 && (
-                        <Badge variant="destructive">SLA Breach</Badge>
-                      )}
-                    </div>
-                    
-                    <div className="space-y-2 text-sm">
-                      <div className="flex justify-between">
-                        <span className="text-gray-600">Total Issues:</span>
-                        <span className="font-medium">{ward.totalIssues}</span>
+              {wards.map((ward) => {
+                const getUrgencyLevel = (ward: any) => {
+                  if (ward.slaBreached > 0) return { level: 'critical', color: 'border-red-500 bg-red-50' };
+                  if (ward.open > 5) return { level: 'high', color: 'border-orange-500 bg-orange-50' };
+                  if (ward.inProgress > 0) return { level: 'medium', color: 'border-yellow-500 bg-yellow-50' };
+                  return { level: 'normal', color: 'border-gray-200 bg-white' };
+                };
+                const urgency = getUrgencyLevel(ward);
+                return (
+                  <Card 
+                    key={ward.wardId} 
+                    className={`cursor-pointer hover:shadow-lg transition-all duration-200 border-l-4 ${urgency.color} group`}
+                    onClick={() => handleWardClick(ward.wardId)}
+                  >
+                    <CardHeader className="pb-2 sm:pb-3">
+                      <div className="flex items-center justify-between">
+                        <CardTitle className="text-base sm:text-lg font-bold text-gray-900">
+                          Ward {ward.wardNumber}
+                        </CardTitle>
+                        <Badge variant="outline" className="text-xs">
+                          {ward.name || 'Unnamed'}
+                        </Badge>
                       </div>
-                      <div className="flex justify-between">
-                        <span className="text-gray-600">Open:</span>
-                        <span className="font-medium text-orange-600">{ward.open}</span>
+                    </CardHeader>
+                    <CardContent className="space-y-3 sm:space-y-4">
+                      <div className="grid grid-cols-2 gap-2 sm:gap-3">
+                        <div className="text-center p-2 sm:p-3 bg-gray-50 rounded-lg group-hover:bg-gray-100 transition-colors">
+                          <div className="flex items-center justify-center gap-1 mb-1">
+                            <AlertTriangle className="w-3 h-3 text-gray-500" />
+                            <p className="text-xs text-gray-500">Total</p>
+                          </div>
+                          <p className="font-bold text-sm sm:text-base text-gray-900">
+                            {ward.totalIssues || 0}
+                          </p>
+                        </div>
+                        <div className={`text-center p-2 sm:p-3 rounded-lg transition-colors ${
+                          ward.open === 0 ? "bg-gray-100 text-gray-600" : "bg-red-100 text-red-700"
+                        }`}>
+                          <p className="text-xs font-medium">Open</p>
+                          <p className="font-bold text-sm sm:text-base">{ward.open || 0}</p>
+                        </div>
                       </div>
-                      <div className="flex justify-between">
-                        <span className="text-gray-600">In Progress:</span>
-                        <span className="font-medium text-blue-600">{ward.inProgress}</span>
+                      
+                      <div className="grid grid-cols-2 gap-2 sm:gap-3">
+                        <div className={`text-center p-2 sm:p-3 rounded-lg transition-colors ${
+                          ward.inProgress === 0 ? "bg-gray-100 text-gray-600" : "bg-yellow-100 text-yellow-700"
+                        }`}>
+                          <div className="flex items-center justify-center gap-1 mb-1">
+                            <TrendingUp className="w-3 h-3" />
+                          </div>
+                          <p className="text-xs font-medium">In Progress</p>
+                          <p className="font-bold text-sm sm:text-base">{ward.inProgress || 0}</p>
+                        </div>
+                        <div className={`text-center p-2 sm:p-3 rounded-lg transition-colors ${
+                          ward.slaBreached === 0 ? "bg-gray-100 text-gray-600" : "bg-orange-100 text-orange-700"
+                        }`}>
+                          <div className="flex items-center justify-center gap-1 mb-1">
+                            <Clock className="w-3 h-3" />
+                          </div>
+                          <p className="text-xs font-medium">SLA Breach</p>
+                          <p className="font-bold text-sm sm:text-base">{ward.slaBreached || 0}</p>
+                        </div>
                       </div>
-                      {ward.slaBreached > 0 && (
-                        <div className="flex justify-between pt-2 border-t">
-                          <span className="text-gray-600">SLA Breached:</span>
-                          <span className="font-medium text-red-600">{ward.slaBreached}</span>
+
+                      {urgency.level === 'critical' && (
+                        <div className="flex items-center gap-2 p-2 bg-red-50 border border-red-200 rounded-lg">
+                          <AlertTriangle className="w-4 h-4 text-red-600" />
+                          <span className="text-xs text-red-700 font-medium">Requires Immediate Attention</span>
                         </div>
                       )}
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
+                    </CardContent>
+                  </Card>
+                );
+              })}
             </div>
           )}
         </CardContent>

@@ -8,6 +8,17 @@ interface DashboardIssue {
   status: string;
   priority: string;
   createdAt: string;
+  category?: {
+    name: string;
+    department: string;
+  };
+  ward?: {
+    wardNumber: number;
+    name: string;
+  };
+  assignee?: {
+    fullName: string;
+  };
 }
 
 interface FieldWorkerDashboard {
@@ -106,6 +117,7 @@ export const fetchAssignedIssuesDashboard = createAsyncThunk(
   async (limit: number = 10, { rejectWithValue }) => {
     try {
       const response = await axiosInstance.get(`/users/dashboard/assigned?limit=${limit}`);
+      console.log('Raw assigned issues response:', response.data);
       return response.data.data;
     } catch (error: unknown) {
       return rejectWithValue(handleAxiosError(error, "Failed to fetch assigned issues dashboard"));
