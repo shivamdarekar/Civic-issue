@@ -334,10 +334,10 @@ export default function WardDetail({ wardDetail }: WardDetailProps) {
                     </div>
                     <div className="flex items-center gap-2">
                       {issue.hasBeforeImage && (
-                        <CheckCircle className="w-4 h-4 text-green-600" title="Has before image" />
+                        <CheckCircle className="w-4 h-4 text-green-600" />
                       )}
                       {issue.hasAfterImage && (
-                        <CheckCircle className="w-4 h-4 text-blue-600" title="Has after image" />
+                        <CheckCircle className="w-4 h-4 text-blue-600" />
                       )}
                     </div>
                   </div>
