@@ -23,19 +23,21 @@ interface Department {
 }
 
 interface AdminDashboard {
-  totalUsers: number;
   totalIssues: number;
-  issuesByStatus: Record<string, number>;
-  issuesByPriority: Record<string, number>;
-  recentActivity: any[];
+  open: number;
+  inProgress: number;
+  slaBreached: number;
+  avgSlaTimeHours: number;
+  resolutionRatePercent: number;
 }
 
 interface ZoneOverview {
-  id: string;
+  zoneId: string;
   name: string;
-  totalWards: number;
   totalIssues: number;
-  issuesByStatus: Record<string, number>;
+  openIssues: number;
+  slaCompliance: number;
+  zoneOfficer: string;
 }
 
 interface WardDetail {
@@ -159,7 +161,7 @@ export const updateUser = createAsyncThunk(
   "admin/updateUser",
   async ({ userId, updateData }: { userId: string; updateData: UpdateUserData }, { rejectWithValue }) => {
     try {
-      const response = await axiosInstance.patch(`/admin/users/${userId}`, updateData);
+      const response = await axiosInstance.put(`/admin/users/${userId}`, updateData);
       return response.data.data;
     } catch (error: unknown) {
       return rejectWithValue(handleAxiosError(error, "Failed to update user"));
@@ -225,7 +227,21 @@ export const fetchAdminDashboard = createAsyncThunk(
   async (_, { rejectWithValue }) => {
     try {
       const response = await axiosInstance.get("/admin/dashboard");
-      return response.data.data;
+      
+      console.log('Raw response from backend:', response.data);
+      console.log('Response data field:', response.data.data);
+      
+      const data = response.data.data;
+      
+      // Provide defaults for any missing values
+      return {
+        totalIssues: data.totalIssues ?? 0,
+        open: data.open ?? 0,
+        inProgress: data.inProgress ?? 0,
+        slaBreached: data.slaBreached ?? 0,
+        avgSlaTimeHours: Number(data.avgSlaTimeHours) || 0,
+        resolutionRatePercent: Number(data.resolutionRatePercent) || 0,
+      };
     } catch (error: unknown) {
       return rejectWithValue(handleAxiosError(error, "Failed to fetch dashboard"));
     }

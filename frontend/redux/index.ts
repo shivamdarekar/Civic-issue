@@ -2,6 +2,12 @@
 export { store, persistor } from './store';
 export { ReduxProvider } from './ReduxProvider';
 
+// UserState slice
+export {
+  setUser as setUserState,
+  clearUser as clearUserState,
+} from './UserState';
+
 // Hooks
 export { useAppDispatch, useAppSelector } from './hooks';
 
@@ -17,8 +23,7 @@ export {
   verifyOtp,
   resetPassword,
   clearError as clearAuthError,
-  setUser,
-  clearUser,
+  clearAuth,
   initializeAuth,
 } from './slices/authSlice';
 

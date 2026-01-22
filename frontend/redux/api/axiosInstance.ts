@@ -10,9 +10,11 @@ const axiosInstance = axios.create({
 // Request interceptor to add auth token
 axiosInstance.interceptors.request.use(
   (config) => {
-    const token = localStorage.getItem('authToken');
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
+    if (typeof window !== 'undefined') {
+      const token = localStorage.getItem('authToken');
+      if (token) {
+        config.headers.Authorization = `Bearer ${token}`;
+      }
     }
     return config;
   },
@@ -25,7 +27,7 @@ axiosInstance.interceptors.request.use(
 axiosInstance.interceptors.response.use(
   (response) => response,
   (error) => {
-    if (error.response?.status === 401) {
+    if (typeof window !== 'undefined' && error.response?.status === 401) {
       localStorage.removeItem('authToken');
       localStorage.removeItem('user');
       window.location.href = '/login';

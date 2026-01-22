@@ -771,7 +771,7 @@ export class AdminService {
         , 0) AS "avgSlaTimeHours",
         COALESCE(
           ROUND(
-            100 * (COUNT(*) FILTER (WHERE "resolved_at" IS NOT NULL AND "deleted_at" IS NULL))::numeric
+            100 * (COUNT(*) FILTER (WHERE "status" IN ('RESOLVED', 'VERIFIED') AND "deleted_at" IS NULL))::numeric
             / NULLIF(COUNT(*) FILTER (WHERE "deleted_at" IS NULL), 0)
           , 2)
         , 0) AS "resolutionRatePercent"
@@ -804,13 +804,15 @@ export class AdminService {
         z."id" AS "zoneId",
         z."name" AS "name",
         COALESCE(COUNT(i.*), 0) AS "totalIssues",
+        COALESCE(COUNT(i.*) FILTER (WHERE i."status" = 'OPEN'), 0) AS "openIssues",
         CASE
           WHEN COALESCE(COUNT(i.*), 0) = 0 THEN 100
           ELSE ROUND(
             100.0
             * (COUNT(*) FILTER (
-                WHERE i."resolved_at" IS NOT NULL
+                WHERE i."status" IN ('RESOLVED', 'VERIFIED')
                   AND i."sla_target_at" IS NOT NULL
+                  AND i."resolved_at" IS NOT NULL
                   AND i."resolved_at" <= i."sla_target_at"
               ))::numeric
             / NULLIF(COUNT(i.*), 0)
@@ -835,6 +837,7 @@ export class AdminService {
       zoneId: String(r.zoneId),
       name: r.name ?? "",
       totalIssues: Number(r.totalIssues ?? 0),
+      openIssues: Number(r.openIssues ?? 0),
       slaCompliance: Number(r.slaCompliance ?? 100),
       zoneOfficer: r.zoneOfficer ?? null,
     }));

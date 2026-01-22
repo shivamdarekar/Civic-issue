@@ -1,4 +1,7 @@
 import { apiClient } from './api-client';
+import { AppDispatch } from '@/redux/store';
+import { setUserState, clearUserState } from '@/redux';
+import { clearAuth } from '@/redux';
 
 export interface User {
   id: string;
@@ -20,16 +23,18 @@ export interface LoginResult {
 }
 
 export const authService = {
-  // Login function using the API client
-  login: async (email: string, password: string): Promise<LoginResult> => {
+  // Login function using Redux dispatch
+  login: async (email: string, password: string, dispatch: AppDispatch): Promise<LoginResult> => {
     const response = await apiClient.auth.login(email, password);
     
     if (response.success && response.data) {
       const { token, user } = response.data;
       
-      // Store token and user data
+      // Store token in localStorage
       localStorage.setItem('authToken', token);
-      localStorage.setItem('user', JSON.stringify(user));
+      
+      // Set user in Redux state
+      dispatch(setUserState(user));
       
       return { success: true, user, token };
     }
@@ -40,32 +45,27 @@ export const authService = {
     };
   },
 
-  // Logout function with API call
-  logout: async () => {
+  // Logout function with Redux dispatch
+  logout: async (dispatch: AppDispatch) => {
     try {
       await apiClient.auth.logout();
     } catch (error) {
       console.error('Logout API error:', error);
     } finally {
-      // Always clear local storage
+      // Clear token and Redux state
       localStorage.removeItem('authToken');
-      localStorage.removeItem('user');
+      dispatch(clearAuth());
+      dispatch(clearUserState());
       window.location.href = '/login';
     }
   },
 
-  // Get current user from localStorage
-  getCurrentUser: (): User | null => {
-    const userStr = localStorage.getItem('user');
-    return userStr ? JSON.parse(userStr) : null;
-  },
-
-  // Fetch fresh user profile from API
-  fetchProfile: async (): Promise<User | null> => {
+  // Fetch fresh user profile with Redux dispatch
+  fetchProfile: async (dispatch: AppDispatch): Promise<User | null> => {
     const response = await apiClient.auth.getProfile();
     
     if (response.success && response.data) {
-      localStorage.setItem('user', JSON.stringify(response.data));
+      dispatch(setUserState(response.data));
       return response.data;
     }
     
@@ -77,9 +77,8 @@ export const authService = {
     return !!localStorage.getItem('authToken');
   },
 
-  // Get user role
-  getUserRole: (): string | null => {
-    const user = authService.getCurrentUser();
+  // Get user role from Redux state
+  getUserRole: (user: User | null): string | null => {
     return user?.role || null;
   },
 

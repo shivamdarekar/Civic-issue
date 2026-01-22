@@ -1,8 +1,3 @@
-/**
- * usePasswordReset Hook
- * Manages the 3-step password reset flow state and API interactions
- */
-
 import { useState } from 'react';
 import { requestPasswordResetOtp, verifyOtp, resetPassword } from '@/lib/api-client';
 

@@ -2,6 +2,7 @@ import { Request, Response } from "express";
 import { asyncHandler } from "../../utils/asyncHandler";
 import { ApiResponse } from "../../utils/apiResponse";
 import { AdminService } from "./admin.service";
+import { serializeBigInt } from "../../utils/bigint-serializer";
 
 export class AdminController {
   // User Management Functions
@@ -88,9 +89,10 @@ export class AdminController {
     const { userId } = req.params;
 
     const statistics = await AdminService.getUserStatistics(userId);
+    const serializedStatistics = serializeBigInt(statistics);
 
     res.status(200).json(
-      new ApiResponse(200, statistics, "User statistics retrieved successfully")
+      new ApiResponse(200, serializedStatistics, "User statistics retrieved successfully")
     );
   });
 
@@ -124,13 +126,15 @@ export class AdminController {
   // Dashboard Functions
   static getDashboard = asyncHandler(async (_req: Request, res: Response) => {
     const data = await AdminService.getDashboard();
-    res.status(200).json(new ApiResponse(200, data, "Dashboard overview retrieved"));
+    const serializedData = serializeBigInt(data);
+    res.status(200).json(new ApiResponse(200, serializedData, "Dashboard overview retrieved"));
   });
 
 
   static getZonesOverview = asyncHandler(async (_req: Request, res: Response) => {
     const data = await AdminService.getZonesOverview();
-    res.status(200).json(new ApiResponse(200, data, "Zones overview retrieved"));
+    const serializedData = serializeBigInt(data);
+    res.status(200).json(new ApiResponse(200, serializedData, "Zones overview retrieved"));
   });
 
 
@@ -142,14 +146,16 @@ export class AdminController {
       return res.status(404).json(new ApiResponse(404, null, "Zone not found"));
     }
 
-    return res.status(200).json(new ApiResponse(200, data, "Zone detail retrieved"));
+    const serializedData = serializeBigInt(data);
+    return res.status(200).json(new ApiResponse(200, serializedData, "Zone detail retrieved"));
   });
 
 
   static getZoneWards = asyncHandler(async (req: Request, res: Response) => {
     const { zoneId } = req.params;
     const data = await AdminService.getZoneWards(zoneId);
-    return res.status(200).json(new ApiResponse(200, data, "Zone wards overview retrieved"));
+    const serializedData = serializeBigInt(data);
+    return res.status(200).json(new ApiResponse(200, serializedData, "Zone wards overview retrieved"));
   });
 
 
@@ -161,7 +167,8 @@ export class AdminController {
       return res.status(404).json(new ApiResponse(404, null, "Ward not found"));
     }
 
-    return res.status(200).json(new ApiResponse(200, data, "Ward detail retrieved"));
+    const serializedData = serializeBigInt(data);
+    return res.status(200).json(new ApiResponse(200, serializedData, "Ward detail retrieved"));
   });
 
 

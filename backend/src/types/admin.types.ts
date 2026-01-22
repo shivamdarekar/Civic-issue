@@ -10,7 +10,8 @@ export interface DashboardPayload {
 export interface ZoneOverview {
   zoneId: string;              
   name: string;
-  totalIssues: number;         
+  totalIssues: number;
+  openIssues: number;          
   slaCompliance: number;       
   zoneOfficer: string | null;  
 }
