@@ -1,20 +1,17 @@
 "use client";
-
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import Link from "next/link";
-import { HardHat, Building2, Shield, User, Eye, EyeOff, ArrowLeft } from "lucide-react";
+import { Shield, User, Eye, EyeOff, ArrowRight, Lock } from "lucide-react";
 import Image from "next/image";
+import Link from "next/link";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { useLanguage } from "@/lib/language-context";
 import { authService } from "@/lib/auth";
 import { useAppDispatch, useAppSelector } from "@/redux/hooks";
-import { loginUser, clearError } from "@/redux/slices/authSlice";
-import Header from "@/components/Header";
-import Footer from "@/components/Footer";
-
-type UserRole = "FIELD_WORKER" | "WARD_ENGINEER" | "ZONE_OFFICER" | "SUPER_ADMIN" | null;
+import { loginUser, clearAuthError } from "@/redux";
+import Header from "@/components/auth/Header";
+import Footer from "@/components/auth/Footer";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -22,48 +19,17 @@ export default function LoginPage() {
   const dispatch = useAppDispatch();
   const { loading: authLoading, error: authError } = useAppSelector((state) => state.auth);
   
-  const [selectedRole, setSelectedRole] = useState<UserRole>(null);
   const [showPassword, setShowPassword] = useState(false);
   const [credentials, setCredentials] = useState({
     email: "",
     password: ""
   });
 
-  // Clear errors when component unmounts
   useEffect(() => {
     return () => {
-      dispatch(clearError());
+      dispatch(clearAuthError());
     };
   }, [dispatch]);
-
-  const roleInfo = {
-    FIELD_WORKER: {
-      title: t('role.field.worker'),
-      icon: <HardHat className="w-8 h-8" />,
-      description: t('role.field.worker.desc')
-    },
-    WARD_ENGINEER: {
-      title: t('role.ward.engineer'),
-      icon: <Building2 className="w-8 h-8" />,
-      description: t('role.ward.engineer.desc')
-    },
-    ZONE_OFFICER: {
-      title: t('role.zone.officer'),
-      icon: <Image src="/VMC.webp" alt="VMC" width={32} height={32} className="w-8 h-8 object-contain" />,
-      description: t('role.zone.officer.desc')
-    },
-    SUPER_ADMIN: {
-      title: t('role.admin'),
-      icon: <Shield className="w-8 h-8" />,
-      description: t('role.admin.desc')
-    }
-  };
-
-  function handleRoleSelect(role: UserRole) {
-    setSelectedRole(role);
-    setCredentials({ email: "", password: "" });
-    dispatch(clearError());
-  }
 
   async function handleFormLogin(e: React.FormEvent) {
     e.preventDefault();
@@ -72,227 +38,173 @@ export default function LoginPage() {
       const result = await dispatch(loginUser(credentials)).unwrap();
       
       if (result) {
+        // Navigate to appropriate dashboard based on role
         const dashboardUrl = authService.getDashboardUrl(result.role);
         router.push(dashboardUrl);
       }
     } catch (error) {
-      // Error is already set in Redux state
-      console.error('Login error details:', {
-        error,
-        credentials: { email: credentials.email, password: '[REDACTED]' },
-        apiUrl: process.env.NEXT_PUBLIC_API_URL
-      });
+      // Error is handled by Redux
     }
   }
 
-  function handleBack() {
-    setSelectedRole(null);
-    setCredentials({ email: "", password: "" });
-    dispatch(clearError());
-  }
-
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 flex flex-col">
       <Header />
       
-      <main className="flex-1 flex items-center justify-center p-4">
-        <div className="max-w-4xl w-full">
-          <div className="text-center mb-12">
-            <div className="flex justify-center mb-6">
-              <div className="bg-blue-100 p-4 rounded-xl border-2 border-blue-200">
-                <Image 
-                  src="/VMC.webp" 
-                  alt="VMC Logo" 
-                  width={48} 
-                  height={48} 
-                  className="w-12 h-12 object-contain"
-                />
+      <main className="flex-1 flex items-center justify-center p-4 py-8">
+        <div className="max-w-5xl w-full">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
+            {/* Left Side - Branding */}
+            <div className="text-center lg:text-left">
+              <div className="flex justify-center lg:justify-start mb-8">
+                <div className="bg-gradient-to-br from-blue-100 to-blue-200 p-6 rounded-2xl border-2 border-blue-300 shadow-lg">
+                  <Image 
+                    src="/VMC.webp" 
+                    alt="VMC Logo" 
+                    width={64} 
+                    height={64} 
+                    className="w-16 h-16 object-contain"
+                  />
+                </div>
+              </div>
+              <h1 className="text-4xl lg:text-5xl font-bold text-gray-900 mb-4 leading-tight">
+                <span className="bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
+                  {t('app.title') || 'VMC CiviSense'}
+                </span>
+              </h1>
+              <h2 className="text-xl lg:text-2xl font-semibold text-blue-700 mb-6">
+                Vadodara Municipal Corporation
+              </h2>
+              <p className="text-gray-600 text-lg leading-relaxed max-w-md mx-auto lg:mx-0">
+                Secure access portal for municipal staff and administrators
+              </p>
+              
+              {/* Features */}
+              <div className="mt-8 space-y-3">
+                <div className="flex items-center gap-3 text-gray-700 justify-center lg:justify-start">
+                  <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+                  <span className="text-sm">Real-time issue tracking</span>
+                </div>
+                <div className="flex items-center gap-3 text-gray-700 justify-center lg:justify-start">
+                  <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                  <span className="text-sm">Mobile-first design</span>
+                </div>
+                <div className="flex items-center gap-3 text-gray-700 justify-center lg:justify-start">
+                  <div className="w-2 h-2 bg-purple-500 rounded-full"></div>
+                  <span className="text-sm">Offline capability</span>
+                </div>
               </div>
             </div>
-            <h1 className="text-4xl font-bold text-gray-800 mb-3">
-              {t('app.title')}
-            </h1>
-            <p className="text-gray-600 text-lg">
-              {!selectedRole 
-                ? t('login.select.role')
-                : `${t('login.signin.as')} ${roleInfo[selectedRole].title}`}
-            </p>
-          </div>
 
-          {!selectedRole ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-              <RoleCard
-                icon={<HardHat className="w-8 h-8" />}
-                title={t('role.field.worker')}
-                description={t('role.field.worker.desc')}
-                onClick={() => handleRoleSelect("FIELD_WORKER")}
-                bgColor="bg-yellow-50 border-yellow-200"
-              />
-              
-              <RoleCard
-                icon={<Building2 className="w-8 h-8" />}
-                title={t('role.ward.engineer')}
-                description={t('role.ward.engineer.desc')}
-                onClick={() => handleRoleSelect("WARD_ENGINEER")}
-                bgColor="bg-gray-100 border-gray-300"
-              />
-              
-              <RoleCard
-                icon={<Image src="/VMC.webp" alt="VMC" width={32} height={32} className="w-8 h-8 object-contain" />}
-                title={t('role.zone.officer')}
-                description={t('role.zone.officer.desc')}
-                onClick={() => handleRoleSelect("ZONE_OFFICER")}
-                bgColor="bg-white border-gray-200"
-              />
-              
-              <RoleCard
-                icon={<Shield className="w-8 h-8" />}
-                title={t('role.admin')}
-                description={t('role.admin.desc')}
-                onClick={() => handleRoleSelect("SUPER_ADMIN")}
-                bgColor="bg-yellow-50 border-yellow-200"
-              />
-            </div>
-          ) : selectedRole ? (
-            <div className="max-w-md mx-auto">
-              <div className="bg-white border border-gray-200 rounded-xl p-8 shadow-sm">
-                <div className="flex items-center justify-center gap-3 mb-8 p-4 bg-gray-50 rounded-lg border border-gray-200">
-                  <div className="text-blue-600">
-                    {roleInfo[selectedRole].icon}
+            {/* Right Side - Login Form */}
+            <div className="max-w-md mx-auto w-full">
+              <div className="bg-white/80 backdrop-blur-sm border-2 border-white/50 rounded-2xl p-8 shadow-xl">
+                <div className="text-center mb-8">
+                  <div className="inline-flex items-center gap-2 bg-blue-50 text-blue-700 px-4 py-2 rounded-full text-sm font-medium mb-4">
+                    <Lock className="w-4 h-4" />
+                    Secure Login
                   </div>
-                  <div>
-                    <h3 className="text-lg font-bold text-gray-800">
-                      {roleInfo[selectedRole].title}
-                    </h3>
-                    <p className="text-xs text-gray-600">
-                      {roleInfo[selectedRole].description}
-                    </p>
-                  </div>
+                  <h3 className="text-2xl font-bold text-gray-800 mb-2">
+                    Welcome Back
+                  </h3>
+                  <p className="text-gray-600">
+                    Sign in to access your dashboard
+                  </p>
                 </div>
 
                 {authError && (
-                  <div className="mb-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded">
-                    {authError}
+                  <div className="mb-6 p-4 bg-red-50 border-2 border-red-200 text-red-800 rounded-xl flex items-start gap-3">
+                    <div className="w-5 h-5 bg-red-200 rounded-full flex items-center justify-center shrink-0 mt-0.5">
+                      <div className="w-2 h-2 bg-red-600 rounded-full"></div>
+                    </div>
+                    <p className="text-sm">{authError}</p>
                   </div>
                 )}
 
                 <form onSubmit={handleFormLogin} className="space-y-6">
                   <div className="space-y-2">
-                    <label htmlFor="email" className="text-sm font-medium text-gray-700 flex items-center gap-2">
-                      <User className="w-4 h-4" />
-                      Email
+                    <label htmlFor="email" className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+                      <User className="w-4 h-4 text-blue-600" />
+                      Email Address
                     </label>
                     <Input
                       id="email"
                       type="email"
-                      placeholder="Email"
+                      placeholder="engineer@vmc.gov.in"
                       value={credentials.email}
                       onChange={(e) => setCredentials({ ...credentials, email: e.target.value })}
-                      className="bg-white border-gray-300 text-gray-800 placeholder:text-gray-400"
+                      className="h-12 bg-white border-2 border-gray-200 focus:border-blue-500 transition-all rounded-xl text-gray-900 placeholder:text-gray-500"
                       required
                       autoFocus
                     />
                   </div>
 
                   <div className="space-y-2">
-                    <label htmlFor="password" className="text-sm font-medium text-gray-700 flex items-center gap-2">
-                      <Shield className="w-4 h-4" />
-                      {t('login.password')}
+                    <label htmlFor="password" className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+                      <Shield className="w-4 h-4 text-blue-600" />
+                      Password
                     </label>
                     <div className="relative">
                       <Input
                         id="password"
                         type={showPassword ? "text" : "password"}
-                        placeholder={t('login.password')}
+                        placeholder="Enter your password"
                         value={credentials.password}
                         onChange={(e) => setCredentials({ ...credentials, password: e.target.value })}
-                        className="bg-white border-gray-300 text-gray-800 placeholder:text-gray-400 pr-10"
+                        className="h-12 bg-white border-2 border-gray-200 focus:border-blue-500 transition-all rounded-xl pr-12 text-gray-900 placeholder:text-gray-500"
                         required
                       />
                       <button
                         type="button"
                         onClick={() => setShowPassword(!showPassword)}
-                        className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
+                        className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
                       >
-                        {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                        {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
                       </button>
                     </div>
                   </div>
 
-                  <div className="flex items-center justify-between">
-                    <label className="flex items-center gap-2 text-sm text-gray-600 cursor-pointer">
-                      <input 
-                        type="checkbox" 
-                        className="rounded border-gray-300 bg-white text-blue-600" 
-                      />
-                      {t('login.remember')}
+                  <div className="flex items-center justify-between text-sm">
+                    <label className="flex items-center gap-2 text-gray-600">
+                      <input type="checkbox" className="rounded border-gray-300" />
+                      Remember me
                     </label>
-                    <Link 
-                      href="/forgot-password"
-                      className="text-sm text-blue-600 hover:text-blue-700 transition-colors"
-                    >
-                      {t('login.forgot')}
+                    <Link href="/forgot-password" className="text-blue-600 hover:text-blue-700 font-medium">
+                      Forgot password?
                     </Link>
                   </div>
 
                   <Button
                     type="submit"
                     disabled={authLoading}
-                    className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3"
+                    className="w-full h-12 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-semibold rounded-xl transition-all duration-200 shadow-lg hover:shadow-xl disabled:opacity-50"
                   >
                     {authLoading ? (
-                      <>
-                        <img src="/VMC.webp" alt="Loading" className="w-4 h-4 animate-pulse mr-2" />
-                        Logging in...
-                      </>
+                      <div className="flex items-center gap-2">
+                        <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                        Signing in...
+                      </div>
                     ) : (
-                      t('login.signin')
+                      <div className="flex items-center gap-2">
+                        Sign In
+                        <ArrowRight className="w-4 h-4" />
+                      </div>
                     )}
                   </Button>
-
-                  <button
-                    type="button"
-                    onClick={handleBack}
-                    className="w-full flex items-center justify-center gap-2 text-sm text-gray-500 hover:text-gray-700 transition-colors pt-4 border-t border-gray-200"
-                  >
-                    <ArrowLeft className="w-4 h-4" />
-                    {t('login.change.role')}
-                  </button>
                 </form>
+
+                <div className="mt-6 pt-6 border-t border-gray-200 text-center">
+                  <p className="text-xs text-gray-500">
+                    Protected by VMC Security • Government Use Only
+                  </p>
+                </div>
               </div>
             </div>
-          ) : null}
+          </div>
         </div>
       </main>
       
       <Footer />
     </div>
-  );
-}
-
-interface RoleCardProps {
-  icon: React.ReactNode;
-  title: string;
-  description: string;
-  onClick: () => void;
-  bgColor?: string;
-}
-
-function RoleCard({ icon, title, description, onClick, bgColor = "bg-white border-gray-200" }: RoleCardProps) {
-  return (
-    <button
-      onClick={onClick}
-      className={`${bgColor} border rounded-lg p-6 hover:shadow-md hover:border-blue-300 transition-all text-left group`}
-    >
-      <div className="mb-4 text-blue-600 group-hover:scale-110 transition-transform">
-        {icon}
-      </div>
-      <h3 className="text-lg font-bold text-gray-800 mb-2">
-        {title}
-      </h3>
-      <p className="text-sm text-gray-600">
-        {description}
-      </p>
-    </button>
   );
 }

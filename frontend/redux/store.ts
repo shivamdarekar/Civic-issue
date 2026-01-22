@@ -5,6 +5,7 @@ import authReducer from "./slices/authSlice";
 import issuesReducer from "./slices/issuesSlice";
 import userReducer from "./slices/userSlice";
 import adminReducer from "./slices/adminSlice";
+import userStateReducer from "./UserState";
 
 // Create storage that works with SSR
 let storage;
@@ -46,6 +47,7 @@ const rootReducer = combineReducers({
   issues: persistReducer(issuesPersistConfig, issuesReducer),
   user: userReducer,
   admin: adminReducer,
+  userState: userStateReducer,
 });
 
 export const store = configureStore({

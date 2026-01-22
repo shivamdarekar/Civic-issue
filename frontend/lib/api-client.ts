@@ -1,9 +1,3 @@
-/**
- * API Client for VMC Civic App
- * Centralized HTTP client with type-safe methods for authentication endpoints
- */
-
-// API Configuration
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api/v1';
 const ADMIN_BASE_URL = `${API_BASE_URL}/admin`;
 

@@ -475,6 +475,11 @@ export class IssuesService {
       if (args.newStatus === "VERIFIED") {
         updates.verifiedAt = now;
       }
+      // Clear resolvedAt when reopening
+      if (args.newStatus === "REOPENED") {
+        updates.resolvedAt = null;
+        updates.verifiedAt = null;
+      }
 
       const updated = await tx.issue.update({
         where: { id: args.issueId },
