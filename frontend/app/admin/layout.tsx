@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Shield, BarChart3, Users, Menu, X, MapPin } from "lucide-react";
+import { Shield, BarChart3, Users, Menu, X, MapPin, User } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import Header from "@/components/admin/Header";
@@ -65,7 +65,6 @@ export default function AdminLayout({
                     </div>
                     <div>
                       <p className="font-medium text-gray-900">{user.fullName}</p>
-                      <p className="text-sm text-gray-500">{user.role}</p>
                     </div>
                   </div>
                 </div>
@@ -121,7 +120,6 @@ export default function AdminLayout({
                   </div>
                   <div>
                     <p className="font-medium text-gray-900">{user.fullName}</p>
-                    <p className="text-sm text-gray-500">{user.role}</p>
                   </div>
                 </div>
               </div>

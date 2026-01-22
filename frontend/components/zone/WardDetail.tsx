@@ -20,11 +20,13 @@ import {
   Phone,
   Mail,
   MoreVertical,
-  Eye
+  Eye,
+  ExternalLink
 } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
 import ViewUserDialog from "@/components/admin/ViewUserDialog";
+import IssueDetailModal from "@/components/admin/IssueDetailModal";
 
 interface WardDetailProps {
   wardDetail: {
@@ -77,10 +79,15 @@ interface WardDetailProps {
 export default function WardDetail({ wardDetail }: WardDetailProps) {
   const [showViewDialog, setShowViewDialog] = useState(false);
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
+  const [selectedIssueId, setSelectedIssueId] = useState<string | null>(null);
 
   const handleViewUser = (userId: string) => {
     setSelectedUserId(userId);
     setShowViewDialog(true);
+  };
+
+  const handleIssueClick = (issueId: string) => {
+    setSelectedIssueId(issueId);
   };
 
   const getStatusColor = (status: string) => {
@@ -309,12 +316,12 @@ export default function WardDetail({ wardDetail }: WardDetailProps) {
       {/* Recent Issues */}
       <Card>
         <CardHeader className="pb-3">
-          <CardTitle className="text-base sm:text-lg">Recent Issues</CardTitle>
+          <CardTitle className="text-base sm:text-lg">Latest Issues</CardTitle>
         </CardHeader>
         <CardContent>
           {wardDetail.issues && wardDetail.issues.length > 0 ? (
             <div className="space-y-3">
-              {wardDetail.issues.slice(0, 10).map((issue) => (
+              {wardDetail.issues.sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()).slice(0, 10).map((issue) => (
                 <div key={issue.id} className="p-3 sm:p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                     <div className="flex-1 min-w-0">
@@ -334,11 +341,20 @@ export default function WardDetail({ wardDetail }: WardDetailProps) {
                     </div>
                     <div className="flex items-center gap-2">
                       {issue.hasBeforeImage && (
-                        <CheckCircle className="w-4 h-4 text-green-600" title="Has before image" />
+                        <CheckCircle className="w-4 h-4 text-green-600" />
                       )}
                       {issue.hasAfterImage && (
-                        <CheckCircle className="w-4 h-4 text-blue-600" title="Has after image" />
+                        <CheckCircle className="w-4 h-4 text-blue-600" />
                       )}
+                      <Button 
+                        variant="ghost" 
+                        size="sm"
+                        onClick={() => handleIssueClick(issue.id)}
+                        className="flex items-center gap-1 text-xs"
+                      >
+                        <ExternalLink className="w-3 h-3" />
+                        View
+                      </Button>
                     </div>
                   </div>
                 </div>
@@ -359,6 +375,15 @@ export default function WardDetail({ wardDetail }: WardDetailProps) {
         onClose={() => setShowViewDialog(false)}
         userId={selectedUserId}
       />
+
+      {/* Issue Detail Modal */}
+      {selectedIssueId && (
+        <IssueDetailModal 
+          isOpen={!!selectedIssueId}
+          onClose={() => setSelectedIssueId(null)}
+          issueId={selectedIssueId}
+        />
+      )}
     </div>
   );
 }

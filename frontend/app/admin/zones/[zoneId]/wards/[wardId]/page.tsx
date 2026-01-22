@@ -2,16 +2,22 @@
 
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { ArrowLeft, Users, AlertTriangle, Clock, TrendingUp, Building, MapPin, ExternalLink } from "lucide-react";
+import { ArrowLeft, Users, AlertTriangle, Clock, TrendingUp, Building, MapPin, ExternalLink, MoreVertical, Eye, Phone, Mail } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { useAppDispatch, useAppSelector } from "@/redux/hooks";
 import { fetchWardDetail, getWardIssues, clearAdminError } from "@/redux";
 import { ErrorState, EmptyState } from "@/components/admin/ErrorBoundary";
 import IssueDetailModal from "@/components/admin/IssueDetailModal";
+import ViewUserDialog from "@/components/admin/ViewUserDialog";
 
 export default function WardDetailPage() {
   const params = useParams();
@@ -22,6 +28,13 @@ export default function WardDetailPage() {
   const wardId = params.wardId as string;
   const zoneId = params.zoneId as string;
   const [selectedIssueId, setSelectedIssueId] = useState<string | null>(null);
+  const [showViewDialog, setShowViewDialog] = useState(false);
+  const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
+
+  const handleViewUser = (userId: string) => {
+    setSelectedUserId(userId);
+    setShowViewDialog(true);
+  };
 
   useEffect(() => {
     if (wardId) {
@@ -132,299 +145,250 @@ export default function WardDetailPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="p-4 sm:p-6 space-y-4 sm:space-y-6">
       {/* Header */}
-      <div className="bg-white rounded-lg shadow-sm border p-6 mb-6">
-        <div className="flex items-center gap-4">
-          <Button 
-            variant="outline" 
-            size="sm" 
-            onClick={() => router.push(`/admin/zones/${zoneId}`)}
-            className="flex items-center gap-2 hover:bg-gray-50"
-          >
-            <ArrowLeft className="w-4 h-4" />
+      <div className="bg-white rounded-xl shadow-sm p-4 sm:p-6 border border-gray-200">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4">
+          <Button variant="ghost" size="sm" onClick={() => router.push(`/admin/zones/${zoneId}`)}>
+            <ArrowLeft className="w-4 h-4 mr-2" />
             Back to Zone
           </Button>
-          <div className="flex-1">
-            <h1 className="text-3xl font-bold text-gray-900">
+        </div>
+        <div className="flex items-center gap-3">
+          <div className="bg-blue-100 p-2 sm:p-3 rounded-lg">
+            <MapPin className="w-5 h-5 sm:w-6 sm:h-6 text-blue-600" />
+          </div>
+          <div>
+            <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-gray-800">
               Ward {currentWardDetail.wardNumber} - {currentWardDetail.wardName}
             </h1>
-            <p className="text-gray-600 flex items-center gap-2 mt-1">
-              <MapPin className="w-4 h-4" />
-              {currentWardDetail.zoneName}
-            </p>
+            <p className="text-sm sm:text-base text-gray-600">{currentWardDetail.zoneName}</p>
           </div>
         </div>
       </div>
 
       {/* Ward Statistics */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-600">Total Issues</p>
-                <p className="text-2xl font-bold text-blue-600">{currentWardDetail.totalIssues}</p>
-              </div>
-              <AlertTriangle className="w-8 h-8 text-blue-600" />
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-600">Open Issues</p>
-                <p className="text-2xl font-bold text-orange-600">{currentWardDetail.open}</p>
-              </div>
-              <Clock className="w-8 h-8 text-orange-600" />
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-600">SLA Compliance</p>
-                <p className={`text-2xl font-bold ${
-                  currentWardDetail.slaCompliance >= 90 ? 'text-green-600' :
-                  currentWardDetail.slaCompliance >= 70 ? 'text-yellow-600' : 'text-red-600'
-                }`}>
-                  {currentWardDetail.slaCompliance}%
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-6">
+        <Card className="hover:shadow-md transition-shadow">
+          <CardContent className="p-3 sm:p-6">
+            <div className="flex items-center gap-2 sm:gap-3">
+              <AlertTriangle className="w-6 h-6 sm:w-8 sm:h-8 text-blue-600 flex-shrink-0" />
+              <div className="min-w-0">
+                <p className="text-xs sm:text-sm text-gray-600">Total Issues</p>
+                <p className="text-lg sm:text-2xl font-bold text-gray-900">
+                  {currentWardDetail.totalIssues || 0}
                 </p>
               </div>
-              <TrendingUp className="w-8 h-8 text-green-600" />
             </div>
           </CardContent>
         </Card>
 
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-600">Engineers</p>
-                <p className="text-2xl font-bold text-purple-600">{currentWardDetail.totalEngineers}</p>
-              </div>
-              <Users className="w-8 h-8 text-purple-600" />
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Performance Metrics */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <Card>
-          <CardContent className="p-6">
-            <div className="text-center">
-              <p className="text-sm font-medium text-gray-600 mb-2">Average Open Days</p>
-              <p className="text-3xl font-bold text-blue-600">{currentWardDetail.avgOpenDays}</p>
-              <p className="text-xs text-gray-500 mt-1">days on average</p>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="p-6">
-            <div className="text-center">
-              <p className="text-sm font-medium text-gray-600 mb-2">Oldest Open Issue</p>
-              <p className="text-3xl font-bold text-orange-600">{currentWardDetail.oldestOpenDays}</p>
-              <p className="text-xs text-gray-500 mt-1">days old</p>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="p-6">
-            <div className="text-center">
-              <p className="text-sm font-medium text-gray-600 mb-2">SLA Breached</p>
-              <p className="text-3xl font-bold text-red-600">{currentWardDetail.slaBreached}</p>
-              <p className="text-xs text-gray-500 mt-1">issues overdue</p>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Issue Status Overview */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <Card>
-          <CardHeader>
-            <CardTitle>Issue Status Distribution</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-3">
-              <div className="flex justify-between items-center">
-                <span className="text-sm text-gray-600">Open</span>
-                <Badge className="bg-red-100 text-red-800">{currentWardDetail.open}</Badge>
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="text-sm text-gray-600">Assigned</span>
-                <Badge className="bg-blue-100 text-blue-800">{currentWardDetail.assigned}</Badge>
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="text-sm text-gray-600">In Progress</span>
-                <Badge className="bg-yellow-100 text-yellow-800">{currentWardDetail.inProgress}</Badge>
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="text-sm text-gray-600">Resolved</span>
-                <Badge className="bg-green-100 text-green-800">{currentWardDetail.resolved}</Badge>
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="text-sm text-gray-600">Verified</span>
-                <Badge className="bg-green-100 text-green-800">{currentWardDetail.verified}</Badge>
+        <Card className="hover:shadow-md transition-shadow">
+          <CardContent className="p-3 sm:p-6">
+            <div className="flex items-center gap-2 sm:gap-3">
+              <Clock className="w-6 h-6 sm:w-8 sm:h-8 text-orange-600 flex-shrink-0" />
+              <div className="min-w-0">
+                <p className="text-xs sm:text-sm text-gray-600">SLA Breached</p>
+                <p className="text-lg sm:text-2xl font-bold text-gray-900">
+                  {currentWardDetail.slaBreached || 0}
+                </p>
               </div>
             </div>
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Priority Distribution</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-3">
-              <div className="flex justify-between items-center">
-                <span className="text-sm text-gray-600">Critical</span>
-                <Badge className="bg-red-100 text-red-800">{currentWardDetail.priorities.critical}</Badge>
+        <Card className="hover:shadow-md transition-shadow">
+          <CardContent className="p-3 sm:p-6">
+            <div className="flex items-center gap-2 sm:gap-3">
+              <TrendingUp className={`w-6 h-6 sm:w-8 sm:h-8 flex-shrink-0 ${
+                (currentWardDetail.slaCompliance || 0) >= 90 ? 'text-green-600' :
+                (currentWardDetail.slaCompliance || 0) >= 70 ? 'text-yellow-600' : 'text-red-600'
+              }`} />
+              <div className="min-w-0">
+                <p className="text-xs sm:text-sm text-gray-600">SLA Compliance</p>
+                <p className={`text-lg sm:text-2xl font-bold ${
+                  (currentWardDetail.slaCompliance || 0) >= 90 ? 'text-green-600' :
+                  (currentWardDetail.slaCompliance || 0) >= 70 ? 'text-yellow-600' : 'text-red-600'
+                }`}>
+                  {currentWardDetail.slaCompliance ? `${currentWardDetail.slaCompliance.toFixed(1)}%` : '0%'}
+                </p>
               </div>
-              <div className="flex justify-between items-center">
-                <span className="text-sm text-gray-600">High</span>
-                <Badge className="bg-orange-100 text-orange-800">{currentWardDetail.priorities.high}</Badge>
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="text-sm text-gray-600">Medium</span>
-                <Badge className="bg-yellow-100 text-yellow-800">{currentWardDetail.priorities.medium}</Badge>
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="text-sm text-gray-600">Low</span>
-                <Badge className="bg-green-100 text-green-800">{currentWardDetail.priorities.low}</Badge>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="hover:shadow-md transition-shadow">
+          <CardContent className="p-3 sm:p-6">
+            <div className="flex items-center gap-2 sm:gap-3">
+              <Users className="w-6 h-6 sm:w-8 sm:h-8 text-purple-600 flex-shrink-0" />
+              <div className="min-w-0">
+                <p className="text-xs sm:text-sm text-gray-600">Engineers</p>
+                <p className="text-lg sm:text-2xl font-bold text-gray-900">
+                  {currentWardDetail.totalEngineers || 0}
+                </p>
               </div>
             </div>
           </CardContent>
         </Card>
       </div>
 
-      {/* Engineers */}
+      {/* Status Distribution */}
       <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Users className="w-5 h-5" />
-            Ward Engineers ({currentWardDetail.totalEngineers})
-          </CardTitle>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base sm:text-lg">Issue Status Distribution</CardTitle>
         </CardHeader>
         <CardContent>
-          {currentWardDetail.engineers.length === 0 ? (
-            <EmptyState 
-              title="No engineers assigned"
-              message="This ward currently has no engineers assigned to it."
-              icon={<Users className="w-8 h-8 text-gray-400" />}
-            />
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {currentWardDetail.engineers.map((engineer) => (
-                <Card key={engineer.id} className="border-l-4 border-l-blue-500">
-                  <CardContent className="p-4">
-                    <div className="flex items-center justify-between mb-2">
-                      <h4 className="font-semibold text-gray-900">{engineer.fullName}</h4>
-                      <Badge variant={engineer.isActive ? 'default' : 'secondary'}>
-                        {engineer.isActive ? 'Active' : 'Inactive'}
-                      </Badge>
-                    </div>
-                    <div className="space-y-1 text-sm text-gray-600">
-                      <p className="truncate">{engineer.email}</p>
-                      <p>{engineer.phoneNumber}</p>
-                      <p className="font-medium text-blue-600">{engineer.department?.replace('_', ' ')}</p>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          )}
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-7 gap-2 sm:gap-4">
+            {[
+              { label: 'Open', value: currentWardDetail.open, color: 'bg-red-50 text-red-700' },
+              { label: 'Assigned', value: currentWardDetail.assigned, color: 'bg-blue-50 text-blue-700' },
+              { label: 'In Progress', value: currentWardDetail.inProgress, color: 'bg-yellow-50 text-yellow-700' },
+              { label: 'Resolved', value: currentWardDetail.resolved, color: 'bg-green-50 text-green-700' },
+              { label: 'Verified', value: currentWardDetail.verified, color: 'bg-emerald-50 text-emerald-700' },
+              { label: 'Reopened', value: currentWardDetail.reopened, color: 'bg-orange-50 text-orange-700' },
+              { label: 'Rejected', value: currentWardDetail.rejected, color: 'bg-gray-50 text-gray-700' }
+            ].map((status) => (
+              <div key={status.label} className={`text-center p-2 sm:p-3 rounded-lg ${status.color}`}>
+                <p className="text-xs sm:text-sm font-medium">{status.label}</p>
+                <p className="text-sm sm:text-xl font-bold">{status.value || 0}</p>
+              </div>
+            ))}
+          </div>
         </CardContent>
       </Card>
 
-      {/* All Issues */}
+      {/* Engineers and Priority Distribution */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base sm:text-lg">Ward Engineers</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {currentWardDetail.engineers && currentWardDetail.engineers.length > 0 ? (
+              <div className="space-y-3">
+                {currentWardDetail.engineers.map((engineer) => (
+                  <div key={engineer.id} className="p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                      <div className="flex-1 min-w-0">
+                        <p className="font-medium text-gray-900 truncate">{engineer.fullName}</p>
+                        <p className="text-xs sm:text-sm text-gray-600">{engineer.department}</p>
+                        <div className="flex flex-col sm:flex-row gap-1 sm:gap-4 mt-1">
+                          <div className="flex items-center gap-1 text-xs text-gray-500">
+                            <Mail className="w-3 h-3" />
+                            <span className="truncate">{engineer.email}</span>
+                          </div>
+                          {engineer.phoneNumber && (
+                            <div className="flex items-center gap-1 text-xs text-gray-500">
+                              <Phone className="w-3 h-3" />
+                              <span>{engineer.phoneNumber}</span>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Badge variant={engineer.isActive ? "default" : "secondary"} className="text-xs">
+                          {engineer.isActive ? "Active" : "Inactive"}
+                        </Badge>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                              <MoreVertical className="h-4 w-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem onClick={() => handleViewUser(engineer.id)}>
+                              <Eye className="mr-2 h-4 w-4" />
+                              View Profile
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-8">
+                <Users className="w-12 h-12 text-gray-400 mx-auto mb-3" />
+                <p className="text-gray-500">No engineers assigned</p>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base sm:text-lg">Priority Distribution</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-3">
+              {[
+                { label: 'Critical', value: currentWardDetail.priorities?.critical, color: 'bg-red-50 text-red-700' },
+                { label: 'High', value: currentWardDetail.priorities?.high, color: 'bg-orange-50 text-orange-700' },
+                { label: 'Medium', value: currentWardDetail.priorities?.medium, color: 'bg-yellow-50 text-yellow-700' },
+                { label: 'Low', value: currentWardDetail.priorities?.low, color: 'bg-green-50 text-green-700' }
+              ].map((priority) => (
+                <div key={priority.label} className={`flex items-center justify-between p-3 rounded-lg ${priority.color}`}>
+                  <span className="font-medium">{priority.label}</span>
+                  <span className="text-lg sm:text-xl font-bold">{priority.value || 0}</span>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Recent Issues */}
       <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <AlertTriangle className="w-5 h-5" />
-            All Issues ({wardIssues.length})
-          </CardTitle>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base sm:text-lg">Latest Issues</CardTitle>
         </CardHeader>
         <CardContent>
           {loadingIssues ? (
-            <div className="space-y-4">
+            <div className="space-y-3">
               {[...Array(5)].map((_, i) => (
                 <Skeleton key={i} className="h-16 w-full" />
               ))}
             </div>
           ) : wardIssues.length === 0 ? (
-            <EmptyState 
-              title="No issues found"
-              message="This ward currently has no reported issues."
-              icon={<AlertTriangle className="w-8 h-8 text-gray-400" />}
-            />
+            <div className="text-center py-8">
+              <AlertTriangle className="w-12 h-12 text-gray-400 mx-auto mb-3" />
+              <p className="text-gray-500">No issues found</p>
+            </div>
           ) : (
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Ticket Number</TableHead>
-                    <TableHead>Category</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Priority</TableHead>
-                    <TableHead>Department</TableHead>
-                    <TableHead>Assignee</TableHead>
-                    <TableHead>SLA Status</TableHead>
-                    <TableHead>Updated</TableHead>
-                    <TableHead>Action</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {wardIssues.map((issue) => (
-                    <TableRow key={issue.id} className="hover:bg-gray-50">
-                      <TableCell className="font-medium">
-                        {issue.ticketNumber || 'N/A'}
-                      </TableCell>
-                      <TableCell>{issue.category || 'N/A'}</TableCell>
-                      <TableCell>
-                        <span className={`inline-flex px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(issue.status)}`}>
+            <div className="space-y-3">
+              {wardIssues.sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()).slice(0, 10).map((issue) => (
+                <div key={issue.id} className="p-3 sm:p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex flex-wrap items-center gap-2 mb-2">
+                        <Badge className={`text-xs ${getStatusColor(issue.status)}`}>
                           {issue.status.replace('_', ' ')}
-                        </span>
-                      </TableCell>
-                      <TableCell>
-                        <span className={`inline-flex px-2 py-1 rounded-full text-xs font-medium ${getPriorityColor(issue.priority)}`}>
+                        </Badge>
+                        <Badge className={`text-xs ${getPriorityColor(issue.priority)}`}>
                           {issue.priority || 'N/A'}
-                        </span>
-                      </TableCell>
-                      <TableCell>{issue.department?.replace('_', ' ') || 'N/A'}</TableCell>
-                      <TableCell>{issue.assignee || 'Unassigned'}</TableCell>
-                      <TableCell>
-                        {issue.slaBreached ? (
-                          <Badge variant="destructive">Breached</Badge>
-                        ) : (
-                          <Badge variant="default">On Time</Badge>
-                        )}
-                      </TableCell>
-                      <TableCell className="text-sm text-gray-600">
-                        {formatDate(issue.updatedAt)}
-                      </TableCell>
-                      <TableCell>
-                        <Button 
-                          variant="ghost" 
-                          size="sm"
-                          onClick={() => handleIssueClick(issue.id)}
-                          className="flex items-center gap-1"
-                        >
-                          <ExternalLink className="w-3 h-3" />
-                          View
-                        </Button>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+                        </Badge>
+                      </div>
+                      <p className="font-medium text-gray-900 text-sm sm:text-base">{issue.category || 'N/A'}</p>
+                      <p className="text-xs sm:text-sm text-gray-600">{issue.department?.replace('_', ' ') || 'N/A'}</p>
+                      <p className="text-xs text-gray-500">
+                        Updated: {formatDate(issue.updatedAt)}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Button 
+                        variant="ghost" 
+                        size="sm"
+                        onClick={() => handleIssueClick(issue.id)}
+                        className="flex items-center gap-1 text-xs"
+                      >
+                        <ExternalLink className="w-3 h-3" />
+                        View
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              ))}
             </div>
           )}
         </CardContent>
@@ -438,6 +402,13 @@ export default function WardDetailPage() {
           issueId={selectedIssueId}
         />
       )}
+
+      {/* View User Dialog */}
+      <ViewUserDialog
+        open={showViewDialog}
+        onClose={() => setShowViewDialog(false)}
+        userId={selectedUserId}
+      />
     </div>
   );
 }
