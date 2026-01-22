@@ -952,7 +952,7 @@ export class AdminService {
         ) AS "engineers",
 
         -- Core issue stats
-        COALESCE(COUNT(i."id"), 0) FILTER (WHERE i."deleted_at" IS NULL) AS "totalIssues",
+        COALESCE(COUNT(i."id") FILTER (WHERE i."deleted_at" IS NULL), 0) AS "totalIssues",
         COALESCE(COUNT(i."id") FILTER (WHERE i."status" = 'OPEN'         AND i."deleted_at" IS NULL), 0) AS "open",
         COALESCE(COUNT(i."id") FILTER (WHERE i."status" = 'ASSIGNED'     AND i."deleted_at" IS NULL), 0) AS "assigned",
         COALESCE(COUNT(i."id") FILTER (WHERE i."status" = 'IN_PROGRESS'  AND i."deleted_at" IS NULL), 0) AS "inProgress",
@@ -1014,11 +1014,11 @@ export class AdminService {
               END                                                  AS "priorityWeight",
               EXISTS (
                 SELECT 1 FROM "issue_media" m
-                WHERE m."issue_id" = i2."id" AND m."media_type" = 'BEFORE'
+                WHERE m."issue_id" = i2."id" AND m."type" = 'BEFORE'
               )                                                    AS "hasBeforeImage",
               EXISTS (
                 SELECT 1 FROM "issue_media" m
-                WHERE m."issue_id" = i2."id" AND m."media_type" = 'AFTER'
+                WHERE m."issue_id" = i2."id" AND m."type" = 'AFTER'
               )                                                    AS "hasAfterImage"
             FROM "issues" i2
             LEFT JOIN "issue_categories" ic ON ic."id" = i2."category_id"
