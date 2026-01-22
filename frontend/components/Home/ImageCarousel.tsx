@@ -5,16 +5,12 @@ import { ChevronLeft, ChevronRight } from "lucide-react";
 import Image from "next/image";
 
 const images = [
-  { src: "/kirti mandir.jpeg", alt: "Kirti Mandir" },
-  { src: "/random.jpeg", alt: "Vadodara City" },
-  { src: "/circle.jpeg", alt: "Circle Area" },
-  { src: "/Sursagar-Lake.jpg", alt: "Sursagar Lake" },
-  { src: "/bridge.jpeg", alt: "Bridge" },
-  { src: "/Sayaji.jpg", alt: "Sayaji Garden" },
-  { src: "/Laxmi Vilas Palace.jpg", alt: "Laxmi Vilas Palace" },
   { src: "/Vadodara.jpg", alt: "Vadodara" },
+  { src: "/Laxmi Palace.jpg", alt: "Laxmi Palace" },
+  { src: "/kirti mandir.jpg", alt: "Kirti Mandir" },
+  { src: "/bridge.jpg", alt: "Bridge" },
   { src: "/tourist.jpg", alt: "Tourist" },
-  { src: "/bridge.jpeg", alt: "Bridge" },
+  { src: "/Sayajirao university.jpg", alt: "Sayajirao University" },
 ];
 
 export default function ImageCarousel() {
@@ -36,13 +32,18 @@ export default function ImageCarousel() {
     setCurrentIndex((prev) => (prev + 1) % images.length);
   };
 
+  if (!images[currentIndex]) {
+    return <div className="w-full h-[50vh] md:h-[60vh] lg:h-[70vh] bg-gray-100" />;
+  }
+
   return (
-    <div className="relative w-full h-[50vh] md:h-[60vh] lg:h-[70vh] overflow-hidden bg-gray-100">
+    <div className="relative w-full bg-gray-100 max-h-[600px] overflow-hidden">
       <Image
         src={images[currentIndex].src}
         alt={images[currentIndex].alt}
-        fill
-        className="object-contain w-full h-full transition-opacity duration-500"
+        width={1920}
+        height={1080}
+        className="w-full h-auto max-h-[600px] object-cover transition-opacity duration-500"
         priority
       />
       
