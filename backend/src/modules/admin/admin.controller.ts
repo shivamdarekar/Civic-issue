@@ -32,7 +32,8 @@ export class AdminController {
 
   static getUserById = asyncHandler(async (req: Request, res: Response) => {
     const { userId } = req.params;
-    const user = await AdminService.getUserById(userId);
+    const userIdStr = Array.isArray(userId) ? userId[0] : userId;
+    const user = await AdminService.getUserById(userIdStr);
 
     res.status(200).json(
       new ApiResponse(200, user, "User retrieved successfully")
@@ -42,9 +43,10 @@ export class AdminController {
 
   static updateUser = asyncHandler(async (req: Request, res: Response) => {
     const { userId } = req.params;
+    const userIdStr = Array.isArray(userId) ? userId[0] : userId;
     const updateData = req.body;
 
-    const user = await AdminService.updateUser(userId, updateData, req.user!.id);
+    const user = await AdminService.updateUser(userIdStr, updateData, req.user!.id);
 
     res.status(200).json(
       new ApiResponse(200, user, "User updated successfully")
@@ -54,9 +56,10 @@ export class AdminController {
 
   static reassignUserWork = asyncHandler(async (req: Request, res: Response) => {
     const { userId } = req.params;
+    const userIdStr = Array.isArray(userId) ? userId[0] : userId;
     const { toUserId } = req.body;
 
-    const result = await AdminService.reassignUserWork(userId, toUserId, req.user!.id);
+    const result = await AdminService.reassignUserWork(userIdStr, toUserId, req.user!.id);
 
     res.status(200).json(
       new ApiResponse(200, result, "Work reassigned successfully")
@@ -66,8 +69,9 @@ export class AdminController {
 
   static deactivateUser = asyncHandler(async (req: Request, res: Response) => {
     const { userId } = req.params;
+    const userIdStr = Array.isArray(userId) ? userId[0] : userId;
 
-    const user = await AdminService.deactivateUser(userId, req.user!.id);
+    const user = await AdminService.deactivateUser(userIdStr, req.user!.id);
 
     res.status(200).json(
       new ApiResponse(200, user, "User deactivated successfully")
@@ -77,8 +81,9 @@ export class AdminController {
 
   static reactivateUser = asyncHandler(async (req: Request, res: Response) => {
     const { userId } = req.params;
+    const userIdStr = Array.isArray(userId) ? userId[0] : userId;
 
-    const user = await AdminService.reactivateUser(userId, req.user!.id);
+    const user = await AdminService.reactivateUser(userIdStr, req.user!.id);
 
     res.status(200).json(
       new ApiResponse(200, user, "User reactivated successfully")
@@ -88,8 +93,9 @@ export class AdminController {
 
   static getUserStatistics = asyncHandler(async (req: Request, res: Response) => {
     const { userId } = req.params;
+    const userIdStr = Array.isArray(userId) ? userId[0] : userId;
 
-    const statistics = await AdminService.getUserStatistics(userId);
+    const statistics = await AdminService.getUserStatistics(userIdStr);
     const serializedStatistics = serializeBigInt(statistics);
 
     res.status(200).json(
@@ -141,13 +147,14 @@ export class AdminController {
 
   static getZoneDetail = asyncHandler(async (req: Request, res: Response) => {
     const { zoneId } = req.params;
+    const zoneIdStr = Array.isArray(zoneId) ? zoneId[0] : zoneId;
     
     // Access control: Zone officers can only access their own zone
-    if (req.user!.role === "ZONE_OFFICER" && req.user!.zoneId !== zoneId) {
+    if (req.user!.role === "ZONE_OFFICER" && req.user!.zoneId !== zoneIdStr) {
       return res.status(403).json(new ApiResponse(403, null, "Access denied to this zone"));
     }
     
-    const data = await AdminService.getZoneDetail(zoneId);
+    const data = await AdminService.getZoneDetail(zoneIdStr);
 
     if (!data) {
       return res.status(404).json(new ApiResponse(404, null, "Zone not found"));
@@ -160,13 +167,14 @@ export class AdminController {
 
   static getZoneWards = asyncHandler(async (req: Request, res: Response) => {
     const { zoneId } = req.params;
+    const zoneIdStr = Array.isArray(zoneId) ? zoneId[0] : zoneId;
     
     // Access control: Zone officers can only access their own zone
-    if (req.user!.role === "ZONE_OFFICER" && req.user!.zoneId !== zoneId) {
+    if (req.user!.role === "ZONE_OFFICER" && req.user!.zoneId !== zoneIdStr) {
       return res.status(403).json(new ApiResponse(403, null, "Access denied to this zone"));
     }
     
-    const data = await AdminService.getZoneWards(zoneId);
+    const data = await AdminService.getZoneWards(zoneIdStr);
     const serializedData = serializeBigInt(data);
     return res.status(200).json(new ApiResponse(200, serializedData, "Zone wards overview retrieved"));
   });
@@ -174,24 +182,25 @@ export class AdminController {
 
   static getWardDetail = asyncHandler(async (req: Request, res: Response) => {
     const { wardId } = req.params;
+    const wardIdStr = Array.isArray(wardId) ? wardId[0] : wardId;
     
     // Access control: Zone officers can only access wards in their zone, Ward engineers can only access their ward
     if (req.user!.role === "ZONE_OFFICER") {
       // Check if ward belongs to zone officer's zone
       const ward = await prisma.ward.findUnique({
-        where: { id: wardId },
+        where: { id: wardIdStr },
         select: { zoneId: true }
       });
       if (!ward || ward.zoneId !== req.user!.zoneId) {
         return res.status(403).json(new ApiResponse(403, null, "Access denied to this ward"));
       }
     } else if (req.user!.role === "WARD_ENGINEER") {
-      if (req.user!.wardId !== wardId) {
+      if (req.user!.wardId !== wardIdStr) {
         return res.status(403).json(new ApiResponse(403, null, "Access denied to this ward"));
       }
     }
     
-    const data = await AdminService.getWardDetail(wardId);
+    const data = await AdminService.getWardDetail(wardIdStr);
 
     if (!data) {
       return res.status(404).json(new ApiResponse(404, null, "Ward not found"));
@@ -204,19 +213,20 @@ export class AdminController {
 
   static getWardIssues = asyncHandler(async (req: Request, res: Response) => {
     const { wardId } = req.params;
+    const wardIdStr = Array.isArray(wardId) ? wardId[0] : wardId;
     
     // Access control: Zone officers can only access wards in their zone, Ward engineers can only access their ward
     if (req.user!.role === "ZONE_OFFICER") {
       // Check if ward belongs to zone officer's zone
       const ward = await prisma.ward.findUnique({
-        where: { id: wardId },
+        where: { id: wardIdStr },
         select: { zoneId: true }
       });
       if (!ward || ward.zoneId !== req.user!.zoneId) {
         return res.status(403).json(new ApiResponse(403, null, "Access denied to this ward"));
       }
     } else if (req.user!.role === "WARD_ENGINEER") {
-      if (req.user!.wardId !== wardId) {
+      if (req.user!.wardId !== wardIdStr) {
         return res.status(403).json(new ApiResponse(403, null, "Access denied to this ward"));
       }
     }
@@ -244,7 +254,7 @@ export class AdminController {
       categoryId: categoryIdQ || undefined,
     };
 
-    const data = await AdminService.getWardIssues(wardId, filters);
+    const data = await AdminService.getWardIssues(wardIdStr, filters);
     return res
       .status(200)
       .json(new ApiResponse(200, data, "Ward issues retrieved"));

@@ -62,7 +62,8 @@ export class IssuesController {
   });
 
   static getById = asyncHandler(async (req: Request, res: Response) => {
-    const issue = await IssuesService.getIssueById(req.params.issueId);
+    const issueIdStr = Array.isArray(req.params.issueId) ? req.params.issueId[0] : req.params.issueId;
+    const issue = await IssuesService.getIssueById(issueIdStr);
 
     res.status(200).json(
       new ApiResponse(200, issue, "Issue retrieved successfully")
@@ -72,9 +73,10 @@ export class IssuesController {
   static uploadAfterMedia = asyncHandler(async (req: Request, res: Response) => {
     const userId = req.user!.id;
     const userRole = req.user!.role as any; // Cast to handle role type
+    const issueIdStr = Array.isArray(req.params.issueId) ? req.params.issueId[0] : req.params.issueId;
 
     const updated = await IssuesService.addAfterMediaIssue({
-      issueId: req.params.issueId,
+      issueId: issueIdStr,
       userId,
       userRole,
       media: req.body.media,
@@ -89,9 +91,10 @@ export class IssuesController {
   static updateStatus = asyncHandler(async (req: Request, res: Response) => {
     const userId = req.user!.id;
     const { status, comment } = req.body;
+    const issueIdStr = Array.isArray(req.params.issueId) ? req.params.issueId[0] : req.params.issueId;
 
     const updated = await IssuesService.updateIssueStatus({
-      issueId: req.params.issueId,
+      issueId: issueIdStr,
       userId,
       newStatus: status,
       comment
@@ -105,9 +108,10 @@ export class IssuesController {
   static addComment = asyncHandler(async (req: Request, res: Response) => {
     const userId = req.user!.id;
     const { comment } = req.body;
+    const issueIdStr = Array.isArray(req.params.issueId) ? req.params.issueId[0] : req.params.issueId;
 
     const result = await IssuesService.addComment({
-      issueId: req.params.issueId,
+      issueId: issueIdStr,
       userId,
       comment
     });
@@ -120,9 +124,10 @@ export class IssuesController {
   static reassignIssue = asyncHandler(async (req: Request, res: Response) => {
     const userId = req.user!.id;
     const { assigneeId, reason } = req.body;
+    const issueIdStr = Array.isArray(req.params.issueId) ? req.params.issueId[0] : req.params.issueId;
 
     const updated = await IssuesService.reassignIssue({
-      issueId: req.params.issueId,
+      issueId: issueIdStr,
       reassignedBy: userId,
       newAssigneeId: assigneeId,
       reason
@@ -136,9 +141,10 @@ export class IssuesController {
   static verifyResolution = asyncHandler(async (req: Request, res: Response) => {
     const userId = req.user!.id;
     const { approved, comment } = req.body;
+    const issueIdStr = Array.isArray(req.params.issueId) ? req.params.issueId[0] : req.params.issueId;
 
     const updated = await IssuesService.verifyResolution({
-      issueId: req.params.issueId,
+      issueId: issueIdStr,
       verifiedBy: userId,
       approved,
       comment

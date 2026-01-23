@@ -26,6 +26,7 @@ export const requireWardAccess = asyncHandler(
     }
 
     const { wardId } = req.params;
+    const wardIdStr = Array.isArray(wardId) ? wardId[0] : wardId;
     
     // Super admin can access all wards
     if (req.user.role === "SUPER_ADMIN") {
@@ -35,7 +36,7 @@ export const requireWardAccess = asyncHandler(
     // Zone officers can access wards in their zone
     if (req.user.role === "ZONE_OFFICER" && req.user.zoneId) {
       const ward = await prisma.ward.findUnique({
-        where: { id: wardId },
+        where: { id: wardIdStr },
         select: { zoneId: true }
       });
       
@@ -45,7 +46,7 @@ export const requireWardAccess = asyncHandler(
     }
 
     // Ward engineers can only access their ward
-    if (req.user.role === "WARD_ENGINEER" && req.user.wardId === wardId) {
+    if (req.user.role === "WARD_ENGINEER" && req.user.wardId === wardIdStr) {
       return next();
     }
 
