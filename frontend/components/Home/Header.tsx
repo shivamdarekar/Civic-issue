@@ -6,6 +6,7 @@ import Link from "next/link";
 import { useState } from "react";
 import { useLanguage } from "@/lib/language-context";
 import AccessibilityPanel from "@/components/AccessibilityPanel";
+import { LanguageSelector } from "@/components/LanguageSelector";
 import { Button } from "@/components/ui/button";
 
 interface HeaderProps {
@@ -53,6 +54,8 @@ export default function Header({ showNavigation = false, onMenuClick }: HeaderPr
               >
                 <Eye className="w-4 h-4" />
               </Button>
+
+              <LanguageSelector />
               
               <Link
                 href="/login"

@@ -1,122 +1,55 @@
 "use client";
 
-import { createContext, useContext, useState } from "react";
+import { createContext, useContext, useState, useEffect } from "react";
+import Cookies from "js-cookie";
+import { en } from "./locales/en";
+import { hi } from "./locales/hi";
+import { gu } from "./locales/gu";
+
+type Language = "en" | "hi" | "gu";
 
 interface LanguageContextType {
-  language: string;
-  setLanguage: (lang: string) => void;
+  language: Language;
+  setLanguage: (lang: Language) => void;
   t: (key: string) => string;
 }
 
 const LanguageContext = createContext<LanguageContextType | undefined>(undefined);
 
-const translations: Record<string, Record<string, string>> = {
-  en: {
-    "app.title": "VMC CiviSense",
-    "header.tagline": "Vadodara Municipal Corporation",
-    "header.accessibility": "Accessibility Options",
-    "header.nav.field.worker": "Field Worker",
-    "header.nav.ward.engineer": "Ward Engineer",
-    "header.nav.zone.officer": "Zone Officer",
-    "header.nav.admin": "Admin Panel",
-    "home.title": "Civic Engagement Platform",
-    "home.subtitle": "Vadodara Municipal Corporation",
-    "home.description": "Empowering citizens to report issues and track municipal services",
-    "home.login": "Login to System",
-    "home.use.cases.title": "Use Cases",
-    "home.use.case.pothole": "Report potholes and road damage",
-    "home.use.case.garbage": "Report garbage collection issues",
-    "home.use.case.cattle": "Report stray cattle problems",
-    "home.use.case.manhole": "Report open manholes",
-    "home.use.case.resolution": "Fast issue resolution",
-    "home.use.case.accountability": "Photo-based accountability",
-    "feature.geofencing": "Geofencing",
-    "feature.geofencing.desc": "Location-based issue reporting",
-    "feature.tracking": "Issue Tracking",
-    "feature.tracking.desc": "Real-time status updates",
-    "feature.dashboard": "Dashboard",
-    "feature.dashboard.desc": "Comprehensive analytics",
-    "feature.mobile": "Mobile App",
-    "feature.mobile.desc": "Report on the go",
-    "feature.offline": "Offline Support",
-    "feature.offline.desc": "Works without internet",
-    "feature.ai": "AI Verification",
-    "feature.ai.desc": "Smart issue validation",
-    "login.title": "Access Portal",
-    "login.role.description": "Login based on your role in the system",
-    "about.vadodara.title": "About Vadodara",
-    "about.vadodara.subtitle": "The Cultural Capital of Gujarat",
-    "about.vadodara.para1": "Vadodara is a vibrant city known for its rich cultural heritage and modern infrastructure.",
-    "about.vadodara.para2": "The city is committed to smart governance and citizen engagement.",
-    "city.highlights.title": "City Highlights",
-    "city.highlight.smart.city": "Smart City",
-    "city.highlight.smart.city.desc": "Leading digital transformation initiatives",
-    "city.highlight.cultural": "Cultural Heritage",
-    "city.highlight.cultural.desc": "Rich history and traditions",
-    "city.highlight.citizen": "Citizen Services",
-    "city.highlight.citizen.desc": "Comprehensive public services",
-    "city.highlight.sustainable": "Sustainable Development",
-    "city.highlight.sustainable.desc": "Environment-friendly initiatives",
-    "city.highlight.industrial": "Industrial Hub",
-    "city.highlight.industrial.desc": "Major industrial center",
-    "compliance.title": "Government Compliance & Standards",
-    "compliance.description": "Ensuring adherence to government regulations and standards",
-    "compliance.data.security": "Data Security",
-    "compliance.data.security.desc": "Comprehensive data protection measures",
-    "compliance.data.security.std1": "ISO 27001 Certified",
-    "compliance.data.security.std2": "End-to-end Encryption",
-    "compliance.data.security.std3": "Regular Security Audits",
-    "compliance.accessibility": "Accessibility",
-    "compliance.accessibility.desc": "Universal access compliance",
-    "compliance.accessibility.std1": "WCAG 2.1 AA Compliant",
-    "compliance.accessibility.std2": "Screen Reader Support",
-    "compliance.accessibility.std3": "Keyboard Navigation",
-    "compliance.transparency": "Transparency",
-    "compliance.transparency.desc": "Open governance practices",
-    "compliance.transparency.std1": "RTI Act Compliance",
-    "compliance.transparency.std2": "Public Data Access",
-    "compliance.transparency.std3": "Audit Trail Maintenance",
-    "compliance.privacy": "Privacy Protection",
-    "compliance.privacy.desc": "Citizen data privacy safeguards",
-    "compliance.privacy.std1": "GDPR Aligned",
-    "compliance.privacy.std2": "Data Minimization",
-    "compliance.privacy.std3": "Consent Management",
-    "compliance.digital.india": "Digital India",
-    "compliance.digital.india.desc": "Aligned with national initiatives",
-    "compliance.digital.india.std1": "Digital India Framework",
-    "compliance.digital.india.std2": "API Standards",
-    "compliance.digital.india.std3": "Interoperability",
-    "compliance.cyber.security": "Cyber Security",
-    "compliance.cyber.security.desc": "Advanced threat protection",
-    "compliance.cyber.security.std1": "CERT-In Guidelines",
-    "compliance.cyber.security.std2": "Penetration Testing",
-    "compliance.cyber.security.std3": "Incident Response",
-    "compliance.certification.title": "Certifications & Audits",
-    "compliance.cert.security.audit": "Security Audit",
-    "compliance.cert.security.audit.status": "Completed - 2024",
-    "compliance.cert.accessibility.test": "Accessibility Testing",
-    "compliance.cert.accessibility.test.status": "Verified - 2024",
-    "compliance.cert.data.protection": "Data Protection Assessment",
-    "compliance.cert.data.protection.status": "Certified - 2024",
-    "compliance.cert.performance": "Performance Audit",
-    "compliance.cert.performance.status": "Passed - 2024",
-    "footer.description.line1": "Committed to serving citizens with transparency and efficiency",
-    "footer.description.line2": "Building a smarter, more connected Vadodara",
-    "footer.contact.title": "Contact Information",
-    "footer.q": "© 2024 VMC. All rights reserved."
-  }
+const translations: Record<Language, Record<string, string>> = {
+  en,
+  hi,
+  gu,
 };
 
 export function LanguageProvider({ children }: { children: React.ReactNode }) {
-  const [language, setLanguage] = useState("en");
+  const [language, setLanguageState] = useState<Language>("en");
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    const savedLanguage = Cookies.get("NEXT_LOCALE") as Language;
+    if (savedLanguage && translations[savedLanguage]) {
+      setLanguageState(savedLanguage);
+    }
+    setMounted(true);
+  }, []);
+
+  const setLanguage = (lang: Language) => {
+    setLanguageState(lang);
+    Cookies.set("NEXT_LOCALE", lang, { expires: 365 });
+  };
 
   const t = (key: string): string => {
     return translations[language]?.[key] || key;
   };
 
+  // Prevent hydration mismatch by rendering children only after mount
+  // However, we MUST provide the context because children might use useLanguage hook
+  // We default to 'en' ensuring SSR doesn't crash
+  
   return (
     <LanguageContext.Provider value={{ language, setLanguage, t }}>
-      {children}
+       {mounted ? children : <div className="invisible">{children}</div>}
     </LanguageContext.Provider>
   );
 }
