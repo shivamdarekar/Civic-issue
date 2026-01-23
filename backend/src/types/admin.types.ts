@@ -196,3 +196,16 @@ export interface UserStatusChange {
   role: string;
   isActive: boolean;
 }
+
+// Paginated Users Response
+export interface PaginatedUsersResponse {
+  users: FilteredUser[];
+  pagination: {
+    currentPage: number;
+    totalPages: number;
+    totalUsers: number;
+    hasNextPage: boolean;
+    hasPreviousPage: boolean;
+    limit: number;
+  };
+}

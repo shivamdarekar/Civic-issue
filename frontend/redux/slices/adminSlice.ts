@@ -109,6 +109,14 @@ interface WardInZone {
 
 interface AdminState {
   users: User[];
+  usersPagination: {
+    currentPage: number;
+    totalPages: number;
+    totalUsers: number;
+    hasNextPage: boolean;
+    hasPreviousPage: boolean;
+    limit: number;
+  } | null;
   departments: Department[];
   dashboard: AdminDashboard | null;
   zonesOverview: ZoneOverview[];
@@ -154,6 +162,7 @@ interface UserFilter {
 // Initial state
 const initialState: AdminState = {
   users: [],
+  usersPagination: null,
   departments: [],
   dashboard: null,
   zonesOverview: [],
@@ -182,9 +191,9 @@ export const registerUser = createAsyncThunk(
 // Fetch all users
 export const fetchAllUsers = createAsyncThunk(
   "admin/fetchAllUsers",
-  async (_, { rejectWithValue }) => {
+  async ({ page = 1, limit = 18 }: { page?: number; limit?: number } = {}, { rejectWithValue }) => {
     try {
-      const response = await axiosInstance.get("/admin/users");
+      const response = await axiosInstance.get(`/admin/users?page=${page}&limit=${limit}`);
       return response.data.data;
     } catch (error: unknown) {
       return rejectWithValue(handleAxiosError(error, "Failed to fetch users"));
@@ -420,7 +429,8 @@ const adminSlice = createSlice({
       })
       .addCase(fetchAllUsers.fulfilled, (state, action) => {
         state.loading = false;
-        state.users = action.payload;
+        state.users = action.payload.users;
+        state.usersPagination = action.payload.pagination;
         state.error = null;
       })
       .addCase(fetchAllUsers.rejected, (state, action) => {

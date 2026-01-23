@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Users, Plus } from "lucide-react";
+import { Users, Plus, ChevronLeft, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import UserManagement from "@/components/admin/UserManagement";
@@ -13,18 +13,19 @@ import { fetchDepartments, fetchZonesOverview, fetchAllUsers } from "@/redux";
 
 export default function UserManagementPage() {
   const dispatch = useAppDispatch();
-  const { departments, zonesOverview: zones, users: apiUsers, loading } = useAppSelector(state => state.admin);
+  const { departments, zonesOverview: zones, users: apiUsers, usersPagination, loading } = useAppSelector(state => state.admin);
   const [users, setUsers] = useState<any[]>([]);
+  const [currentPage, setCurrentPage] = useState(1);
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [showViewDialog, setShowViewDialog] = useState(false);
   const [showEditDialog, setShowEditDialog] = useState(false);
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
 
   useEffect(() => {
-    dispatch(fetchAllUsers());
+    dispatch(fetchAllUsers({ page: currentPage, limit: 18 }));
     dispatch(fetchDepartments());
     dispatch(fetchZonesOverview());
-  }, [dispatch]);
+  }, [dispatch, currentPage]);
 
   useEffect(() => {
     if (apiUsers) {
@@ -47,7 +48,7 @@ export default function UserManagementPage() {
 
   const handleUserAdded = (newUser: any) => {
     // Refresh users list after adding new user
-    dispatch(fetchAllUsers());
+    dispatch(fetchAllUsers({ page: currentPage, limit: 18 }));
   };
 
   const handleViewUser = (userId: string) => {
@@ -61,7 +62,11 @@ export default function UserManagementPage() {
   };
 
   const handleUserUpdated = () => {
-    dispatch(fetchAllUsers());
+    dispatch(fetchAllUsers({ page: currentPage, limit: 18 }));
+  };
+
+  const handlePageChange = (page: number) => {
+    setCurrentPage(page);
   };
 
   return (
@@ -76,7 +81,14 @@ export default function UserManagementPage() {
               </div>
               <div>
                 <CardTitle className="text-2xl sm:text-3xl font-bold text-gray-900">User Management</CardTitle>
-                <p className="text-sm sm:text-base text-gray-600">Manage system users and their permissions</p>
+                <p className="text-sm sm:text-base text-gray-600">
+                  Manage system users and their permissions
+                  {usersPagination && (
+                    <span className="ml-2 text-blue-600">
+                      ({usersPagination.totalUsers} total users)
+                    </span>
+                  )}
+                </p>
               </div>
             </div>
             <Button onClick={() => setShowAddDialog(true)} className="bg-blue-600 hover:bg-blue-700 w-full sm:w-auto">
@@ -95,6 +107,66 @@ export default function UserManagementPage() {
         departments={departments}
         zones={zones}
       />
+
+      {/* Pagination */}
+      {usersPagination && usersPagination.totalPages > 1 && (
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div className="text-sm text-gray-600">
+                Showing {((currentPage - 1) * 18) + 1} to {Math.min(currentPage * 18, usersPagination.totalUsers)} of {usersPagination.totalUsers} users
+              </div>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handlePageChange(currentPage - 1)}
+                  disabled={!usersPagination.hasPreviousPage || loading}
+                >
+                  <ChevronLeft className="w-4 h-4" />
+                  Previous
+                </Button>
+                <div className="flex items-center gap-1">
+                  {Array.from({ length: Math.min(5, usersPagination.totalPages) }, (_, i) => {
+                    let pageNum;
+                    if (usersPagination.totalPages <= 5) {
+                      pageNum = i + 1;
+                    } else if (currentPage <= 3) {
+                      pageNum = i + 1;
+                    } else if (currentPage >= usersPagination.totalPages - 2) {
+                      pageNum = usersPagination.totalPages - 4 + i;
+                    } else {
+                      pageNum = currentPage - 2 + i;
+                    }
+                    
+                    return (
+                      <Button
+                        key={pageNum}
+                        variant={currentPage === pageNum ? "default" : "outline"}
+                        size="sm"
+                        onClick={() => handlePageChange(pageNum)}
+                        disabled={loading}
+                        className="w-8 h-8 p-0"
+                      >
+                        {pageNum}
+                      </Button>
+                    );
+                  })}
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handlePageChange(currentPage + 1)}
+                  disabled={!usersPagination.hasNextPage || loading}
+                >
+                  Next
+                  <ChevronRight className="w-4 h-4" />
+                </Button>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Add User Dialog */}
       <AddUserDialog

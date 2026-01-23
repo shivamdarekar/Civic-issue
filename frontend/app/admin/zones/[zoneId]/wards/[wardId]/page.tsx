@@ -19,6 +19,8 @@ import { ErrorState, EmptyState } from "@/components/admin/ErrorBoundary";
 import IssueDetailModal from "@/components/admin/IssueDetailModal";
 import ViewUserDialog from "@/components/admin/ViewUserDialog";
 import UserStatsDialog from "@/components/admin/UserStatsDialog";
+import AllEngineersDialog from "@/components/zone/AllEngineersDialog";
+import WardIssuesList from "@/components/admin/WardIssuesList";
 
 export default function WardDetailPage() {
   const params = useParams();
@@ -268,12 +270,21 @@ export default function WardDetailPage() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
         <Card>
           <CardHeader className="pb-3">
-            <CardTitle className="text-base sm:text-lg">Ward Engineers</CardTitle>
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-base sm:text-lg">Ward Engineers</CardTitle>
+              {currentWardDetail.engineers && currentWardDetail.engineers.length > 3 && (
+                <AllEngineersDialog 
+                  engineers={currentWardDetail.engineers}
+                  onViewProfile={handleViewUser}
+                  onViewStats={handleViewStats}
+                />
+              )}
+            </div>
           </CardHeader>
           <CardContent>
             {currentWardDetail.engineers && currentWardDetail.engineers.length > 0 ? (
               <div className="space-y-3">
-                {currentWardDetail.engineers.map((engineer) => (
+                {currentWardDetail.engineers.slice(0, 3).map((engineer) => (
                   <div key={engineer.id} className="p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                       <div className="flex-1 min-w-0">
@@ -317,6 +328,13 @@ export default function WardDetailPage() {
                     </div>
                   </div>
                 ))}
+                {currentWardDetail.engineers.length > 3 && (
+                  <div className="text-center pt-2">
+                    <p className="text-sm text-gray-500">
+                      Showing 3 of {currentWardDetail.engineers.length} engineers
+                    </p>
+                  </div>
+                )}
               </div>
             ) : (
               <div className="text-center py-8">
@@ -349,7 +367,8 @@ export default function WardDetailPage() {
         </Card>
       </div>
 
-
+      {/* Ward Issues Section */}
+      <WardIssuesList wardId={wardId} />
 
       {/* Issue Detail Modal */}
       {selectedIssueId && (

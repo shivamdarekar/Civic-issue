@@ -45,6 +45,11 @@ export const getUsersByFilterSchema = z.object({
   department: DepartmentEnum.optional()
 });
 
+export const getAllUsersSchema = z.object({
+  page: z.string().transform(val => parseInt(val)).refine(val => val > 0, { message: "Page must be greater than 0" }).optional(),
+  limit: z.string().transform(val => parseInt(val)).refine(val => val > 0 && val <= 100, { message: "Limit must be between 1 and 100" }).optional()
+});
+
 // Params only schemas
 export const userIdParamsSchema = z.object({
   userId: z.string().refine(val => UUID_REGEX.test(val), { message: "Invalid UUID" })

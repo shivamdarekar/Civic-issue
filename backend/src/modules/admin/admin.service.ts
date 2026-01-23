@@ -15,7 +15,8 @@ import {
   ReassignWorkResponse,
   UserFilterParams,
   FilteredUser,
-  UserStatusChange
+  UserStatusChange,
+  PaginatedUsersResponse
 } from "../../types";
 
 export class AdminService {
@@ -699,28 +700,47 @@ export class AdminService {
   }
 
 
-  static async getAllUsers() {
-    return await prisma.user.findMany({
-      select: {
-        id: true,
-        fullName: true,
-        email: true,
-        phoneNumber: true,
-        role: true,
-        department: true,
-        isActive: true,
-        wardId: true,
-        zoneId: true,
-        ward: {
-          select: { wardNumber: true, name: true }
+  static async getAllUsers(page: number = 1, limit: number = 18): Promise<PaginatedUsersResponse> {
+    const skip = (page - 1) * limit;
+    
+    const [users, totalCount] = await Promise.all([
+      prisma.user.findMany({
+        select: {
+          id: true,
+          fullName: true,
+          email: true,
+          phoneNumber: true,
+          role: true,
+          department: true,
+          isActive: true,
+          wardId: true,
+          zoneId: true,
+          ward: {
+            select: { wardNumber: true, name: true }
+          },
+          zone: {
+            select: { name: true }
+          },
+          createdAt: true
         },
-        zone: {
-          select: { name: true }
-        },
-        createdAt: true
-      },
-      orderBy: { createdAt: 'desc' }
-    });
+        orderBy: { createdAt: 'desc' },
+        skip,
+        take: limit
+      }),
+      prisma.user.count()
+    ]);
+
+    return {
+      users,
+      pagination: {
+        currentPage: page,
+        totalPages: Math.ceil(totalCount / limit),
+        totalUsers: totalCount,
+        hasNextPage: page < Math.ceil(totalCount / limit),
+        hasPreviousPage: page > 1,
+        limit
+      }
+    };
   }
 
 

@@ -22,10 +22,13 @@ export class AdminController {
 
 
   static getAllUsers = asyncHandler(async (req: Request, res: Response) => {
-    const users = await AdminService.getAllUsers();
+    const page = parseInt(req.query.page as string) || 1;
+    const limit = parseInt(req.query.limit as string) || 18;
+    
+    const result = await AdminService.getAllUsers(page, limit);
 
     res.status(200).json(
-      new ApiResponse(200, users, "Users retrieved successfully")
+      new ApiResponse(200, result, "Users retrieved successfully")
     );
   });
 

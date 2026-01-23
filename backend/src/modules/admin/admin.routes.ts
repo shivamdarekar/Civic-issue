@@ -8,6 +8,7 @@ import {
   updateUserWithParamsSchema, 
   reassignWorkWithParamsSchema, 
   getUsersByFilterSchema,
+  getAllUsersSchema,
   userIdParamsSchema,
   zoneIdParamsSchema,
   wardIdParamsSchema
@@ -25,7 +26,8 @@ router.post("/register",
 );
 
 router.get("/users", 
-  requireRole(["SUPER_ADMIN"]), 
+  requireRole(["SUPER_ADMIN"]),
+  validateRequest(getAllUsersSchema, 'query'),
   AdminController.getAllUsers
 );
 

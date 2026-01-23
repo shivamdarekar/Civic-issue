@@ -126,6 +126,7 @@ interface ListIssuesParams {
   categoryId?: string;
   assigneeId?: string;
   reporterId?: string;
+  q?: string;
 }
 
 interface AddAfterMediaData {
