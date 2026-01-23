@@ -36,9 +36,12 @@ export function useSpeechSynthesis(
 
   // Check browser support
   useEffect(() => {
-    if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
-      setIsSupported(true);
-    }
+    const initializeSupport = () => {
+      const supported = typeof window !== 'undefined' && 'speechSynthesis' in window;
+      setIsSupported(supported);
+    };
+    
+    initializeSupport();
   }, []);
 
   const cancel = useCallback(() => {
@@ -140,7 +143,7 @@ export function useSpeechSynthesis(
         utteranceRef.current = null;
       };
 
-      utterance.onerror = (event) => {
+      utterance.onerror = () => {
         // console.error('🔊 TTS Error:', event);
         setIsSpeaking(false);
         setIsPaused(false);

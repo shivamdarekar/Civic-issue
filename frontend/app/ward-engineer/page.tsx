@@ -12,6 +12,11 @@ export default function WardEngineerPage() {
   const { user } = useAppSelector((state) => state.userState);
   const { wardEngineerDashboard, loading, error } = useAppSelector((state) => state.user);
 
+  // Debug logging
+  useEffect(() => {
+    console.log('Ward Engineer Dashboard Data:', wardEngineerDashboard);
+  }, [wardEngineerDashboard]);
+
   useEffect(() => {
     if (user?.wardId && user?.department) {
       dispatch(fetchWardEngineerDashboard());
@@ -35,11 +40,6 @@ export default function WardEngineerPage() {
       </div>
     );
   }
-
-  // Debug logging
-  useEffect(() => {
-    console.log('Ward Engineer Dashboard Data:', wardEngineerDashboard);
-  }, [wardEngineerDashboard]);
 
 
 

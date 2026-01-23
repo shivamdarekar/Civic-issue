@@ -112,54 +112,59 @@ export default function UserManagementPage() {
       {usersPagination && usersPagination.totalPages > 1 && (
         <Card>
           <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div className="text-sm text-gray-600">
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+              <div className="text-xs sm:text-sm text-gray-600 text-center sm:text-left">
                 Showing {((currentPage - 1) * 18) + 1} to {Math.min(currentPage * 18, usersPagination.totalUsers)} of {usersPagination.totalUsers} users
               </div>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1 sm:gap-2">
                 <Button
                   variant="outline"
                   size="sm"
                   onClick={() => handlePageChange(currentPage - 1)}
                   disabled={!usersPagination.hasPreviousPage || loading}
+                  className="px-2 sm:px-3"
                 >
                   <ChevronLeft className="w-4 h-4" />
-                  Previous
+                  <span className="hidden sm:inline ml-1">Previous</span>
                 </Button>
                 <div className="flex items-center gap-1">
-                  {Array.from({ length: Math.min(5, usersPagination.totalPages) }, (_, i) => {
-                    let pageNum;
-                    if (usersPagination.totalPages <= 5) {
-                      pageNum = i + 1;
-                    } else if (currentPage <= 3) {
-                      pageNum = i + 1;
-                    } else if (currentPage >= usersPagination.totalPages - 2) {
-                      pageNum = usersPagination.totalPages - 4 + i;
-                    } else {
-                      pageNum = currentPage - 2 + i;
-                    }
-                    
-                    return (
-                      <Button
-                        key={pageNum}
-                        variant={currentPage === pageNum ? "default" : "outline"}
-                        size="sm"
-                        onClick={() => handlePageChange(pageNum)}
-                        disabled={loading}
-                        className="w-8 h-8 p-0"
-                      >
-                        {pageNum}
-                      </Button>
-                    );
-                  })}
+                  {(() => {
+                    const maxPages = typeof window !== 'undefined' && window.innerWidth < 640 ? 3 : 5;
+                    return Array.from({ length: Math.min(maxPages, usersPagination.totalPages) }, (_, i) => {
+                      let pageNum;
+                      if (usersPagination.totalPages <= maxPages) {
+                        pageNum = i + 1;
+                      } else if (currentPage <= Math.floor(maxPages/2) + 1) {
+                        pageNum = i + 1;
+                      } else if (currentPage >= usersPagination.totalPages - Math.floor(maxPages/2)) {
+                        pageNum = usersPagination.totalPages - maxPages + 1 + i;
+                      } else {
+                        pageNum = currentPage - Math.floor(maxPages/2) + i;
+                      }
+                      
+                      return (
+                        <Button
+                          key={pageNum}
+                          variant={currentPage === pageNum ? "default" : "outline"}
+                          size="sm"
+                          onClick={() => handlePageChange(pageNum)}
+                          disabled={loading}
+                          className="w-7 h-7 sm:w-8 sm:h-8 p-0 text-xs sm:text-sm"
+                        >
+                          {pageNum}
+                        </Button>
+                      );
+                    });
+                  })()}
                 </div>
                 <Button
                   variant="outline"
                   size="sm"
                   onClick={() => handlePageChange(currentPage + 1)}
                   disabled={!usersPagination.hasNextPage || loading}
+                  className="px-2 sm:px-3"
                 >
-                  Next
+                  <span className="hidden sm:inline mr-1">Next</span>
                   <ChevronRight className="w-4 h-4" />
                 </Button>
               </div>

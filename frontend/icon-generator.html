@@ -1,0 +1,54 @@
+<!-- Simple HTML to convert SVG to PNG -->
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Icon Generator</title>
+</head>
+<body>
+    <canvas id="canvas" width="512" height="512" style="border: 1px solid black;"></canvas>
+    <script>
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        
+        // Draw icon
+        ctx.fillStyle = '#000000';
+        ctx.fillRect(0, 0, 512, 512);
+        
+        // Draw circle (user icon)
+        ctx.fillStyle = '#ffffff';
+        ctx.beginPath();
+        ctx.arc(256, 200, 80, 0, 2 * Math.PI);
+        ctx.fill();
+        
+        // Draw rectangle (building)
+        ctx.fillRect(176, 300, 160, 120);
+        
+        // Draw text
+        ctx.font = '24px Arial';
+        ctx.textAlign = 'center';
+        ctx.fillText('Civic', 256, 450);
+        
+        // Download function
+        function downloadIcon(size) {
+            const tempCanvas = document.createElement('canvas');
+            tempCanvas.width = size;
+            tempCanvas.height = size;
+            const tempCtx = tempCanvas.getContext('2d');
+            tempCtx.drawImage(canvas, 0, 0, size, size);
+            
+            const link = document.createElement('a');
+            link.download = `icon-${size}x${size}.png`;
+            link.href = tempCanvas.toDataURL();
+            link.click();
+        }
+        
+        // Auto download icons
+        setTimeout(() => {
+            downloadIcon(192);
+            setTimeout(() => downloadIcon(256), 100);
+            setTimeout(() => downloadIcon(384), 200);
+            setTimeout(() => downloadIcon(512), 300);
+        }, 1000);
+    </script>
+</body>
+</html>
