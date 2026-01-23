@@ -33,6 +33,7 @@
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "dexie": "^4.2.1",
+    "js-cookie": "^3.0.5",
     "lucide-react": "^0.562.0",
     "next": "16.1.4",
     "react": "19.2.3",
@@ -46,6 +47,7 @@
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4.1.18",
+    "@types/js-cookie": "^3.0.6",
     "@types/node": "^25.0.10",
     "@types/react": "^19",
     "@types/react-dom": "^19",

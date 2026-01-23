@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { AlertTriangle, Clock, ExternalLink, User } from "lucide-react";
 import { useAppDispatch, useAppSelector } from "@/redux/hooks";
 import { fetchAssignedIssuesDashboard } from "@/redux";
+import StatusUpdateButton from "./StatusUpdateButton";
 import IssueDetailModal from "@/components/admin/IssueDetailModal";
 
 interface AssignedIssuesProps {
@@ -146,15 +147,22 @@ export default function AssignedIssues({ limit = 10 }: AssignedIssuesProps) {
                       Created: {formatDate(issue.createdAt)}
                     </p>
                   </div>
-                  <Button 
-                    variant="ghost" 
-                    size="sm"
-                    onClick={() => setSelectedIssueId(issue.id)}
-                    className="flex items-center gap-1 text-xs"
-                  >
-                    <ExternalLink className="w-3 h-3" />
-                    View
-                  </Button>
+                  <div className="flex items-center gap-2">
+                    <StatusUpdateButton 
+                      issueId={issue.id}
+                      currentStatus={issue.status}
+                      onStatusUpdate={() => dispatch(fetchAssignedIssuesDashboard(limit))}
+                    />
+                    <Button 
+                      variant="ghost" 
+                      size="sm"
+                      onClick={() => setSelectedIssueId(issue.id)}
+                      className="flex items-center gap-1 text-xs"
+                    >
+                      <ExternalLink className="w-3 h-3" />
+                      View
+                    </Button>
+                  </div>
                 </div>
               </div>
             ))}
