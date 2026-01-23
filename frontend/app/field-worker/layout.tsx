@@ -140,7 +140,7 @@ export default function FieldWorkerLayout({
           )}
 
           <div className="flex-1 flex flex-col min-w-0 lg:ml-64">
-            <main className="flex-1 p-6 overflow-auto">
+            <main className="flex-1 p-6 overflow-auto scrollbar-hide">
               {children}
             </main>
           </div>

@@ -24,17 +24,19 @@ export default function FieldWorkerPage() {
       {/* Header */}
       <Card>
         <CardContent className="p-6">
-          <div className="flex items-center justify-between mb-4">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-4">
             <div className="flex items-center gap-3">
               <div className="bg-purple-100 p-3 rounded-lg">
                 <Users className="w-6 h-6 text-purple-600" />
               </div>
               <div>
-                <h1 className="text-3xl font-bold text-gray-800">Field Worker Dashboard</h1>
+                <h1 className="text-2xl sm:text-3xl font-bold text-gray-800">Field Worker Dashboard</h1>
                 <p className="text-gray-600">Issue reporting and tracking</p>
               </div>
             </div>
-            <ReportIssueForm />
+            <div className="w-full sm:w-auto">
+              <ReportIssueForm />
+            </div>
           </div>
         </CardContent>
       </Card>

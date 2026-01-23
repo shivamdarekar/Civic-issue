@@ -7,6 +7,7 @@ import { fetchCategories, uploadBeforeImages, createIssue, deleteImage } from "@
 import { fetchFieldWorkerDashboard } from "@/redux/slices/userSlice";
 import { Button } from "@/components/ui/button";
 import VMCLoader from "@/components/ui/VMCLoader";
+import AIImageScanner from "./AIImageScanner";
 import {
   Dialog,
   DialogContent,
@@ -44,6 +45,8 @@ export default function ReportIssueForm() {
   const [isUploading, setIsUploading] = useState(false);
   const [gpsPermission, setGpsPermission] = useState<"granted" | "denied" | "prompt">("prompt");
   const [open, setOpen] = useState(false);
+  const [aiDetectedCategory, setAiDetectedCategory] = useState<string | null>(null);
+  const [aiConfidence, setAiConfidence] = useState<number>(0);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -109,6 +112,15 @@ export default function ReportIssueForm() {
         canvas.toBlob((blob) => {
           if (blob) {
             const file = new File([blob], `captured-photo-${Date.now()}.jpg`, { type: "image/jpeg" });
+            
+            // Clear existing images if replacing
+            if (uploadedImages.length > 0) {
+              setImages([]);
+              setUploadedImages([]);
+              setAiDetectedCategory(null);
+              setAiConfidence(0);
+            }
+            
             setImages(prev => [...prev, file]);
             uploadImage(file);
             stopCamera();
@@ -131,6 +143,15 @@ export default function ReportIssueForm() {
     if (files) {
       setIsUploading(true);
       const fileArray = Array.from(files);
+      
+      // Clear existing images if replacing
+      if (uploadedImages.length > 0) {
+        setImages([]);
+        setUploadedImages([]);
+        setAiDetectedCategory(null);
+        setAiConfidence(0);
+      }
+      
       setImages(prev => [...prev, ...fileArray]);
       
       try {
@@ -161,6 +182,46 @@ export default function ReportIssueForm() {
         newSet.delete(tempIndex);
         return newSet;
       });
+    }
+  };
+
+  const getDescriptionForCategory = (categoryName: string, department: string) => {
+    const name = categoryName.toLowerCase();
+    
+    if (name === "pothole") {
+      return "Issue Identified for ROAD department - Road potholes and surface damage requiring immediate repair.";
+    } else if (name === "stray cattle") {
+      return "Issue Identified for TOWN_PLANNING department - Stray animals on roads causing traffic disruption.";
+    } else if (name === "garbage dump") {
+      return "Issue Identified for SOLID_WASTE_MANAGEMENT department - Illegal garbage dumping affecting public hygiene.";
+    } else if (name === "street light not working") {
+      return "Issue Identified for STREET_LIGHT department - Street light is not functioning properly.";
+    } else if (name === "water supply issue") {
+      return "Issue Identified for WATER_WORKS department - Water supply problems affecting residents.";
+    } else if (name === "drainage blockage") {
+      return "Issue Identified for STORM_WATER_DRAINAGE department - Blocked or overflowing drainage system.";
+    } else if (name === "sewage issue") {
+      return "Issue Identified for SEWAGE_DISPOSAL department - Sewage overflow or blockage causing health hazards.";
+    } else if (name === "tree cutting required") {
+      return "Issue Identified for PARKS_GARDENS department - Fallen or dangerous tree requiring attention.";
+    } else if (name === "illegal encroachment") {
+      return "Issue Identified for ENCROACHMENT department - Unauthorized construction or occupation of public space.";
+    } else {
+      return `Issue Identified for ${department} department - ${categoryName} reported requiring attention.`;
+    }
+  };
+
+  const handleAICategoryDetection = (categoryId: string, confidence: number) => {
+    setAiDetectedCategory(categoryId);
+    setAiConfidence(confidence);
+    
+    if (confidence >= 0.5) {
+      setSelectedCategory(categoryId);
+      
+      const selectedCat = categories.find(cat => cat.id === categoryId);
+      if (selectedCat) {
+        setDescription(getDescriptionForCategory(selectedCat.name, selectedCat.department));
+      }
     }
   };
 
@@ -232,6 +293,8 @@ export default function ReportIssueForm() {
       setUploadedImages([]);
       setLocation(null);
       setGpsPermission("prompt");
+      setAiDetectedCategory(null);
+      setAiConfidence(0);
       setOpen(false);
       
       // Fetch updated dashboard data
@@ -246,14 +309,33 @@ export default function ReportIssueForm() {
   };
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog open={open} onOpenChange={(isOpen) => {
+      setOpen(isOpen);
+      if (!isOpen) {
+        // Reset all form data when dialog closes
+        setSelectedCategory("");
+        setPriority("MEDIUM");
+        setDescription("");
+        setImages([]);
+        setUploadedImages([]);
+        setLocation(null);
+        setGpsPermission("prompt");
+        setAiDetectedCategory(null);
+        setAiConfidence(0);
+        setLoading(false);
+        setIsUploading(false);
+        setUploadingImages(new Set());
+        setDeletingImages(new Set());
+        stopCamera();
+      }
+    }}>
       <DialogTrigger asChild>
-        <Button className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2" size="sm">
+        <Button className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 w-full sm:w-auto" size="sm">
           <Plus className="w-4 h-4 mr-2" />
           Report New Issue
         </Button>
       </DialogTrigger>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto scrollbar-hide">
         <DialogHeader>
           <DialogTitle>Report New Issue</DialogTitle>
           <DialogDescription>
@@ -308,7 +390,7 @@ export default function ReportIssueForm() {
                   className="p-4 border border-gray-300 rounded-lg hover:bg-gray-50 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <Camera className="w-5 h-5" />
-                  Take Photo
+                  {uploadedImages.length > 0 ? "Retake Photo" : "Take Photo"}
                 </button>
                 
                 <button
@@ -318,7 +400,7 @@ export default function ReportIssueForm() {
                   className="p-4 border border-gray-300 rounded-lg hover:bg-gray-50 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <Upload className="w-5 h-5" />
-                  {isUploading ? "Uploading..." : "Upload Photo"}
+                  {isUploading ? "Uploading..." : uploadedImages.length > 0 ? "Reupload Photo" : "Upload Photo"}
                 </button>
               </div>
               
@@ -390,6 +472,15 @@ export default function ReportIssueForm() {
                   </div>
                 ))}
               </div>
+              
+              {/* AI Scanner for the first uploaded image */}
+              {uploadedImages.length > 0 && (
+                <AIImageScanner
+                  imageUrl={uploadedImages[0].url}
+                  categories={categories}
+                  onCategoryDetected={handleAICategoryDetection}
+                />
+              )}
             </div>
           )}
 
@@ -400,17 +491,34 @@ export default function ReportIssueForm() {
               <div className="space-y-2">
                 <label className="text-sm font-medium text-gray-700">
                   Category <span className="text-red-500">*</span> - Step 3
+                  {aiDetectedCategory && aiConfidence >= 0.7 && (
+                    <span className="ml-2 text-xs text-green-600 font-normal">
+                      (AI Auto-detected)
+                    </span>
+                  )}
                 </label>
                 <select
                   value={selectedCategory}
-                  onChange={(e) => setSelectedCategory(e.target.value)}
-                  className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  onChange={(e) => {
+                    setSelectedCategory(e.target.value);
+                    
+                    const selectedCat = categories.find(cat => cat.id === e.target.value);
+                    if (selectedCat) {
+                      setDescription(getDescriptionForCategory(selectedCat.name, selectedCat.department));
+                    }
+                  }}
+                  className={`w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
+                    aiDetectedCategory && selectedCategory === aiDetectedCategory
+                      ? 'border-green-300 bg-green-50'
+                      : 'border-gray-300'
+                  }`}
                   required
                 >
                   <option value="">Select a category</option>
                   {categories.map((category) => (
                     <option key={category.id} value={category.id}>
                       {category.name} ({category.department})
+                      {aiDetectedCategory === category.id && ` - AI: ${(aiConfidence * 100).toFixed(0)}%`}
                     </option>
                   ))}
                 </select>
