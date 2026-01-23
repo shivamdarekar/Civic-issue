@@ -129,8 +129,12 @@ export default function IssueDetailModal({ isOpen, onClose, issueId }: IssueDeta
                         <span className="text-gray-600 font-medium">Department</span>
                         <span className="font-medium text-gray-900">{currentIssue.category?.department?.replace('_', ' ') || 'N/A'}</span>
                       </div>
+                      <div className="flex items-center justify-between py-2 border-b border-gray-100">
+                        <span className="text-gray-600 font-medium">Reported By</span>
+                        <span className="font-medium text-gray-900">{currentIssue.reporter?.fullName || 'Unknown'}</span>
+                      </div>
                       <div className="flex items-center justify-between py-2">
-                        <span className="text-gray-600 font-medium">Assignee</span>
+                        <span className="text-gray-600 font-medium">Assigned To</span>
                         <span className="font-medium text-gray-900">{currentIssue.assignee?.fullName || 'Unassigned'}</span>
                       </div>
                     </div>
