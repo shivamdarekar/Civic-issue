@@ -6,6 +6,7 @@ import { useAppDispatch, useAppSelector } from "@/redux/hooks";
 import { fetchCategories, uploadBeforeImages, createIssue, deleteImage } from "@/redux/slices/issuesSlice";
 import { fetchFieldWorkerDashboard } from "@/redux/slices/userSlice";
 import { Button } from "@/components/ui/button";
+import VMCLoader from "@/components/ui/VMCLoader";
 import {
   Dialog,
   DialogContent,
@@ -372,7 +373,7 @@ export default function ReportIssueForm() {
                     />
                     {deletingImages.has(index) ? (
                       <div className="absolute top-0 right-0 w-5 h-5 bg-gray-500 rounded-full flex items-center justify-center text-xs">
-                        <div className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                        <VMCLoader size={12} />
                       </div>
                     ) : (
                       <button

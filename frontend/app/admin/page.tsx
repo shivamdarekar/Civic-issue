@@ -8,6 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import StatCard from "@/components/admin/StatCard";
 import SystemOverview from "@/components/admin/SystemOverview";
+import VMCLoader from "@/components/ui/VMCLoader";
 
 export default function AdminPage() {
   const dispatch = useAppDispatch();
@@ -25,7 +26,7 @@ export default function AdminPage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+        <VMCLoader size={48} />
         <span className="ml-3 text-gray-600">Loading dashboard...</span>
       </div>
     );

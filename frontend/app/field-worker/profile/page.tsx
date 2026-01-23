@@ -2,6 +2,7 @@
 
 import { useAppSelector } from "@/redux/hooks";
 import { User, Mail, Phone, MapPin, Building } from "lucide-react";
+import VMCLoader from "@/components/ui/VMCLoader";
 
 export default function FieldWorkerProfilePage() {
   const { user } = useAppSelector((state) => state.userState);
@@ -12,7 +13,7 @@ export default function FieldWorkerProfilePage() {
   if (!user) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+        <VMCLoader size={48} />
       </div>
     );
   }

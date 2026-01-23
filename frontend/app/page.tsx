@@ -251,8 +251,8 @@ export default function HomePage() {
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                 <div className="relative group overflow-hidden rounded-xl bg-gray-200">
                   <Image
-                    src="/Laxmi Vilas Palace.jpg"
-                    alt="Laxmi Vilas Palace"
+                    src="/Laxmi Palace.jpg"
+                    alt="Laxmi Palace"
                     width={300}
                     height={200}
                     className="w-full h-32 object-cover transition-transform duration-300 group-hover:scale-110"
@@ -260,28 +260,13 @@ export default function HomePage() {
                   />
                   <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300">
                     <div className="absolute bottom-2 left-2 text-white text-sm font-medium">
-                      Laxmi Vilas Palace
+                      Laxmi Palace
                     </div>
                   </div>
                 </div>
                 <div className="relative group overflow-hidden rounded-xl bg-gray-200">
                   <Image
-                    src="/Sursagar-Lake.jpg"
-                    alt="Sursagar Lake"
-                    width={300}
-                    height={200}
-                    className="w-full h-32 object-cover transition-transform duration-300 group-hover:scale-110"
-                    unoptimized
-                  />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-                    <div className="absolute bottom-2 left-2 text-white text-sm font-medium">
-                      Sursagar Lake
-                    </div>
-                  </div>
-                </div>
-                <div className="relative group overflow-hidden rounded-xl bg-gray-200">
-                  <Image
-                    src="/kirti mandir.jpeg"
+                    src="/kirti mandir.jpg"
                     alt="Kirti Mandir"
                     width={300}
                     height={200}
@@ -296,8 +281,8 @@ export default function HomePage() {
                 </div>
                 <div className="relative group overflow-hidden rounded-xl bg-gray-200">
                   <Image
-                    src="/Sayaji.jpg"
-                    alt="Sayaji Garden"
+                    src="/Vadodara.jpg"
+                    alt="Vadodara"
                     width={300}
                     height={200}
                     className="w-full h-32 object-cover transition-transform duration-300 group-hover:scale-110"
@@ -305,7 +290,22 @@ export default function HomePage() {
                   />
                   <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300">
                     <div className="absolute bottom-2 left-2 text-white text-sm font-medium">
-                      Sayaji Garden
+                      Vadodara
+                    </div>
+                  </div>
+                </div>
+                <div className="relative group overflow-hidden rounded-xl bg-gray-200">
+                  <Image
+                    src="/Sayajirao university.jpg"
+                    alt="Sayajirao University"
+                    width={300}
+                    height={200}
+                    className="w-full h-32 object-cover transition-transform duration-300 group-hover:scale-110"
+                    unoptimized
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                    <div className="absolute bottom-2 left-2 text-white text-sm font-medium">
+                      Sayajirao University
                     </div>
                   </div>
                 </div>

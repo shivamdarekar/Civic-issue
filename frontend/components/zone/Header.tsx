@@ -4,8 +4,10 @@ import { Menu, Eye, Shield, User } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
-import { useAppSelector } from "@/redux/hooks";
+import { useAppSelector, useAppDispatch } from "@/redux/hooks";
+import { logoutUser } from "@/redux/slices/authSlice";
 
 interface HeaderProps {
   onMenuClick?: () => void;
@@ -14,6 +16,19 @@ interface HeaderProps {
 export default function Header({ onMenuClick }: HeaderProps) {
   const [showAccessibility, setShowAccessibility] = useState(false);
   const { user } = useAppSelector((state) => state.userState);
+  const dispatch = useAppDispatch();
+  const router = useRouter();
+
+  const handleLogout = async () => {
+    try {
+      await dispatch(logoutUser()).unwrap();
+      router.push('/login');
+    } catch (error) {
+      // Even if logout fails, clear local state and redirect
+      localStorage.removeItem('authToken');
+      router.push('/login');
+    }
+  };
 
   return (
     <header className="bg-gradient-to-r from-blue-800 to-blue-900 shadow-lg sticky top-0 z-40">
@@ -72,13 +87,13 @@ export default function Header({ onMenuClick }: HeaderProps) {
               <Eye className="w-4 h-4" />
             </Button>
             
-            <Link
-              href="/login"
+            <Button
+              onClick={handleLogout}
               className="bg-red-600 border border-red-500 text-white hover:bg-red-700 px-2 sm:px-4 py-1.5 sm:py-2 rounded-lg text-xs sm:text-sm font-medium transition-colors"
             >
               <span className="hidden sm:inline">Logout</span>
               <span className="sm:hidden">Exit</span>
-            </Link>
+            </Button>
           </div>
         </div>
       </div>

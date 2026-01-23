@@ -6,6 +6,7 @@ import { useAppDispatch, useAppSelector } from "@/redux/hooks";
 import { fetchFieldWorkerDashboard } from "@/redux";
 import StatCard from "@/components/admin/StatCard";
 import ReportIssueForm from "@/components/field-worker/ReportIssueForm";
+import VMCLoader from "@/components/ui/VMCLoader";
 
 export default function FieldWorkerPage() {
   const dispatch = useAppDispatch();
@@ -18,7 +19,7 @@ export default function FieldWorkerPage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+        <VMCLoader size={48} />
       </div>
     );
   }

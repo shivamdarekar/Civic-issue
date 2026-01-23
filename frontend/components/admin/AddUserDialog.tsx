@@ -10,6 +10,7 @@ import { Separator } from "@/components/ui/separator";
 import { UserPlus, Mail, Phone, Shield, Building, MapPin, Users } from "lucide-react";
 import { useAppDispatch, useAppSelector } from "@/redux/hooks";
 import { registerUser, fetchWardsForZone } from "@/redux";
+import VMCLoader from "@/components/ui/VMCLoader";
 
 const ROLE_REQUIREMENTS = {
   SUPER_ADMIN: { showZone: false, showWard: false, showDepartment: false },
@@ -316,7 +317,7 @@ export default function AddUserDialog({ open, onClose, onUserAdded, departments,
             >
               {loading ? (
                 <div className="flex items-center gap-2">
-                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                  <VMCLoader size={16} />
                   Adding...
                 </div>
               ) : (

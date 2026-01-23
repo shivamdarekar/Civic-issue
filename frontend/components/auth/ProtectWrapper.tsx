@@ -6,6 +6,7 @@ import { useDispatch, useSelector } from 'react-redux';
 import { fetchCurrentUser, clearAuth, initializeAuth } from '@/redux';
 import { clearUserState } from '@/redux';
 import { authService } from '@/lib/auth';
+import VMCLoader from '@/components/ui/VMCLoader';
 import type { RootState, AppDispatch } from '@/redux';
 
 interface ProtectWrapperProps {
@@ -90,7 +91,7 @@ export default function ProtectWrapper({ children }: ProtectWrapperProps) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <VMCLoader size={48} className="mx-auto mb-4" />
           <p className="text-gray-600">Authenticating...</p>
         </div>
       </div>
