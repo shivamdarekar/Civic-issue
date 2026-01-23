@@ -94,45 +94,25 @@ export default function FieldWorkerPage() {
           </div>
         </div>
 
-        {/* Recent Issues */}
+        {/* Quick Stats */}
         <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-200">
-          <h3 className="text-lg font-semibold text-gray-800 mb-4">Recent Issues</h3>
+          <h3 className="text-lg font-semibold text-gray-800 mb-4">Quick Stats</h3>
           <div className="space-y-3">
-            {dashboard?.recentIssues?.map((issue) => (
-              <div key={issue.id} className="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
-                <div>
-                  <div className="font-medium text-gray-800">{issue.ticketNumber}</div>
-                  <div className="text-sm text-gray-500">
-                    {new Date(issue.createdAt).toLocaleDateString()}
-                  </div>
-                </div>
-                <div className="flex flex-col items-end gap-1">
-                  <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                    issue.status === 'RESOLVED' ? 'bg-green-100 text-green-800' :
-                    issue.status === 'IN_PROGRESS' ? 'bg-yellow-100 text-yellow-800' :
-                    'bg-red-100 text-red-800'
-                  }`}>
-                    {issue.status.replace('_', ' ')}
-                  </span>
-                  {issue.priority && (
-                    <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                      issue.priority === 'HIGH' ? 'bg-red-100 text-red-800' :
-                      issue.priority === 'MEDIUM' ? 'bg-yellow-100 text-yellow-800' :
-                      'bg-green-100 text-green-800'
-                    }`}>
-                      {issue.priority}
-                    </span>
-                  )}
-                </div>
-              </div>
-            ))}
+            <div className="flex justify-between items-center">
+              <span className="text-gray-600">Total Created</span>
+              <span className="font-semibold text-gray-800">{dashboard?.totalIssuesCreated || 0}</span>
+            </div>
+            <div className="flex justify-between items-center">
+              <span className="text-gray-600">This Month</span>
+              <span className="font-semibold text-gray-800">{dashboard?.recentIssues?.length || 0}</span>
+            </div>
           </div>
         </div>
       </div>
 
       {/* Recent Issues Table */}
       <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-200">
-        <h3 className="text-lg font-semibold text-gray-800 mb-4">All Recent Issues</h3>
+        <h3 className="text-lg font-semibold text-gray-800 mb-4">Recent Issues</h3>
         <div className="overflow-x-auto">
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">

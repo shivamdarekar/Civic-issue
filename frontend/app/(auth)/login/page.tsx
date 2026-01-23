@@ -160,6 +160,9 @@ export default function LoginPage() {
                         value={credentials.password}
                         onChange={(e) => setCredentials({ ...credentials, password: e.target.value })}
                         className="h-12 bg-white border-2 border-gray-200 focus:border-blue-500 transition-all rounded-xl pr-12 text-gray-900 placeholder:text-gray-500"
+                        autoComplete="current-password"
+                        data-1p-ignore
+                        data-lpignore="true"
                         required
                       />
                       <button
