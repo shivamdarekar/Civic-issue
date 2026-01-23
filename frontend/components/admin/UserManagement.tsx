@@ -30,6 +30,7 @@ import {
 import DeactivateUserDialog from "./DeactivateUserDialog";
 import { useAppDispatch } from "@/redux/hooks";
 import { reactivateUser } from "@/redux";
+import { toast } from "sonner";
 
 interface UserManagementProps {
   users: any[];
@@ -63,16 +64,6 @@ export default function UserManagement({ users, onUsersChange, onViewUser, onEdi
     return roles.sort();
   }, [users]);
 
-  const showToast = (message: string, type: 'success' | 'error' = 'success') => {
-    const toast = document.createElement('div');
-    toast.className = `fixed top-4 right-4 z-50 px-4 py-2 rounded-lg text-white font-medium ${
-      type === 'success' ? 'bg-green-600' : 'bg-red-600'
-    }`;
-    toast.textContent = message;
-    document.body.appendChild(toast);
-    setTimeout(() => document.body.removeChild(toast), 3000);
-  };
-
   const handleEditUser = (user: any) => {
     if (onEditUser) {
       onEditUser(user.id);
@@ -85,7 +76,7 @@ export default function UserManagement({ users, onUsersChange, onViewUser, onEdi
   const handleDeleteUser = (userId: string) => {
     onUsersChange(users.filter(u => u.id !== userId));
     setUserToDelete(null);
-    showToast('User deleted successfully!');
+    toast.success('User deleted successfully!');
   };
 
   const handleDeactivateUser = (user: any) => {
@@ -97,17 +88,17 @@ export default function UserManagement({ users, onUsersChange, onViewUser, onEdi
     try {
       await dispatch(reactivateUser(user.id)).unwrap();
       onUsersChange(users.map(u => u.id === user.id ? { ...u, status: 'Active' } : u));
-      showToast('User reactivated successfully!');
+      toast.success('User reactivated successfully!');
       setShowReactivateConfirm(null);
     } catch (error: any) {
-      showToast(error || 'Failed to reactivate user', 'error');
+      toast.error(error || 'Failed to reactivate user');
     }
   };
 
   const handleUserDeactivated = () => {
     if (userToDeactivate) {
       onUsersChange(users.map(u => u.id === userToDeactivate.id ? { ...u, status: 'Inactive' } : u));
-      showToast('User deactivated successfully!');
+      toast.success('User deactivated successfully!');
     }
   };
 

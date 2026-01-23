@@ -11,6 +11,7 @@ import { UserPlus, Mail, Phone, Shield, Building, MapPin, Users } from "lucide-r
 import { useAppDispatch, useAppSelector } from "@/redux/hooks";
 import { registerUser, fetchWardsForZone } from "@/redux";
 import VMCLoader from "@/components/ui/VMCLoader";
+import { toast } from "sonner";
 
 const ROLE_REQUIREMENTS = {
   SUPER_ADMIN: { showZone: false, showWard: false, showDepartment: false },
@@ -102,9 +103,9 @@ export default function AddUserDialog({ open, onClose, onUserAdded, departments,
       });
       
       handleClose();
-      alert('User added successfully!');
+      toast.success('User added successfully!');
     } catch (error: any) {
-      alert(error || 'Error adding user');
+      toast.error(error || 'Error adding user');
     }
   };
 

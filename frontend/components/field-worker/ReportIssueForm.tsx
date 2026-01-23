@@ -8,6 +8,7 @@ import { fetchFieldWorkerDashboard } from "@/redux/slices/userSlice";
 import { Button } from "@/components/ui/button";
 import VMCLoader from "@/components/ui/VMCLoader";
 import AIImageScanner from "./AIImageScanner";
+import { toast } from "sonner";
 import {
   Dialog,
   DialogContent,
@@ -59,7 +60,7 @@ export default function ReportIssueForm() {
 
   const requestGPSPermission = async () => {
     if (!navigator.geolocation) {
-      alert("GPS is not supported by this browser");
+      toast.error("GPS is not supported by this browser");
       return;
     }
 
@@ -77,7 +78,7 @@ export default function ReportIssueForm() {
         console.error("GPS error:", error);
         setGpsPermission("denied");
         setLoading(false);
-        alert("GPS permission denied or location unavailable");
+        toast.error("GPS permission denied or location unavailable");
       },
       { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 }
     );
@@ -94,7 +95,7 @@ export default function ReportIssueForm() {
       }
     } catch (error) {
       console.error("Camera error:", error);
-      alert("Camera permission denied");
+      toast.error("Camera permission denied");
     }
   };
 
@@ -173,7 +174,7 @@ export default function ReportIssueForm() {
       }
     } catch (error) {
       console.error("Failed to upload image:", error);
-      alert("Failed to upload image. Please try again.");
+      toast.error("Failed to upload image. Please try again.");
       // Remove failed file from images array
       setImages(prev => prev.filter((_, i) => i !== tempIndex));
     } finally {
@@ -236,7 +237,7 @@ export default function ReportIssueForm() {
         setUploadedImages(prev => prev.filter((_, i) => i !== index));
       } catch (error) {
         console.error("Failed to delete image:", error);
-        alert("Failed to delete image. Please try again.");
+        toast.error("Failed to delete image. Please try again.");
       } finally {
         setDeletingImages(prev => {
           const newSet = new Set(prev);
@@ -251,17 +252,17 @@ export default function ReportIssueForm() {
     e.preventDefault();
     
     if (!selectedCategory) {
-      alert("Please select a category");
+      toast.error("Please select a category");
       return;
     }
     
     if (!uploadedImages.length) {
-      alert("Please upload at least one image");
+      toast.error("Please upload at least one image");
       return;
     }
     
     if (!location) {
-      alert("Please allow GPS permission to get your location");
+      toast.error("Please allow GPS permission to get your location");
       return;
     }
 
@@ -283,7 +284,7 @@ export default function ReportIssueForm() {
       };
 
       await dispatch(createIssue(issueData)).unwrap();
-      alert("Issue reported successfully!");
+      toast.success("Issue reported successfully!");
       
       // Reset form
       setSelectedCategory("");
@@ -302,7 +303,7 @@ export default function ReportIssueForm() {
       
     } catch (error) {
       console.error("Failed to submit issue:", error);
-      alert("Failed to submit issue. Please try again.");
+      toast.error("Failed to submit issue. Please try again.");
     } finally {
       setLoading(false);
     }

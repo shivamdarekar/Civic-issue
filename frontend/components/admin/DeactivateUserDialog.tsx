@@ -11,6 +11,7 @@ import { Separator } from "@/components/ui/separator";
 import { UserX, AlertTriangle, Users, ArrowRight } from "lucide-react";
 import { useAppDispatch, useAppSelector } from "@/redux/hooks";
 import { fetchUserStatistics, fetchUsersByFilter, reassignUserWork, deactivateUser } from "@/redux";
+import { toast } from "sonner";
 
 interface DeactivateUserDialogProps {
   open: boolean;
@@ -29,16 +30,6 @@ export default function DeactivateUserDialog({ open, onClose, onUserDeactivated,
   const [selectedUserId, setSelectedUserId] = useState<string>('');
   const [reassigning, setReassigning] = useState(false);
   const [deactivating, setDeactivating] = useState(false);
-
-  const showToast = (message: string, type: 'success' | 'error' = 'success') => {
-    const toast = document.createElement('div');
-    toast.className = `fixed top-4 right-4 z-50 px-4 py-2 rounded-lg text-white font-medium ${
-      type === 'success' ? 'bg-green-600' : 'bg-red-600'
-    }`;
-    toast.textContent = message;
-    document.body.appendChild(toast);
-    setTimeout(() => document.body.removeChild(toast), 3000);
-  };
 
   useEffect(() => {
     if (open && user) {
@@ -95,9 +86,9 @@ export default function DeactivateUserDialog({ open, onClose, onUserDeactivated,
     try {
       await dispatch(reassignUserWork({ fromUserId: user.id, toUserId: selectedUserId })).unwrap();
       setStep('confirm');
-      showToast('Tasks reassigned successfully!');
+      toast.success('Tasks reassigned successfully!');
     } catch (error: any) {
-      showToast(error || 'Failed to reassign tasks', 'error');
+      toast.error(error || 'Failed to reassign tasks');
     } finally {
       setReassigning(false);
     }
@@ -112,7 +103,7 @@ export default function DeactivateUserDialog({ open, onClose, onUserDeactivated,
       onUserDeactivated();
       handleClose();
     } catch (error: any) {
-      showToast(error || 'Failed to deactivate user', 'error');
+      toast.error(error || 'Failed to deactivate user');
     } finally {
       setDeactivating(false);
     }

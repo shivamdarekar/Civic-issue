@@ -10,6 +10,7 @@ import { Separator } from "@/components/ui/separator";
 import { Edit, Mail, Phone, Shield, Building, MapPin, Users } from "lucide-react";
 import { useAppDispatch, useAppSelector } from "@/redux/hooks";
 import { updateUser, fetchUserById, fetchWardsForZone } from "@/redux";
+import { toast } from "sonner";
 
 const ROLE_REQUIREMENTS = {
   SUPER_ADMIN: { showZone: false, showWard: false, showDepartment: false },
@@ -72,7 +73,7 @@ export default function EditUserDialog({ open, onClose, onUserUpdated, userId, d
       }
     } catch (error) {
       console.error('Error fetching user:', error);
-      alert('Error loading user data. The API endpoint may not be implemented yet.');
+      toast.error('Error loading user data. The API endpoint may not be implemented yet.');
       handleClose();
     }
   };
@@ -125,7 +126,7 @@ export default function EditUserDialog({ open, onClose, onUserUpdated, userId, d
     const changes = getChangedFields();
     
     if (Object.keys(changes).length === 0) {
-      alert('No changes detected');
+      toast.info('No changes detected');
       return;
     }
     
@@ -133,9 +134,9 @@ export default function EditUserDialog({ open, onClose, onUserUpdated, userId, d
       await dispatch(updateUser({ userId, updateData: changes })).unwrap();
       onUserUpdated();
       handleClose();
-      alert('User updated successfully!');
+      toast.success('User updated successfully!');
     } catch (error: any) {
-      alert(error || 'Error updating user');
+      toast.error(error || 'Error updating user');
     }
   };
 

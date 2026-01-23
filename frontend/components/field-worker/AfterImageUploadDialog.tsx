@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { useAppDispatch } from "@/redux/hooks";
 import { uploadAfterImages, addAfterMedia } from "@/redux/slices/issuesSlice";
 import VMCLoader from "@/components/ui/VMCLoader";
+import { toast } from "sonner";
 import {
   Dialog,
   DialogContent,
@@ -50,7 +51,7 @@ export default function AfterImageUploadDialog({
       }
     } catch (error) {
       console.error("Camera error:", error);
-      alert("Camera permission denied");
+      toast.error("Camera permission denied");
     }
   };
 
@@ -106,7 +107,7 @@ export default function AfterImageUploadDialog({
       }
     } catch (error) {
       console.error("Failed to upload image:", error);
-      alert("Failed to upload image. Please try again.");
+      toast.error("Failed to upload image. Please try again.");
     } finally {
       setUploading(false);
     }
@@ -119,7 +120,7 @@ export default function AfterImageUploadDialog({
 
   const handleSubmit = async () => {
     if (uploadedImages.length === 0) {
-      alert("Please upload at least one after image");
+      toast.error("Please upload at least one after image");
       return;
     }
 
@@ -132,12 +133,12 @@ export default function AfterImageUploadDialog({
       })).unwrap();
       
       console.log('After media upload result:', result);
-      alert("After images uploaded successfully!");
+      toast.success("After images uploaded successfully!");
       onSuccess?.();
       handleClose();
     } catch (error: any) {
       console.error("Failed to submit after images:", error);
-      alert(`Failed to submit after images: ${error.message || error}`);
+      toast.error(`Failed to submit after images: ${error.message || error}`);
     } finally {
       setLoading(false);
     }
