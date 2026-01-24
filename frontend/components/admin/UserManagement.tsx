@@ -39,6 +39,8 @@ interface UserManagementProps {
   onEditUser?: (userId: string) => void;
   departments: Department[];
   zones: Zone[];
+  onFiltersChange?: (filters: { status: string; role: string }) => void;
+  allRoles?: string[];
 }
 
 interface User {
@@ -59,13 +61,9 @@ interface Department {
 interface Zone {
   id: string;
   name: string;
-  departments: any[];
-  zones: any[];
-  onFiltersChange: (filters: { status: string; role: string }) => void;
-  allRoles: string[]; // Add this prop for all available roles
 }
 
-export default function UserManagement({ users, onUsersChange, onViewUser, onEditUser, onFiltersChange, allRoles }: UserManagementProps) {
+export default function UserManagement({ users, onUsersChange, onViewUser, onEditUser, departments, zones, onFiltersChange, allRoles }: UserManagementProps) {
   const dispatch = useAppDispatch();
   const [viewingUser, setViewingUser] = useState<User | null>(null);
   const [userToDelete, setUserToDelete] = useState<string | null>(null);
@@ -87,26 +85,35 @@ export default function UserManagement({ users, onUsersChange, onViewUser, onEdi
   const filteredUsers = useMemo(() => {
     return users.filter(user => {
       const statusMatch = statusFilter === 'All' || user.status === statusFilter;
-      const roleMatch = roleFilter === 'All' || user.role === roleFilter;
+      const roleMatch = roleFilter === 'All' || user.role === roleMatch;
       return statusMatch && roleMatch;
     });
   }, [users, statusFilter, roleFilter]);
+
+  const uniqueRoles = useMemo(() => {
+    const roles = allRoles || [...new Set(users.map(user => user.role))];
+    return roles.sort();
+  }, [users, allRoles]);
+
   // Handle filter changes
   const handleStatusFilterChange = (value: string) => {
     setStatusFilter(value);
-    onFiltersChange({ status: value, role: roleFilter });
+    if (onFiltersChange) {
+      onFiltersChange({ status: value, role: roleFilter });
+    }
   };
 
   const handleRoleFilterChange = (value: string) => {
     setRoleFilter(value);
-    onFiltersChange({ status: statusFilter, role: value });
+    if (onFiltersChange) {
+      onFiltersChange({ status: statusFilter, role: value });
+    }
   };
 
   const handleEditUser = (user: User) => {
     if (onEditUser) {
       onEditUser(user.id);
     } else {
-      // TODO: Implement edit functionality
       console.log('Edit user:', user);
     }
   };
@@ -209,6 +216,163 @@ export default function UserManagement({ users, onUsersChange, onViewUser, onEdi
                 <SelectTrigger className="w-40">
                   <SelectValue />
                 </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="All">All Roles</SelectItem>
+                  {uniqueRoles.map(role => (
+                    <SelectItem key={role} value={role}>
+                      {role.replace('_', ' ')}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+        </div>
+        
+        {filteredUsers.length === 0 ? (
+          <Alert>
+            <AlertDescription>
+              No users found matching the selected filters.
+            </AlertDescription>
+          </Alert>
+        ) : (
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead className="text-gray-900 font-semibold">ID</TableHead>
+                <TableHead className="text-gray-900 font-semibold">Name</TableHead>
+                <TableHead className="text-gray-900 font-semibold">Role</TableHead>
+                <TableHead className="text-gray-900 font-semibold">Ward/Zone</TableHead>
+                <TableHead className="text-gray-900 font-semibold">Phone</TableHead>
+                <TableHead className="text-gray-900 font-semibold">Status</TableHead>
+                <TableHead className="text-gray-900 font-semibold">Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {filteredUsers.map((user) => (
+                <TableRow key={user.id}>
+                  <TableCell className="font-medium text-gray-900">{user.id.slice(0, 6)}...</TableCell>
+                  <TableCell className="text-gray-800">{user.name}</TableCell>
+                  <TableCell>
+                    <span className={`px-3 py-1 rounded-full text-xs font-medium ${
+                      user.role === 'SUPER_ADMIN' ? 'bg-red-100 text-red-700' :
+                      user.role === 'ZONE_OFFICER' ? 'bg-purple-100 text-purple-700' :
+                      user.role === 'WARD_ENGINEER' ? 'bg-blue-100 text-blue-700' :
+                      'bg-green-100 text-green-700'
+                    }`}>
+                      {user.role.replace('_', ' ')}
+                    </span>
+                  </TableCell>
+                  <TableCell className="text-gray-800">{user.ward || user.zone || 'Not assigned'}</TableCell>
+                  <TableCell className="text-gray-800">{user.phone}</TableCell>
+                  <TableCell>
+                    <span className={`inline-flex px-2 py-1 rounded-full text-xs font-medium ${
+                      user.status === 'Active' 
+                        ? 'bg-green-100 text-green-800' 
+                        : 'bg-red-100 text-red-800'
+                    }`}>
+                      {user.status}
+                    </span>
+                  </TableCell>
+                  <TableCell>
+                    <DropdownMenu>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="sm">
+                              <MoreHorizontal className="w-4 h-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p>User actions</p>
+                        </TooltipContent>
+                      </Tooltip>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem onClick={() => handleViewProfile(user)}>
+                          <Eye className="w-4 h-4 mr-2" />
+                          View Details
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => handleEditUser(user)}>
+                          <Edit className="w-4 h-4 mr-2" />
+                          Edit User
+                        </DropdownMenuItem>
+                        <DropdownMenuSeparator />
+                        {user.status === 'Active' ? (
+                          <DropdownMenuItem onClick={() => handleDeactivateUser(user)}>
+                            <UserX className="w-4 h-4 mr-2" />
+                            Deactivate User
+                          </DropdownMenuItem>
+                        ) : (
+                          <DropdownMenuItem onClick={() => setShowReactivateConfirm(user.id)}>
+                            <UserCheck className="w-4 h-4 mr-2" />
+                            Reactivate User
+                          </DropdownMenuItem>
+                        )}
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                    
+                    <AlertDialog open={userToDelete === user.id} onOpenChange={(open) => !open && setUserToDelete(null)}>
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>Delete User</AlertDialogTitle>
+                          <AlertDialogDescription>
+                            Are you sure you want to delete {user.name}? This action cannot be undone.
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel>Cancel</AlertDialogCancel>
+                          <AlertDialogAction onClick={() => handleDeleteUser(user.id)} className="bg-red-600 hover:bg-red-700">
+                            Delete
+                          </AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        )}
+      </Card>
+
+      {/* Reactivate Confirmation Dialog */}
+      <AlertDialog open={!!showReactivateConfirm} onOpenChange={(open) => !open && setShowReactivateConfirm(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Reactivate User</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to reactivate this user? They will regain access to the system.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={() => {
+                const user = users.find(u => u.id === showReactivateConfirm);
+                if (user) handleReactivateUser(user);
+              }}
+              className="bg-green-600 hover:bg-green-700"
+            >
+              Reactivate
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Deactivate User Dialog */}
+      <DeactivateUserDialog
+        open={showDeactivateDialog}
+        onClose={() => {
+          setShowDeactivateDialog(false);
+          setUserToDeactivate(null);
+        }}
+        onUserDeactivated={handleUserDeactivated}
+        user={userToDeactivate}
+      />
+    </div>
+  );
+}
                 <SelectContent>
                   <SelectItem value="All">All Roles</SelectItem>
                   {allRoles.map(role => (
