@@ -15,7 +15,7 @@ import Footer from "@/components/auth/Footer";
 
 export default function ForgotPasswordPage() {
   const router = useRouter();
-  const { t } = useLanguage();
+  const { } = useLanguage();
   const {
     step,
     email,
@@ -255,7 +255,7 @@ export default function ForgotPasswordPage() {
                     Step 2 of 3
                   </div>
                   <h3 className="text-xl font-bold text-gray-800 mb-2">Enter Verification Code</h3>
-                  <p className="text-gray-600 mb-2">We've sent a 6-digit code to</p>
+                  <p className="text-gray-600 mb-2">We&apos;ve sent a 6-digit code to</p>
                   <p className="font-semibold text-blue-600">{email}</p>
                 </div>
 

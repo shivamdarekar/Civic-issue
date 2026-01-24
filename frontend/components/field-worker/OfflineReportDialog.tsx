@@ -273,10 +273,10 @@ export default function OfflineReportDialog({
         <div className="bg-orange-50 border border-orange-200 rounded-lg p-3 mb-4">
           <div className="flex items-center gap-2 text-orange-700">
             <Clock className="w-4 h-4" />
-            <span className="text-sm font-medium">You're offline</span>
+            <span className="text-sm font-medium">You&apos;re offline</span>
           </div>
           <p className="text-xs text-orange-600 mt-1">
-            This issue will be saved locally and synced when you're back online.
+            This issue will be saved locally and synced when you&apos;re back online.
           </p>
         </div>
 
@@ -437,7 +437,7 @@ export default function OfflineReportDialog({
                 <label className="text-sm font-medium text-gray-700">Priority <span className="text-red-500">*</span></label>
                 <Select
                   value={formData.priority}
-                  onValueChange={(value: any) => setFormData(prev => ({ ...prev, priority: value }))}
+                  onValueChange={(value: "LOW" | "MEDIUM" | "HIGH" | "CRITICAL") => setFormData(prev => ({ ...prev, priority: value }))}
                 >
                   <SelectTrigger>
                     <SelectValue />

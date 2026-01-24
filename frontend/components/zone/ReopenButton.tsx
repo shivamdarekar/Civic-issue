@@ -55,8 +55,9 @@ export default function ReopenButton({
       setIsOpen(false);
       setComment("");
       onSuccess?.();
-    } catch (error: any) {
-      toast.error(error?.message || "Failed to reopen issue");
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Failed to reopen issue';
+      toast.error(errorMessage);
     } finally {
       setIsLoading(false);
     }
@@ -78,7 +79,7 @@ export default function ReopenButton({
         <DialogHeader>
           <DialogTitle>Reopen Issue</DialogTitle>
           <DialogDescription>
-            This will change the issue status back to "Assigned" and delete all after images. 
+            This will change the issue status back to &quot;Assigned&quot; and delete all after images. 
             The engineer will need to start work again.
           </DialogDescription>
         </DialogHeader>

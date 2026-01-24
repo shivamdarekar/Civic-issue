@@ -1,10 +1,10 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Shield, FileText, Users, TrendingUp, AlertTriangle, Clock } from "lucide-react";
+import { Shield, FileText, TrendingUp, AlertTriangle, Clock } from "lucide-react";
 import { useAppDispatch, useAppSelector } from "@/redux/hooks";
 import { fetchAdminDashboard, fetchZonesOverview } from "@/redux";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import StatCard from "@/components/admin/StatCard";
 import SystemOverview from "@/components/admin/SystemOverview";

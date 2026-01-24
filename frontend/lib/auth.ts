@@ -29,7 +29,7 @@ export interface User {
   } | null;
   gamification?: {
     points: number;
-    badges: any;
+    badges: string[];
   } | null;
   isActive?: boolean;
   createdAt?: string;
@@ -54,7 +54,7 @@ export const authService = {
       localStorage.setItem('authToken', token);
       
       // Set user in Redux state
-      dispatch(setUserState(user as any));
+      dispatch(setUserState(user as User));
       
       return { success: true, user: user as User, token };
     }
@@ -86,7 +86,7 @@ export const authService = {
     const response = await apiClient.auth.getProfile();
     
     if (response.success && response.data) {
-      dispatch(setUserState(response.data as any));
+      dispatch(setUserState(response.data as User));
       return response.data as User;
     }
     

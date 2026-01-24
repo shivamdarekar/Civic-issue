@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -19,13 +19,23 @@ const ROLE_REQUIREMENTS = {
   FIELD_WORKER: { showZone: true, showWard: true, showDepartment: false },
 };
 
+interface Department {
+  id: string;
+  name: string;
+}
+
+interface Zone {
+  zoneId: string;
+  name: string;
+}
+
 interface EditUserDialogProps {
   open: boolean;
   onClose: () => void;
   onUserUpdated: () => void;
   userId: string | null;
-  departments: any[];
-  zones: any[];
+  departments: Department[];
+  zones: Zone[];
 }
 
 export default function EditUserDialog({ open, onClose, onUserUpdated, userId, departments, zones }: EditUserDialogProps) {
@@ -42,15 +52,9 @@ export default function EditUserDialog({ open, onClose, onUserUpdated, userId, d
     zoneId: ''
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
-  const [initialData, setInitialData] = useState<any>(null);
+  const [initialData, setInitialData] = useState<Record<string, string> | null>(null);
 
-  useEffect(() => {
-    if (open && userId) {
-      fetchUserData();
-    }
-  }, [open, userId]);
-
-  const fetchUserData = async () => {
+  const fetchUserData = useCallback(async () => {
     if (!userId) return;
     
     try {
@@ -76,7 +80,13 @@ export default function EditUserDialog({ open, onClose, onUserUpdated, userId, d
       toast.error('Error loading user data. The API endpoint may not be implemented yet.');
       handleClose();
     }
-  };
+  }, [dispatch, userId, wardsByZone]);
+
+  useEffect(() => {
+    if (open && userId) {
+      fetchUserData();
+    }
+  }, [open, userId, fetchUserData]);
 
   const handleZoneChange = (zoneId: string) => {
     setFormData({ ...formData, zoneId, wardId: '' });
@@ -107,7 +117,7 @@ export default function EditUserDialog({ open, onClose, onUserUpdated, userId, d
   };
 
   const getChangedFields = () => {
-    const changes: any = {};
+    const changes: Record<string, string | undefined> = {};
     
     if (formData.fullName !== initialData?.fullName) changes.fullName = formData.fullName.trim();
     if (formData.email !== initialData?.email) changes.email = formData.email.trim();
@@ -135,8 +145,9 @@ export default function EditUserDialog({ open, onClose, onUserUpdated, userId, d
       onUserUpdated();
       handleClose();
       toast.success('User updated successfully!');
-    } catch (error: any) {
-      toast.error(error || 'Error updating user');
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Error updating user';
+      toast.error(errorMessage);
     }
   };
 
@@ -291,7 +302,7 @@ export default function EditUserDialog({ open, onClose, onUserUpdated, userId, d
                           <SelectValue placeholder="Select zone" />
                         </SelectTrigger>
                         <SelectContent className="bg-white text-gray-900">
-                          {zones.map((zone: any) => (
+                          {zones.map((zone: Zone) => (
                             <SelectItem key={zone.zoneId} value={zone.zoneId} className="text-gray-900">{zone.name}</SelectItem>
                           ))}
                         </SelectContent>
@@ -316,7 +327,7 @@ export default function EditUserDialog({ open, onClose, onUserUpdated, userId, d
                           } />
                         </SelectTrigger>
                         <SelectContent className="bg-white text-gray-900">
-                          {wardsByZone[formData.zoneId]?.map((ward: any) => (
+                          {wardsByZone[formData.zoneId]?.map((ward: { wardId: string; wardNumber: number; name: string }) => (
                             <SelectItem key={ward.wardId} value={ward.wardId} className="text-gray-900">
                               Ward {ward.wardNumber} - {ward.name}
                             </SelectItem>

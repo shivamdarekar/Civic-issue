@@ -112,8 +112,8 @@ export default function WardDetail({ wardDetail, wardId }: WardDetailProps) {
   }, [searchQuery]);
 
   // Fetch issues when component mounts or filters change
-  useEffect(() => {
-    const params: any = {
+  const fetchIssuesData = useCallback(() => {
+    const params: Record<string, string | number> = {
       wardId,
       page: currentPage,
       pageSize,
@@ -125,6 +125,10 @@ export default function WardDetail({ wardDetail, wardId }: WardDetailProps) {
     
     dispatch(fetchIssues(params));
   }, [dispatch, wardId, currentPage, statusFilter, priorityFilter, debouncedSearchQuery]);
+
+  useEffect(() => {
+    fetchIssuesData();
+  }, [fetchIssuesData]);
 
   // Reset page when filters change
   useEffect(() => {
@@ -146,20 +150,9 @@ export default function WardDetail({ wardDetail, wardId }: WardDetailProps) {
     setSelectedIssueId(issueId);
   };
 
-  const handleIssueStatusUpdate = () => {
-    // Refresh issues list after status update
-    const params: any = {
-      wardId,
-      page: currentPage,
-      pageSize,
-    };
-    
-    if (statusFilter && statusFilter !== "all") params.status = statusFilter;
-    if (priorityFilter && priorityFilter !== "all") params.priority = priorityFilter;
-    if (debouncedSearchQuery.trim()) params.q = debouncedSearchQuery.trim();
-    
-    dispatch(fetchIssues(params));
-  };
+  const handleIssueStatusUpdate = useCallback(() => {
+    fetchIssuesData();
+  }, [fetchIssuesData]);
 
   const getStatusColor = (status: string) => {
     switch (status) {

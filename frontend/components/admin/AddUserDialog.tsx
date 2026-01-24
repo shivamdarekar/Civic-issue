@@ -20,12 +20,34 @@ const ROLE_REQUIREMENTS = {
   FIELD_WORKER: { showZone: true, showWard: true, showDepartment: false },
 };
 
+interface User {
+  id: string;
+  fullName: string;
+  email: string;
+  role: string;
+  phoneNumber: string;
+  department?: string;
+  ward?: { name: string; wardNumber: number };
+  zone?: { name: string };
+  isActive: boolean;
+}
+
+interface Department {
+  id: string;
+  name: string;
+}
+
+interface Zone {
+  zoneId: string;
+  name: string;
+}
+
 interface AddUserDialogProps {
   open: boolean;
   onClose: () => void;
-  onUserAdded: (user: any) => void;
-  departments: any[];
-  zones: any[];
+  onUserAdded: (user: User) => void;
+  departments: Department[];
+  zones: Zone[];
 }
 
 export default function AddUserDialog({ open, onClose, onUserAdded, departments, zones }: AddUserDialogProps) {
@@ -76,7 +98,7 @@ export default function AddUserDialog({ open, onClose, onUserAdded, departments,
     if (!validateForm()) return;
     
     try {
-      const payload: any = {
+      const payload: Record<string, string> = {
         fullName: formData.fullName.trim(),
         email: formData.email.trim(),
         phoneNumber: formData.phoneNumber.trim(),
@@ -104,8 +126,9 @@ export default function AddUserDialog({ open, onClose, onUserAdded, departments,
       
       handleClose();
       toast.success('User added successfully!');
-    } catch (error: any) {
-      toast.error(error || 'Error adding user');
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Error adding user';
+      toast.error(errorMessage);
     }
   };
 
@@ -260,7 +283,7 @@ export default function AddUserDialog({ open, onClose, onUserAdded, departments,
                           <SelectValue placeholder="Select zone" />
                         </SelectTrigger>
                         <SelectContent className="bg-white text-gray-900">
-                          {zones.map((zone: any) => (
+                          {zones.map((zone: Zone) => (
                             <SelectItem key={zone.zoneId} value={zone.zoneId} className="text-gray-900">{zone.name}</SelectItem>
                           ))}
                         </SelectContent>
@@ -285,7 +308,7 @@ export default function AddUserDialog({ open, onClose, onUserAdded, departments,
                           } />
                         </SelectTrigger>
                         <SelectContent className="bg-white text-gray-900">
-                          {wardsByZone[formData.zoneId]?.map((ward: any) => (
+                          {wardsByZone[formData.zoneId]?.map((ward: { wardId: string; wardNumber: number; name: string }) => (
                             <SelectItem key={ward.wardId} value={ward.wardId} className="text-gray-900">
                               Ward {ward.wardNumber} - {ward.name}
                             </SelectItem>

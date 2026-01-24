@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Users, Plus, ChevronLeft, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -11,10 +11,23 @@ import EditUserDialog from "@/components/admin/EditUserDialog";
 import { useAppDispatch, useAppSelector } from "@/redux/hooks";
 import { fetchDepartments, fetchZonesOverview, fetchAllUsers, fetchAvailableRoles } from "@/redux";
 
+interface User {
+  id: string;
+  fullName: string;
+  email: string;
+  role: string;
+  phoneNumber: string;
+  department?: string;
+  ward?: { name: string; wardNumber: number };
+  zone?: { name: string };
+  isActive: boolean;
+  createdAt: string;
+}
+
 export default function UserManagementPage() {
   const dispatch = useAppDispatch();
   const { departments, zonesOverview: zones, users: apiUsers, usersPagination, availableRoles, loading } = useAppSelector(state => state.admin);
-  const [users, setUsers] = useState<any[]>([]);
+  const [users, setUsers] = useState<User[]>([]);
   const [currentPage, setCurrentPage] = useState(1);
   const [filters, setFilters] = useState({ status: 'Active', role: 'All' });
   const [showAddDialog, setShowAddDialog] = useState(false);
@@ -37,23 +50,36 @@ export default function UserManagementPage() {
   useEffect(() => {
     if (apiUsers) {
       // Transform API data to match UI expectations
-      const transformedUsers = apiUsers.map((user: any) => ({
+      const transformedUsers = apiUsers.map((user: User) => ({
         id: user.id,
-        name: user.fullName,
+        fullName: user.fullName,
         email: user.email,
         role: user.role,
-        phone: user.phoneNumber,
+        phoneNumber: user.phoneNumber,
         department: user.department,
-        ward: user.ward?.name ? `Ward ${user.ward.wardNumber} - ${user.ward.name}` : null,
-        zone: user.zone?.name || null,
-        status: user.isActive ? 'Active' : 'Inactive',
+        ward: user.ward,
+        zone: user.zone,
+        isActive: user.isActive,
         createdAt: user.createdAt
       }));
       setUsers(transformedUsers);
     }
   }, [apiUsers]);
 
-  const handleUserAdded = (newUser: any) => {
+  const loadIssues = useCallback(() => {
+    dispatch(fetchAllUsers({ 
+      page: currentPage, 
+      limit: 18, 
+      status: filters.status !== 'All' ? filters.status : undefined,
+      role: filters.role !== 'All' ? filters.role : undefined
+    }));
+  }, [dispatch, currentPage, filters]);
+
+  useEffect(() => {
+    loadIssues();
+  }, [loadIssues]);
+
+  const handleUserAdded = () => {
     // Refresh users list after adding new user
     dispatch(fetchAllUsers({ 
       page: currentPage, 
@@ -122,8 +148,34 @@ export default function UserManagementPage() {
 
       {/* User Management Component */}
       <UserManagement 
-        users={users} 
-        onUsersChange={setUsers}
+        users={users.map(user => ({
+          id: user.id,
+          name: user.fullName,
+          email: user.email,
+          role: user.role,
+          phone: user.phoneNumber,
+          department: user.department,
+          ward: user.ward?.name ? `Ward ${user.ward.wardNumber} - ${user.ward.name}` : undefined,
+          zone: user.zone?.name || undefined,
+          status: user.isActive ? 'Active' : 'Inactive',
+          createdAt: user.createdAt
+        }))}
+        onUsersChange={(transformedUsers) => {
+          // Convert back to User format
+          const apiUsers = transformedUsers.map(u => ({
+            id: u.id,
+            fullName: u.name,
+            email: u.email,
+            role: u.role,
+            phoneNumber: u.phone,
+            department: u.department,
+            ward: u.ward ? { name: u.ward.split(' - ')[1] || u.ward, wardNumber: parseInt(u.ward.split(' ')[1]) || 0 } : undefined,
+            zone: u.zone ? { name: u.zone } : undefined,
+            isActive: u.status === 'Active',
+            createdAt: u.createdAt || new Date().toISOString()
+          })) as User[];
+          setUsers(apiUsers);
+        }}
         onViewUser={handleViewUser}
         onEditUser={handleEditUser}
         onFiltersChange={handleFiltersChange}

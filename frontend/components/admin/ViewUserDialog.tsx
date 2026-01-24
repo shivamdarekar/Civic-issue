@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -11,6 +11,19 @@ import { User, Mail, Phone, Shield, Building, MapPin, Users, Calendar } from "lu
 import { useAppDispatch, useAppSelector } from "@/redux/hooks";
 import { fetchUserById } from "@/redux";
 
+interface UserData {
+  id: string;
+  fullName: string;
+  email: string;
+  phoneNumber: string;
+  role: string;
+  department?: string;
+  zone?: { name: string };
+  ward?: { wardNumber: number; name: string };
+  isActive: boolean;
+  createdAt: string;
+}
+
 interface ViewUserDialogProps {
   open: boolean;
   onClose: () => void;
@@ -20,15 +33,9 @@ interface ViewUserDialogProps {
 export default function ViewUserDialog({ open, onClose, userId }: ViewUserDialogProps) {
   const dispatch = useAppDispatch();
   const { loading } = useAppSelector(state => state.admin);
-  const [userData, setUserData] = useState<any>(null);
+  const [userData, setUserData] = useState<UserData | null>(null);
 
-  useEffect(() => {
-    if (open && userId) {
-      fetchUser();
-    }
-  }, [open, userId]);
-
-  const fetchUser = async () => {
+  const fetchUser = useCallback(async () => {
     if (!userId) return;
     
     try {
@@ -37,7 +44,13 @@ export default function ViewUserDialog({ open, onClose, userId }: ViewUserDialog
     } catch (error) {
       console.error('Error fetching user:', error);
     }
-  };
+  }, [dispatch, userId]);
+
+  useEffect(() => {
+    if (open && userId) {
+      fetchUser();
+    }
+  }, [open, userId, fetchUser]);
 
   const handleClose = () => {
     setUserData(null);

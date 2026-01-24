@@ -56,7 +56,7 @@ export default function ProtectWrapper({ children }: ProtectWrapperProps) {
     if (isLoading || (!user && localStorage.getItem('authToken'))) {
       checkAuth();
     }
-  }, [dispatch, router, isLoading]); // Remove user from dependency array
+  }, [dispatch, router, isLoading]);
 
   // Separate effect to handle when user data is loaded
   useEffect(() => {

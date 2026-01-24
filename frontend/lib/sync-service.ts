@@ -57,7 +57,7 @@ class SyncService {
 
       // Validate required fields before attempting sync
       // Handle both old format (category) and new format (categoryId)
-      const categoryId = issue.categoryId || (issue as any).category;
+      const categoryId = issue.categoryId || (issue as { category?: string }).category;
       if (!categoryId || typeof categoryId !== 'string' || categoryId.trim() === '') {
         throw new Error('categoryId is required but was not provided');
       }
@@ -326,7 +326,7 @@ class SyncService {
       console.log(`ID: ${issue.id}`);
       console.log(`TempID: ${issue.tempId}`);
       console.log(`CategoryID: ${issue.categoryId}`);
-      console.log(`Category (legacy): ${(issue as any).category}`);
+      console.log(`Category (legacy): ${(issue as { category?: string }).category}`);
       console.log(`Status: ${issue.syncStatus}`);
       console.log(`Retry Count: ${issue.retryCount}`);
       console.log(`Last Error: ${issue.lastError || 'none'}`);

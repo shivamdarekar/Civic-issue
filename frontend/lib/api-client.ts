@@ -1,7 +1,7 @@
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api/v1';
 const ADMIN_BASE_URL = `${API_BASE_URL}/admin`;
 
-interface ApiResponse<T = any> {
+interface ApiResponse<T = unknown> {
   success: boolean;
   statusCode: number;
   message: string;
@@ -41,9 +41,9 @@ async function apiRequest<T>(
     }
 
     return data;
-  } catch (error: any) {
+  } catch (error: unknown) {
     // Handle network errors or JSON parse errors
-    if (error.message === 'Failed to fetch') {
+    if (error instanceof Error && error.message === 'Failed to fetch') {
       return {
         success: false,
         statusCode: 500,

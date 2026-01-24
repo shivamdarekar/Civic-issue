@@ -74,7 +74,7 @@ export default function WardCards({ wards, loading }: WardCardsProps) {
           <div className="text-center space-y-3">
             <Users className="w-10 h-10 sm:w-12 sm:h-12 text-gray-400 mx-auto" />
             <p className="text-gray-500 text-base sm:text-lg font-medium">No wards found</p>
-            <p className="text-gray-400 text-xs sm:text-sm">This zone doesn't have any wards assigned yet.</p>
+            <p className="text-gray-400 text-xs sm:text-sm">This zone doesn&apos;t have any wards assigned yet.</p>
           </div>
         </CardContent>
       </Card>

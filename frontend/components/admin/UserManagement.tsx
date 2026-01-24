@@ -32,23 +32,46 @@ import { useAppDispatch } from "@/redux/hooks";
 import { reactivateUser } from "@/redux";
 import { toast } from "sonner";
 
+interface User {
+  id: string;
+  name: string;
+  email: string;
+  role: string;
+  phone: string;
+  department?: string;
+  ward?: string;
+  zone?: string;
+  status: string;
+  createdAt?: string;
+}
+
+interface Department {
+  id: string;
+  name: string;
+}
+
+interface Zone {
+  zoneId: string;
+  name: string;
+}
+
 interface UserManagementProps {
-  users: any[];
-  onUsersChange: (users: any[]) => void;
+  users: User[];
+  onUsersChange: (users: User[]) => void;
   onViewUser?: (userId: string) => void;
   onEditUser?: (userId: string) => void;
-  departments: any[];
-  zones: any[];
+  departments: Department[];
+  zones: Zone[];
   onFiltersChange: (filters: { status: string; role: string }) => void;
   allRoles: string[];
 }
 
 export default function UserManagement({ users, onUsersChange, onViewUser, onEditUser, onFiltersChange, allRoles }: UserManagementProps) {
   const dispatch = useAppDispatch();
-  const [viewingUser, setViewingUser] = useState<any>(null);
+  const [viewingUser, setViewingUser] = useState<User | null>(null);
   const [userToDelete, setUserToDelete] = useState<string | null>(null);
   const [showDeactivateDialog, setShowDeactivateDialog] = useState(false);
-  const [userToDeactivate, setUserToDeactivate] = useState<any>(null);
+  const [userToDeactivate, setUserToDeactivate] = useState<User | null>(null);
   const [showReactivateConfirm, setShowReactivateConfirm] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState<string>('Active');
   const [roleFilter, setRoleFilter] = useState<string>('All');
@@ -64,7 +87,7 @@ export default function UserManagement({ users, onUsersChange, onViewUser, onEdi
     onFiltersChange({ status: statusFilter, role: value });
   };
 
-  const handleEditUser = (user: any) => {
+  const handleEditUser = (user: User) => {
     if (onEditUser) {
       onEditUser(user.id);
     } else {
@@ -78,19 +101,20 @@ export default function UserManagement({ users, onUsersChange, onViewUser, onEdi
     toast.success('User deleted successfully!');
   };
 
-  const handleDeactivateUser = (user: any) => {
+  const handleDeactivateUser = (user: User) => {
     setUserToDeactivate(user);
     setShowDeactivateDialog(true);
   };
 
-  const handleReactivateUser = async (user: any) => {
+  const handleReactivateUser = async (user: User) => {
     try {
       await dispatch(reactivateUser(user.id)).unwrap();
       onUsersChange(users.map(u => u.id === user.id ? { ...u, status: 'Active' } : u));
       toast.success('User reactivated successfully!');
       setShowReactivateConfirm(null);
-    } catch (error: any) {
-      toast.error(error || 'Failed to reactivate user');
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Failed to reactivate user';
+      toast.error(errorMessage);
     }
   };
 
@@ -101,7 +125,7 @@ export default function UserManagement({ users, onUsersChange, onViewUser, onEdi
     }
   };
 
-  const handleViewProfile = (user: any) => {
+  const handleViewProfile = (user: User) => {
     if (onViewUser) {
       onViewUser(user.id);
     } else {
@@ -135,9 +159,9 @@ export default function UserManagement({ users, onUsersChange, onViewUser, onEdi
               <div className="space-y-2 text-sm">
                 <div><span className="font-medium text-gray-700">Ward:</span> <span className="text-gray-900">{viewingUser.ward || 'Not assigned'}</span></div>
                 <div><span className="font-medium text-gray-700">Zone:</span> <span className="text-gray-900">{viewingUser.zone || 'Not assigned'}</span></div>
-                <div><span className="font-medium text-gray-700">Issues Reported:</span> <span className="text-gray-900">{Math.floor(Math.random() * 50) + 10}</span></div>
-                <div><span className="font-medium text-gray-700">Issues Resolved:</span> <span className="text-gray-900">{Math.floor(Math.random() * 40) + 5}</span></div>
-                <div><span className="font-medium text-gray-700">Success Rate:</span> <span className="text-gray-900">{Math.floor(Math.random() * 20) + 80}%</span></div>
+                <div><span className="font-medium text-gray-700">Issues Reported:</span> <span className="text-gray-900">0</span></div>
+                <div><span className="font-medium text-gray-700">Issues Resolved:</span> <span className="text-gray-900">0</span></div>
+                <div><span className="font-medium text-gray-700">Success Rate:</span> <span className="text-gray-900">0%</span></div>
               </div>
             </div>
           </div>

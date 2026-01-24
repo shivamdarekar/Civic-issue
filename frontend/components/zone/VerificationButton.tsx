@@ -75,7 +75,7 @@ export default function VerificationButton({
           <Alert className="mt-2">
             <AlertTriangle className="h-4 w-4" />
             <AlertDescription className="text-xs">
-              <span className="hidden sm:inline">Worker hasn't uploaded after images yet</span>
+              <span className="hidden sm:inline">Worker hasn&apos;t uploaded after images yet</span>
               <span className="sm:hidden">No after images</span>
             </AlertDescription>
           </Alert>
