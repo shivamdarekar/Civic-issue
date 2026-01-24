@@ -1,6 +1,6 @@
 "use client";
 
-import { Menu, X, Eye } from "lucide-react";
+import { Menu, X, Eye, Download, MoreVertical } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { useState } from "react";
@@ -8,6 +8,13 @@ import { useLanguage } from "@/lib/language-context";
 import AccessibilityPanel from "@/components/AccessibilityPanel";
 import { LanguageSelector } from "@/components/LanguageSelector";
 import { Button } from "@/components/ui/button";
+import { usePWAInstall } from "@/hooks/usePWAInstall";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 interface HeaderProps {
   showNavigation?: boolean;
@@ -18,6 +25,7 @@ export default function Header({ showNavigation = false, onMenuClick }: HeaderPr
   const { t } = useLanguage();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [showAccessibility, setShowAccessibility] = useState(false);
+  const { install, isInstallable } = usePWAInstall();
 
   return (
     <>
@@ -56,6 +64,27 @@ export default function Header({ showNavigation = false, onMenuClick }: HeaderPr
               </Button>
 
               <LanguageSelector />
+              
+              {/* More Options Dropdown */}
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="text-white hover:bg-white/10"
+                  >
+                    <MoreVertical className="w-4 h-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-48">
+                  {isInstallable && (
+                    <DropdownMenuItem onClick={install}>
+                      <Download className="w-4 h-4 mr-2" />
+                      Install App
+                    </DropdownMenuItem>
+                  )}
+                </DropdownMenuContent>
+              </DropdownMenu>
               
               <Link
                 href="/login"

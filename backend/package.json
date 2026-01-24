@@ -8,6 +8,7 @@
     "start": "node dist/index.js",
     "prisma:generate": "prisma generate",
     "prisma:seed": "tsx prisma/seed.ts",
+    "prisma:seed2": "tsx prisma/seed2.ts",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "author": "Tech Titans",
