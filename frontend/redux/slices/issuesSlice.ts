@@ -204,7 +204,47 @@ export const createIssue = createAsyncThunk(
   "issues/create",
   async (issueData: CreateIssueData, { rejectWithValue }) => {
     try {
-      const response = await axiosInstance.post("/issues", issueData);
+      // Build payload matching backend schema exactly
+      const payload: {
+        categoryId: string;
+        latitude: number;
+        longitude: number;
+        description?: string;
+        priority?: string;
+        address?: string;
+        media?: Array<{ type: 'BEFORE' | 'AFTER'; url: string; mimeType?: string; fileSize?: number }>;
+      } = {
+        categoryId: issueData.categoryId,
+        latitude: issueData.latitude,
+        longitude: issueData.longitude,
+      };
+
+      // Only add optional fields if they have valid values
+      if (issueData.description && issueData.description.trim().length > 0) {
+        payload.description = issueData.description.trim();
+      }
+
+      if (issueData.priority) {
+        payload.priority = issueData.priority;
+      }
+
+      if (issueData.address && issueData.address.trim().length > 0) {
+        payload.address = issueData.address.trim();
+      }
+
+      // Transform media to include 'type' field required by backend
+      if (issueData.media && issueData.media.length > 0) {
+        payload.media = issueData.media.map(m => ({
+          type: 'BEFORE' as const,
+          url: m.url,
+          mimeType: m.mimeType,
+          fileSize: m.fileSize,
+        }));
+      }
+
+      console.log('Creating issue with payload:', JSON.stringify(payload, null, 2));
+
+      const response = await axiosInstance.post("/issues", payload);
       return response.data.data;
     } catch (error: unknown) {
       return rejectWithValue(handleAxiosError(error, "Failed to create issue"));

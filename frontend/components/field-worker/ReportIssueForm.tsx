@@ -1,13 +1,15 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { MapPin, Camera, Upload, Send, Plus } from "lucide-react";
+import { MapPin, Camera, Upload, Send, Plus, WifiOff } from "lucide-react";
 import { useAppDispatch, useAppSelector } from "@/redux/hooks";
 import { fetchCategories, uploadBeforeImages, createIssue, deleteImage } from "@/redux/slices/issuesSlice";
 import { fetchFieldWorkerDashboard } from "@/redux/slices/userSlice";
 import { Button } from "@/components/ui/button";
 import VMCLoader from "@/components/ui/VMCLoader";
 import AIImageScanner from "./AIImageScanner";
+import OfflineReportDialog from "./OfflineReportDialog";
+import { useOnlineStatus } from "@/hooks/useOnlineStatus";
 import { toast } from "sonner";
 import {
   Dialog,
@@ -34,6 +36,7 @@ interface Location {
 export default function ReportIssueForm() {
   const dispatch = useAppDispatch();
   const { categories, loading: issuesLoading } = useAppSelector((state) => state.issues);
+  const isOnline = useOnlineStatus();
   const [selectedCategory, setSelectedCategory] = useState("");
   const [priority, setPriority] = useState<"LOW" | "MEDIUM" | "HIGH" | "CRITICAL">("MEDIUM");
   const [description, setDescription] = useState("");
@@ -46,6 +49,7 @@ export default function ReportIssueForm() {
   const [isUploading, setIsUploading] = useState(false);
   const [gpsPermission, setGpsPermission] = useState<"granted" | "denied" | "prompt">("prompt");
   const [open, setOpen] = useState(false);
+  const [offlineOpen, setOfflineOpen] = useState(false);
   const [aiDetectedCategory, setAiDetectedCategory] = useState<string | null>(null);
   const [aiConfidence, setAiConfidence] = useState<number>(0);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -317,34 +321,64 @@ export default function ReportIssueForm() {
     }
   };
 
+  const handleReportClick = () => {
+    if (isOnline) {
+      setOpen(true);
+    } else {
+      setOfflineOpen(true);
+    }
+  };
+
   return (
-    <Dialog open={open} onOpenChange={(isOpen) => {
-      setOpen(isOpen);
-      if (!isOpen) {
-        // Reset all form data when dialog closes
-        setSelectedCategory("");
-        setPriority("MEDIUM");
-        setDescription("");
-        setImages([]);
-        setUploadedImages([]);
-        setLocation(null);
-        setGpsPermission("prompt");
-        setAiDetectedCategory(null);
-        setAiConfidence(0);
-        setLoading(false);
-        setIsUploading(false);
-        setUploadingImages(new Set());
-        setDeletingImages(new Set());
-        stopCamera();
-      }
-    }}>
-      <DialogTrigger asChild>
-        <Button className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 w-full sm:w-auto" size="sm">
+    <>
+      {isOnline ? (
+        <Button 
+          onClick={handleReportClick}
+          className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 w-full sm:w-auto" 
+          size="sm"
+        >
           <Plus className="w-4 h-4 mr-2" />
           Report New Issue
         </Button>
-      </DialogTrigger>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto scrollbar-hide">
+      ) : (
+        <Button 
+          onClick={handleReportClick}
+          className="bg-orange-600 hover:bg-orange-700 text-white px-4 py-2 w-full sm:w-auto" 
+          size="sm"
+        >
+          <WifiOff className="w-4 h-4 mr-2" />
+          Report Offline
+        </Button>
+      )}
+
+      <OfflineReportDialog
+        open={offlineOpen}
+        onOpenChange={setOfflineOpen}
+        currentLocation={location}
+      />
+
+      {isOnline && (
+        <Dialog open={open} onOpenChange={(isOpen) => {
+          setOpen(isOpen);
+          if (!isOpen) {
+            // Reset all form data when dialog closes
+            setSelectedCategory("");
+            setPriority("MEDIUM");
+            setDescription("");
+            setImages([]);
+            setUploadedImages([]);
+            setLocation(null);
+            setGpsPermission("prompt");
+            setAiDetectedCategory(null);
+            setAiConfidence(0);
+            setLoading(false);
+            setIsUploading(false);
+            setUploadingImages(new Set());
+            setDeletingImages(new Set());
+            stopCamera();
+          }
+        }}>
+          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto scrollbar-hide">
         <DialogHeader>
           <DialogTitle>Report New Issue</DialogTitle>
           <DialogDescription>
@@ -582,5 +616,7 @@ export default function ReportIssueForm() {
         <canvas ref={canvasRef} className="hidden" />
       </DialogContent>
     </Dialog>
+      )}
+    </>
   );
 }
