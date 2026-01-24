@@ -45,21 +45,21 @@ export default function FieldWorkerProfilePage() {
       {/* Profile Information */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
         {/* Personal Information */}
-        <Card>
-          <CardHeader className="p-4 sm:p-6">
+        <Card className="h-fit">
+          <CardHeader className="p-4 sm:p-6 pb-2">
             <CardTitle className="flex items-center gap-2 text-lg sm:text-xl">
               <User className="w-4 h-4 sm:w-5 sm:h-5" />
               Personal Information
             </CardTitle>
           </CardHeader>
-          <CardContent className="space-y-4 p-4 sm:p-6 pt-0">
+          <CardContent className="space-y-5 p-4 sm:p-6 pt-2">
             <div>
-              <label className="text-sm font-medium text-gray-500">Full Name</label>
+              <label className="text-sm font-medium text-gray-500 block mb-1">Full Name</label>
               <p className="text-base sm:text-lg font-semibold text-gray-900 break-words">{user.fullName}</p>
             </div>
             
             <div>
-              <label className="text-sm font-medium text-gray-500">Email Address</label>
+              <label className="text-sm font-medium text-gray-500 block mb-1">Email Address</label>
               <div className="flex items-start gap-2">
                 <Mail className="w-4 h-4 text-gray-400 mt-0.5 flex-shrink-0" />
                 <p className="text-gray-900 break-all text-sm sm:text-base">{user.email}</p>
@@ -67,7 +67,7 @@ export default function FieldWorkerProfilePage() {
             </div>
             
             <div>
-              <label className="text-sm font-medium text-gray-500">Phone Number</label>
+              <label className="text-sm font-medium text-gray-500 block mb-1">Phone Number</label>
               <div className="flex items-center gap-2">
                 <Phone className="w-4 h-4 text-gray-400 flex-shrink-0" />
                 <p className="text-gray-900">{user.phoneNumber || 'Not provided'}</p>
@@ -75,7 +75,7 @@ export default function FieldWorkerProfilePage() {
             </div>
             
             <div>
-              <label className="text-sm font-medium text-gray-500">Role</label>
+              <label className="text-sm font-medium text-gray-500 block mb-1">Role</label>
               <div className="mt-1">
                 <Badge className={getRoleBadgeColor(user.role)}>
                   <Shield className="w-3 h-3 mr-1" />
@@ -87,17 +87,17 @@ export default function FieldWorkerProfilePage() {
         </Card>
 
         {/* Work Information */}
-        <Card>
-          <CardHeader className="p-4 sm:p-6">
+        <Card className="h-fit">
+          <CardHeader className="p-4 sm:p-6 pb-2">
             <CardTitle className="flex items-center gap-2 text-lg sm:text-xl">
               <Building className="w-4 h-4 sm:w-5 sm:h-5" />
               Work Information
             </CardTitle>
           </CardHeader>
-          <CardContent className="space-y-4 p-4 sm:p-6 pt-0">
+          <CardContent className="space-y-5 p-4 sm:p-6 pt-2">
             {user.zone && (
               <div>
-                <label className="text-sm font-medium text-gray-500">Zone</label>
+                <label className="text-sm font-medium text-gray-500 block mb-1">Zone</label>
                 <div className="flex items-start gap-2">
                   <MapPin className="w-4 h-4 text-gray-400 mt-0.5 flex-shrink-0" />
                   <p className="text-gray-900 break-words">{user.zone.name}</p>
@@ -107,7 +107,7 @@ export default function FieldWorkerProfilePage() {
             
             {user.ward && (
               <div>
-                <label className="text-sm font-medium text-gray-500">Ward</label>
+                <label className="text-sm font-medium text-gray-500 block mb-1">Ward</label>
                 <div className="flex items-start gap-2">
                   <MapPin className="w-4 h-4 text-gray-400 mt-0.5 flex-shrink-0" />
                   <p className="text-gray-900 break-words">Ward {user.ward.wardNumber} - {user.ward.name}</p>
@@ -116,7 +116,7 @@ export default function FieldWorkerProfilePage() {
             )}
             
             <div>
-              <label className="text-sm font-medium text-gray-500">Status</label>
+              <label className="text-sm font-medium text-gray-500 block mb-1">Status</label>
               <div className="mt-1">
                 <Badge className={user.isActive ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}>
                   {user.isActive ? 'Active' : 'Inactive'}
@@ -126,7 +126,7 @@ export default function FieldWorkerProfilePage() {
             
             {user.createdAt && (
               <div>
-                <label className="text-sm font-medium text-gray-500">Member Since</label>
+                <label className="text-sm font-medium text-gray-500 block mb-1">Member Since</label>
                 <p className="text-gray-900">{new Date(user.createdAt).toLocaleDateString()}</p>
               </div>
             )}

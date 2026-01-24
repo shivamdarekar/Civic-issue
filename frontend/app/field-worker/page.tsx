@@ -31,7 +31,7 @@ export default function FieldWorkerPage() {
       {/* Header */}
       <Card>
         <CardContent className="p-3 sm:p-4 lg:p-6">
-          <div className="flex flex-col gap-3 sm:gap-4 mb-3 sm:mb-4">
+          <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-3 sm:gap-4 mb-3 sm:mb-4">
             <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 sm:gap-4">
               <div className="bg-purple-100 p-2 sm:p-3 rounded-lg">
                 <Users className="w-5 h-5 sm:w-6 sm:h-6 text-purple-600" />
@@ -41,7 +41,7 @@ export default function FieldWorkerPage() {
                 <p className="text-sm sm:text-base text-gray-600">Issue reporting and tracking</p>
               </div>
             </div>
-            <div className="w-full">
+            <div className="w-full lg:w-auto lg:flex-shrink-0">
               <ReportIssueForm />
             </div>
           </div>
@@ -57,7 +57,7 @@ export default function FieldWorkerPage() {
       {/* Recent Issues Table */}
       {fieldWorkerDashboard?.recentIssues && (
         <Card>
-          <CardHeader className="pb-3 sm:pb-4">
+          <CardHeader>
             <CardTitle className="text-base sm:text-lg">Recent Issues</CardTitle>
           </CardHeader>
           <CardContent className="pt-0">

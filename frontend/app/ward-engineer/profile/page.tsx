@@ -72,7 +72,7 @@ export default function ProfilePage() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
         {/* Personal Information */}
         <Card>
-          <CardHeader className="pb-3 sm:pb-4">
+          <CardHeader>
             <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
               <User className="w-4 h-4 sm:w-5 sm:h-5" />
               Personal Information
@@ -116,7 +116,7 @@ export default function ProfilePage() {
 
         {/* Work Information */}
         <Card>
-          <CardHeader className="pb-3 sm:pb-4">
+          <CardHeader>
             <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
               <Building className="w-4 h-4 sm:w-5 sm:h-5" />
               Work Information

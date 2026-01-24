@@ -177,7 +177,7 @@ export default function AssignedIssuesPage() {
 
       {/* Issues List */}
       <Card>
-        <CardHeader className="pb-3 sm:pb-4">
+        <CardHeader>
           <CardTitle className="text-sm sm:text-base">
             Issues ({filteredIssues.length})
           </CardTitle>
@@ -197,7 +197,7 @@ export default function AssignedIssuesPage() {
             <div className="space-y-3 sm:space-y-4">
               {filteredIssues.map((issue) => (
                 <div key={issue.id} className="p-3 sm:p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
-                  <div className="flex flex-col gap-3 sm:gap-4">
+                  <div className="flex flex-col lg:flex-row lg:items-start gap-3 sm:gap-4">
                     <div className="flex-1 min-w-0">
                       <div className="flex flex-wrap items-center gap-1 sm:gap-2 mb-2">
                         <Badge className={`text-xs ${getStatusColor(issue.status)}`}>
@@ -215,7 +215,7 @@ export default function AssignedIssuesPage() {
                         Created: {formatDate(issue.createdAt)}
                       </p>
                     </div>
-                    <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+                    <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 lg:flex-row lg:items-center lg:justify-end lg:flex-shrink-0">
                       <StatusUpdateButton 
                         issueId={issue.id}
                         currentStatus={issue.status}
