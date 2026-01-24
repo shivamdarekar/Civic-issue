@@ -5,6 +5,7 @@ import { LanguageProvider } from "@/lib/language-context";
 import { ReduxProvider } from "@/redux";
 import { Toaster } from "@/components/ui/toaster";
 import PWAInstallPrompt from "@/components/PWAInstallPrompt";
+import SyncInitializer from "@/components/SyncInitializer";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -49,6 +50,7 @@ export default function RootLayout({
       >
         <LanguageProvider>
           <ReduxProvider>
+          <SyncInitializer />
           {children}
           </ReduxProvider>
         </LanguageProvider>

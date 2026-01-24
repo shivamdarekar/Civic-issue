@@ -9,18 +9,25 @@ import { Badge } from "@/components/ui/badge";
 import ReportIssueForm from "@/components/field-worker/ReportIssueForm";
 import IssueStatistics from "@/components/shared/IssueStatistics";
 import VMCLoader from "@/components/ui/VMCLoader";
+import OfflineStatus from "@/components/shared/OfflineStatus";
+import { useOnlineStatus } from "@/hooks/useOnlineStatus";
 
 export default function FieldWorkerPage() {
   const dispatch = useAppDispatch();
   const { fieldWorkerDashboard, loading, error } = useAppSelector((state) => state.user);
   const { user } = useAppSelector((state) => state.userState);
+  const isOnline = useOnlineStatus();
 
   useEffect(() => {
-    dispatch(fetchFieldWorkerDashboard(10));
-  }, [dispatch]);
+    if (isOnline) {
+      dispatch(fetchFieldWorkerDashboard(10));
+    }
+  }, [dispatch, isOnline]);
 
   return (
     <div className="space-y-6">
+      <OfflineStatus />
+      
       {/* Header */}
       <Card>
         <CardContent className="p-6">
