@@ -1,13 +1,16 @@
 import jwt from "jsonwebtoken";
 import { prisma } from "../lib/prisma";
 import { ApiError } from "./apiError";
+import { randomUUID } from "crypto";
 
-// Simple token generation
+// Simple token generation with JTI
 export const generateToken = (userId: string, role: string) => {
+    const jti = randomUUID(); // Generate unique token ID
     return jwt.sign(
         { 
             id: userId,
-            role: role 
+            role: role,
+            jti: jti
         },
         process.env.JWT_SECRET as string,
         { expiresIn: '7d' }
@@ -75,6 +78,7 @@ export const verifyToken = (token: string) => {
         return jwt.verify(token, process.env.JWT_SECRET as string) as {
             id: string;
             role: string;
+            jti: string;
         };
     } catch (error) {
         throw new ApiError(401, "Invalid token");
@@ -83,5 +87,5 @@ export const verifyToken = (token: string) => {
 
 // Decode token without verification (for expired token info)
 export const decodeToken = (token: string) => {
-    return jwt.decode(token) as { id: string; role: string } | null;
+    return jwt.decode(token) as { id: string; role: string; jti: string } | null;
 };

@@ -2,6 +2,7 @@ import app from "./app";
 import dotenv from "dotenv";
 import { connectDb, disconnectDb } from "./lib/prisma";
 import { EmailService } from "./services/email/emailService";
+import { redis, connectRedis } from "./lib/redis";
 
 dotenv.config();
 
@@ -9,9 +10,17 @@ const PORT = process.env.PORT || 5000;
 
 async function startServer() {
     try {
-        // Connect to database
+        // Connect to database first
         await connectDb();
         console.log('✅ Database connected');
+
+        // Try to connect to Redis (non-blocking)
+        try {
+            await connectRedis();
+            console.log('✅ Redis connected - caching enabled');
+        } catch (error) {
+            console.log('⚠️  Redis connection failed - running without cache');
+        }
 
         // Initialize email service (optional, won't block startup)
         try {
@@ -27,8 +36,9 @@ async function startServer() {
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 📍 Environment: ${process.env.NODE_ENV || 'development'}
 🔗 Server:      http://localhost:${PORT}
-❤️  Health:      http://localhost:${PORT}/health
+❤️  Health:      http://localhost:${PORT}/api/health
 📚 API Base:    http://localhost:${PORT}/api/v1
+🔴 Redis:       ${redis.isOpen ? 'Connected' : 'Disabled'}
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
             `);
         });

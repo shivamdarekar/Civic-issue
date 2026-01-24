@@ -56,9 +56,9 @@ export class AuthController {
     );
   });
 
-  // logout
+  // logout with session cleanup
   static logout = asyncHandler(async (req: Request, res: Response) => {
-    await AuthService.logout(req.user!.id);
+    await AuthService.logout(req.user!.id, req.sessionId);
     res.clearCookie("token");
 
     res.status(200).json(

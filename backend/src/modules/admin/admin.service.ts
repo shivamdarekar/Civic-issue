@@ -3,6 +3,7 @@ import { Prisma } from "@prisma/client";
 import { ApiError } from "../../utils/apiError";
 import { hashPassword } from "../auth/auth.utils";
 import { EmailService } from "../../services/email/emailService";
+import { cache } from "../../lib/cache";
 import {
   RegisterUserData,
   DashboardPayload,
@@ -20,7 +21,7 @@ import {
 } from "../../types";
 
 export class AdminService {
-  // Admin registers other users
+  // Admin registers other users with cache invalidation
   static async registerUser(userData: RegisterUserData, registeredBy: string) {
     const { fullName, email, phoneNumber, password, role, wardId, zoneId, department } = userData;
 
@@ -93,6 +94,13 @@ export class AdminService {
       }
     });
 
+    // Invalidate related caches
+    await Promise.all([
+      cache.invalidateAdminCache(),
+      wardId ? cache.invalidateRelatedCache('ward', wardId) : Promise.resolve(),
+      zoneId ? cache.invalidateRelatedCache('zone', zoneId) : Promise.resolve(),
+    ]);
+
     // Log the registration
     await prisma.auditLog.create({
       data: {
@@ -159,7 +167,7 @@ export class AdminService {
   }
 
 
-  // Update user details
+  // Update user details with cache invalidation
   static async updateUser(userId: string, updateData: UserUpdateData, updatedBy: string): Promise<any> {
     const { fullName, email, phoneNumber, role, wardId, zoneId, department } = updateData;
 
@@ -291,6 +299,16 @@ export class AdminService {
       }
     });
 
+    // Invalidate related caches
+    await Promise.all([
+      cache.invalidateUserCache(userId),
+      cache.invalidateAdminCache(),
+      existingUser.wardId ? cache.invalidateRelatedCache('ward', existingUser.wardId) : Promise.resolve(),
+      existingUser.zoneId ? cache.invalidateRelatedCache('zone', existingUser.zoneId) : Promise.resolve(),
+      finalWardId && finalWardId !== existingUser.wardId ? cache.invalidateRelatedCache('ward', finalWardId) : Promise.resolve(),
+      finalZoneId && finalZoneId !== existingUser.zoneId ? cache.invalidateRelatedCache('zone', finalZoneId) : Promise.resolve(),
+    ]);
+
     // Track significant assignment changes (for judges/auditors)
     const assignmentChanged =
       (role && role !== existingUser.role) ||
@@ -333,7 +351,7 @@ export class AdminService {
   }
 
 
-  // Reassign user's work to another user
+  // Reassign user's work to another user with cache invalidation
   static async reassignUserWork(fromUserId: string, toUserId: string, reassignedBy: string): Promise<ReassignWorkResponse> {
     // Validate both users exist
     const [fromUser, toUser] = await Promise.all([
@@ -466,6 +484,16 @@ export class AdminService {
       });
     });
 
+    // Invalidate related caches
+    await Promise.all([
+      cache.invalidateUserCache(fromUserId),
+      cache.invalidateUserCache(toUserId),
+      cache.invalidateAdminCache(),
+      cache.invalidateIssueCache(),
+      fromUser.wardId ? cache.invalidateRelatedCache('ward', fromUser.wardId) : Promise.resolve(),
+      fromUser.zoneId ? cache.invalidateRelatedCache('zone', fromUser.zoneId) : Promise.resolve(),
+    ]);
+
     return {
       message: `Successfully reassigned ${activeIssues.length} active issue(s) from ${fromUser.fullName} to ${toUser.fullName}`,
       reassignedCount: activeIssues.length,
@@ -488,7 +516,7 @@ export class AdminService {
   }
 
 
-  // Deactivate user with issue reassignment
+  // Deactivate user with issue reassignment and cache invalidation
   static async deactivateUser(userId: string, deactivatedBy: string, reassignToUserId?: string): Promise<UserStatusChange> {
     const user = await prisma.user.findUnique({ 
       where: { id: userId },
@@ -576,6 +604,16 @@ export class AdminService {
       }
     });
 
+    // Invalidate related caches
+    await Promise.all([
+      cache.invalidateUserCache(userId),
+      cache.invalidateAdminCache(),
+      cache.invalidateIssueCache(),
+      reassignToUserId ? cache.invalidateUserCache(reassignToUserId) : Promise.resolve(),
+      user.wardId ? cache.invalidateRelatedCache('ward', user.wardId) : Promise.resolve(),
+      user.zoneId ? cache.invalidateRelatedCache('zone', user.zoneId) : Promise.resolve(),
+    ]);
+
     // Log deactivation
     await prisma.auditLog.create({
       data: {
@@ -599,7 +637,7 @@ export class AdminService {
   }
 
 
-  // Reactivate user
+  // Reactivate user with cache invalidation
   static async reactivateUser(userId: string, reactivatedBy: string): Promise<UserStatusChange> {
     const user = await prisma.user.findUnique({ where: { id: userId } });
     if (!user) {
@@ -627,6 +665,14 @@ export class AdminService {
       }
     });
 
+    // Invalidate related caches
+    await Promise.all([
+      cache.invalidateUserCache(userId),
+      cache.invalidateAdminCache(),
+      user.wardId ? cache.invalidateRelatedCache('ward', user.wardId) : Promise.resolve(),
+      user.zoneId ? cache.invalidateRelatedCache('zone', user.zoneId) : Promise.resolve(),
+    ]);
+
     // Log reactivation
     await prisma.auditLog.create({
       data: {
@@ -648,164 +694,184 @@ export class AdminService {
   }
 
 
-  // Get user work statistics
+  // Get user work statistics with user-specific caching
   static async getUserStatistics(userId: string): Promise<UserStatistics> {
-    const user = await prisma.user.findUnique({
-      where: { id: userId },
-      select: { id: true, fullName: true, role: true, isActive: true }
-    });
+    return cache.getOrSet(
+      { ttl: 900, prefix: 'admin:user:stats' },
+      userId,
+      async () => {
+        const user = await prisma.user.findUnique({
+          where: { id: userId },
+          select: { id: true, fullName: true, role: true, isActive: true }
+        });
 
-    if (!user) {
-      throw new ApiError(404, "User not found");
-    }
-
-    // Get issue statistics
-    const [totalAssigned, activeIssues, resolvedIssues, avgResolutionDays] = await Promise.all([
-      // Total ever assigned
-      prisma.issue.count({
-        where: { assigneeId: userId, deletedAt: null }
-      }),
-      // Currently active
-      prisma.issue.count({
-        where: {
-          assigneeId: userId,
-          status: { in: ['ASSIGNED', 'IN_PROGRESS'] },
-          deletedAt: null
+        if (!user) {
+          throw new ApiError(404, "User not found");
         }
-      }),
-      // Resolved issues
-      prisma.issue.count({
-        where: {
-          assigneeId: userId,
-          status: { in: ['RESOLVED', 'VERIFIED'] },
-          deletedAt: null
-        }
-      }),
-      // Average resolution time (direct raw query - no unused aggregate)
-      (async () => {
-        const result = await prisma.$queryRaw<{ avg_days: number }[]>`
-          SELECT 
-            COALESCE(AVG(EXTRACT(EPOCH FROM ("resolved_at" - "assigned_at")) / 86400), 0)::numeric(10,2) as avg_days
-          FROM "issues"
-          WHERE "assignee_id" = ${userId}::uuid
-            AND "resolved_at" IS NOT NULL
-            AND "assigned_at" IS NOT NULL
-            AND "deleted_at" IS NULL
-        `;
-        return Number(result[0]?.avg_days || 0);
-      })()
-    ]);
 
-    return {
-      user: {
-        id: user.id,
-        fullName: user.fullName,
-        role: user.role,
-        isActive: user.isActive
-      },
-      statistics: {
-        totalAssigned,
-        activeIssues,
-        resolvedIssues,
-        avgResolutionDays,
-        resolutionRate: totalAssigned > 0 ? Math.round((resolvedIssues / totalAssigned) * 100) : 0
+        // Get issue statistics
+        const [totalAssigned, activeIssues, resolvedIssues, avgResolutionDays] = await Promise.all([
+          // Total ever assigned
+          prisma.issue.count({
+            where: { assigneeId: userId, deletedAt: null }
+          }),
+          // Currently active
+          prisma.issue.count({
+            where: {
+              assigneeId: userId,
+              status: { in: ['ASSIGNED', 'IN_PROGRESS'] },
+              deletedAt: null
+            }
+          }),
+          // Resolved issues
+          prisma.issue.count({
+            where: {
+              assigneeId: userId,
+              status: { in: ['RESOLVED', 'VERIFIED'] },
+              deletedAt: null
+            }
+          }),
+          // Average resolution time (direct raw query - no unused aggregate)
+          (async () => {
+            const result = await prisma.$queryRaw<{ avg_days: number }[]>`
+              SELECT 
+                COALESCE(AVG(EXTRACT(EPOCH FROM ("resolved_at" - "assigned_at")) / 86400), 0)::numeric(10,2) as avg_days
+              FROM "issues"
+              WHERE "assignee_id" = ${userId}::uuid
+                AND "resolved_at" IS NOT NULL
+                AND "assigned_at" IS NOT NULL
+                AND "deleted_at" IS NULL
+            `;
+            return Number(result[0]?.avg_days || 0);
+          })()
+        ]);
+
+        return {
+          user: {
+            id: user.id,
+            fullName: user.fullName,
+            role: user.role,
+            isActive: user.isActive
+          },
+          statistics: {
+            totalAssigned,
+            activeIssues,
+            resolvedIssues,
+            avgResolutionDays,
+            resolutionRate: totalAssigned > 0 ? Math.round((resolvedIssues / totalAssigned) * 100) : 0
+          }
+        };
       }
-    };
+    );
   }
 
-
-  // Get filtered users (for dropdowns in frontend)
+  // Get filtered users with user-specific caching
   static async getUsersByFilter(filters: UserFilterParams): Promise<FilteredUser[]> {
-    const whereClause: any = {};
+    const cacheKey = `${JSON.stringify(filters)}:${filters.wardId || filters.zoneId || 'global'}`;
+    
+    return cache.getOrSet(
+      { ttl: 1200, prefix: 'admin:users:filter' },
+      cacheKey,
+      async () => {
+        const whereClause: any = {};
 
-    if (filters.role) whereClause.role = filters.role;
-    if (filters.wardId) whereClause.wardId = filters.wardId;
-    if (filters.zoneId) whereClause.zoneId = filters.zoneId;
-    if (filters.isActive !== undefined) whereClause.isActive = filters.isActive;
-    if (filters.department) whereClause.department = filters.department;
+        if (filters.role) whereClause.role = filters.role;
+        if (filters.wardId) whereClause.wardId = filters.wardId;
+        if (filters.zoneId) whereClause.zoneId = filters.zoneId;
+        if (filters.isActive !== undefined) whereClause.isActive = filters.isActive;
+        if (filters.department) whereClause.department = filters.department;
 
-    const users = await prisma.user.findMany({
-      where: whereClause,
-      select: {
-        id: true,
-        fullName: true,
-        email: true,
-        role: true,
-        department: true,
-        isActive: true,
-        wardId: true,
-        zoneId: true,
-        ward: {
-          select: { wardNumber: true, name: true }
-        },
-        zone: {
-          select: { name: true }
-        }
-      },
-      orderBy: { fullName: 'asc' }
-    });
+        const users = await prisma.user.findMany({
+          where: whereClause,
+          select: {
+            id: true,
+            fullName: true,
+            email: true,
+            role: true,
+            department: true,
+            isActive: true,
+            wardId: true,
+            zoneId: true,
+            ward: {
+              select: { wardNumber: true, name: true }
+            },
+            zone: {
+              select: { name: true }
+            }
+          },
+          orderBy: { fullName: 'asc' }
+        });
 
-    return users;
+        return users;
+      }
+    );
   }
-
 
   static async getAllUsers(
     page: number = 1, 
     limit: number = 18, 
     filters: { status?: string; role?: string } = {}
   ): Promise<PaginatedUsersResponse> {
-    const skip = (page - 1) * limit;
+    const cacheKey = `${JSON.stringify({ page, limit, filters })}:admin`;
     
-    // Build where clause based on filters
-    const whereClause: any = {};
-    
-    if (filters.status && filters.status !== 'All') {
-      whereClause.isActive = filters.status === 'Active';
-    }
-    
-    if (filters.role && filters.role !== 'All') {
-      whereClause.role = filters.role;
-    }
-    
-    const [users, totalCount] = await Promise.all([
-      prisma.user.findMany({
-        where: whereClause,
-        select: {
-          id: true,
-          fullName: true,
-          email: true,
-          phoneNumber: true,
-          role: true,
-          department: true,
-          isActive: true,
-          wardId: true,
-          zoneId: true,
-          ward: {
-            select: { wardNumber: true, name: true }
-          },
-          zone: {
-            select: { name: true }
-          },
-          createdAt: true
-        },
-        orderBy: { createdAt: 'desc' },
-        skip,
-        take: limit
-      }),
-      prisma.user.count({ where: whereClause })
-    ]);
+    return cache.getOrSet(
+      { ttl: 600, prefix: 'admin:users:all' },
+      cacheKey,
+      async () => {
+        const skip = (page - 1) * limit;
+        
+        // Build where clause based on filters
+        const whereClause: any = {};
+        
+        if (filters.status && filters.status !== 'All') {
+          whereClause.isActive = filters.status === 'Active';
+        }
+        
+        if (filters.role && filters.role !== 'All') {
+          whereClause.role = filters.role;
+        }
+        
+        const [users, totalCount] = await Promise.all([
+          prisma.user.findMany({
+            where: whereClause,
+            select: {
+              id: true,
+              fullName: true,
+              email: true,
+              phoneNumber: true,
+              role: true,
+              department: true,
+              isActive: true,
+              wardId: true,
+              zoneId: true,
+              ward: {
+                select: { wardNumber: true, name: true }
+              },
+              zone: {
+                select: { name: true }
+              },
+              createdAt: true
+            },
+            orderBy: { createdAt: 'desc' },
+            skip,
+            take: limit
+          }),
+          prisma.user.count({ where: whereClause })
+        ]);
 
-    return {
-      users,
-      pagination: {
-        currentPage: page,
-        totalPages: Math.ceil(totalCount / limit),
-        totalUsers: totalCount,
-        hasNextPage: page < Math.ceil(totalCount / limit),
-        hasPreviousPage: page > 1,
-        limit
+        return {
+          users,
+          pagination: {
+            currentPage: page,
+            totalPages: Math.ceil(totalCount / limit),
+            totalUsers: totalCount,
+            hasNextPage: page < Math.ceil(totalCount / limit),
+            hasPreviousPage: page > 1,
+            limit
+          }
+        };
       }
-    };
+    );
   }
 
 
@@ -841,317 +907,344 @@ export class AdminService {
   }
 
 
-  // Fetch dashboard overview statistics 
+  // Fetch dashboard overview statistics with caching
   static async getDashboard() {
-    const rows = await prisma.$queryRaw<DashboardPayload[]>`
-      SELECT
-        COALESCE(COUNT(*) FILTER (WHERE "deleted_at" IS NULL), 0) AS "totalIssues",
-        COALESCE(COUNT(*) FILTER (WHERE "status" = 'OPEN' AND "deleted_at" IS NULL), 0) AS "open",
-        COALESCE(COUNT(*) FILTER (WHERE "status" = 'IN_PROGRESS' AND "deleted_at" IS NULL), 0) AS "inProgress",
-        COALESCE(COUNT(*) FILTER (
-          WHERE "deleted_at" IS NULL
-            AND "resolved_at" IS NULL
-            AND "sla_target_at" < NOW()
-        ), 0) AS "slaBreached",
-        COALESCE(
-          ROUND(
-            AVG(
-              CASE
-                WHEN "sla_target_at" IS NOT NULL
-                THEN EXTRACT(EPOCH FROM ("sla_target_at" - "created_at")) / 3600
-                ELSE NULL
-              END
-            )::numeric
-          , 2)
-        , 0) AS "avgSlaTimeHours",
-        COALESCE(
-          ROUND(
-            100 * (COUNT(*) FILTER (WHERE "status" IN ('RESOLVED', 'VERIFIED') AND "deleted_at" IS NULL))::numeric
-            / NULLIF(COUNT(*) FILTER (WHERE "deleted_at" IS NULL), 0)
-          , 2)
-        , 0) AS "resolutionRatePercent"
-      FROM "issues";
-    `;
+    return cache.getOrSet(
+      { ttl: 900, prefix: 'admin:dashboard' },
+      'overview',
+      async () => {
+        const rows = await prisma.$queryRaw<DashboardPayload[]>`
+          SELECT
+            COALESCE(COUNT(*) FILTER (WHERE "deleted_at" IS NULL), 0) AS "totalIssues",
+            COALESCE(COUNT(*) FILTER (WHERE "status" = 'OPEN' AND "deleted_at" IS NULL), 0) AS "open",
+            COALESCE(COUNT(*) FILTER (WHERE "status" = 'IN_PROGRESS' AND "deleted_at" IS NULL), 0) AS "inProgress",
+            COALESCE(COUNT(*) FILTER (
+              WHERE "deleted_at" IS NULL
+                AND "resolved_at" IS NULL
+                AND "sla_target_at" < NOW()
+            ), 0) AS "slaBreached",
+            COALESCE(
+              ROUND(
+                AVG(
+                  CASE
+                    WHEN "sla_target_at" IS NOT NULL
+                    THEN EXTRACT(EPOCH FROM ("sla_target_at" - "created_at")) / 3600
+                    ELSE NULL
+                  END
+                )::numeric
+              , 2)
+            , 0) AS "avgSlaTimeHours",
+            COALESCE(
+              ROUND(
+                100 * (COUNT(*) FILTER (WHERE "status" IN ('RESOLVED', 'VERIFIED') AND "deleted_at" IS NULL))::numeric
+                / NULLIF(COUNT(*) FILTER (WHERE "deleted_at" IS NULL), 0)
+              , 2)
+            , 0) AS "resolutionRatePercent"
+          FROM "issues";
+        `;
 
-    const r = rows[0] ?? {
-      totalIssues: 0,
-      open: 0,
-      inProgress: 0,
-      slaBreached: 0,
-      avgSlaTimeHours: 0,
-      resolutionRatePercent: 0,
-    };
+        const r = rows[0] ?? {
+          totalIssues: 0,
+          open: 0,
+          inProgress: 0,
+          slaBreached: 0,
+          avgSlaTimeHours: 0,
+          resolutionRatePercent: 0,
+        };
 
-    return {
-      totalIssues: r.totalIssues ?? 0,
-      open: r.open ?? 0,
-      inProgress: r.inProgress ?? 0,
-      slaBreached: r.slaBreached ?? 0,
-      avgSlaTimeHours: r.avgSlaTimeHours ?? 0,
-      resolutionRatePercent: r.resolutionRatePercent ?? 0,
-    };
+        return {
+          totalIssues: r.totalIssues ?? 0,
+          open: r.open ?? 0,
+          inProgress: r.inProgress ?? 0,
+          slaBreached: r.slaBreached ?? 0,
+          avgSlaTimeHours: r.avgSlaTimeHours ?? 0,
+          resolutionRatePercent: r.resolutionRatePercent ?? 0,
+        };
+      }
+    );
   }
-
 
   static async getZonesOverview() {
-    const rows = await prisma.$queryRaw<ZoneOverview[]>`
-      SELECT
-        z."id" AS "zoneId",
-        z."name" AS "name",
-        COALESCE(COUNT(i.*), 0) AS "totalIssues",
-        COALESCE(COUNT(i.*) FILTER (WHERE i."status" = 'OPEN'), 0) AS "openIssues",
-        CASE
-          WHEN COALESCE(COUNT(i.*), 0) = 0 THEN 100
-          ELSE ROUND(
-            100.0
-            * (COUNT(*) FILTER (
-                WHERE i."status" IN ('RESOLVED', 'VERIFIED')
-                  AND i."sla_target_at" IS NOT NULL
-                  AND i."resolved_at" IS NOT NULL
-                  AND i."resolved_at" <= i."sla_target_at"
-              ))::numeric
-            / NULLIF(COUNT(i.*), 0)
-          )::int
-        END AS "slaCompliance",
-        (
-          SELECT u."full_name"
-          FROM "users" u
-          WHERE u."zone_id" = z."id" AND u."role" = 'ZONE_OFFICER'
-          ORDER BY u."id"
-          LIMIT 1
-        ) AS "zoneOfficer"
-      FROM "zones" z
-      LEFT JOIN "wards" w ON w."zone_id" = z."id"
-      LEFT JOIN "issues" i ON i."ward_id" = w."id" AND i."deleted_at" IS NULL
-      GROUP BY z."id", z."name"
-      ORDER BY z."name" ASC;
-    `;
+    return cache.getOrSet(
+      { ttl: 1200, prefix: 'admin:zones' },
+      'overview',
+      async () => {
+        const rows = await prisma.$queryRaw<ZoneOverview[]>`
+          SELECT
+            z."id" AS "zoneId",
+            z."name" AS "name",
+            COALESCE(COUNT(i.*), 0) AS "totalIssues",
+            COALESCE(COUNT(i.*) FILTER (WHERE i."status" = 'OPEN'), 0) AS "openIssues",
+            CASE
+              WHEN COALESCE(COUNT(i.*), 0) = 0 THEN 100
+              ELSE ROUND(
+                100.0
+                * (COUNT(*) FILTER (
+                    WHERE i."status" IN ('RESOLVED', 'VERIFIED')
+                      AND i."sla_target_at" IS NOT NULL
+                      AND i."resolved_at" IS NOT NULL
+                      AND i."resolved_at" <= i."sla_target_at"
+                  ))::numeric
+                / NULLIF(COUNT(i.*), 0)
+              )::int
+            END AS "slaCompliance",
+            (
+              SELECT u."full_name"
+              FROM "users" u
+              WHERE u."zone_id" = z."id" AND u."role" = 'ZONE_OFFICER'
+              ORDER BY u."id"
+              LIMIT 1
+            ) AS "zoneOfficer"
+          FROM "zones" z
+          LEFT JOIN "wards" w ON w."zone_id" = z."id"
+          LEFT JOIN "issues" i ON i."ward_id" = w."id" AND i."deleted_at" IS NULL
+          GROUP BY z."id", z."name"
+          ORDER BY z."name" ASC;
+        `;
 
-    // Ensure strict types and null-safety
-    return (rows ?? []).map(r => ({
-      zoneId: String(r.zoneId),
-      name: r.name ?? "",
-      totalIssues: Number(r.totalIssues ?? 0),
-      openIssues: Number(r.openIssues ?? 0),
-      slaCompliance: Number(r.slaCompliance ?? 100),
-      zoneOfficer: r.zoneOfficer ?? null,
-    }));
+        // Ensure strict types and null-safety
+        return (rows ?? []).map(r => ({
+          zoneId: String(r.zoneId),
+          name: r.name ?? "",
+          totalIssues: Number(r.totalIssues ?? 0),
+          openIssues: Number(r.openIssues ?? 0),
+          slaCompliance: Number(r.slaCompliance ?? 100),
+          zoneOfficer: r.zoneOfficer ?? null,
+        }));
+      }
+    );
   }
 
-
   static async getZoneDetail(zoneId: string): Promise<ZoneDetail | null> {
-    const rows = await prisma.$queryRaw<ZoneDetail[]>`
-      SELECT
-        z."name" AS "zoneName",
-        (
-          SELECT u."full_name"
-          FROM "users" u
-          WHERE u."zone_id" = z."id" AND u."role" = 'ZONE_OFFICER'
-          ORDER BY u."id"
-          LIMIT 1
-        ) AS "zoneOfficer",
-        COALESCE(COUNT(DISTINCT w."id"), 0) AS "totalWards",
-        COALESCE(COUNT(i.*), 0) AS "totalIssues",
-        CASE
-          WHEN COALESCE(COUNT(i.*), 0) = 0 THEN 100
-          ELSE ROUND(
-            100.0
-            * (COUNT(*) FILTER (
-                WHERE i."resolved_at" IS NOT NULL
-                  AND i."sla_target_at" IS NOT NULL
-                  AND i."resolved_at" <= i."sla_target_at"
-              ))::numeric
-            / NULLIF(COUNT(i.*), 0)
-          )::int
-        END AS "slaCompliance"
-      FROM "zones" z
-      LEFT JOIN "wards" w ON w."zone_id" = z."id"
-      LEFT JOIN "issues" i ON i."ward_id" = w."id" AND i."deleted_at" IS NULL
-      WHERE z."id" = ${zoneId}::uuid
-      GROUP BY z."id", z."name";
-    `;
+    return cache.getOrSet(
+      { ttl: 1200, prefix: 'admin:zone:detail' },
+      zoneId,
+      async () => {
+        const rows = await prisma.$queryRaw<ZoneDetail[]>`
+          SELECT
+            z."name" AS "zoneName",
+            (
+              SELECT u."full_name"
+              FROM "users" u
+              WHERE u."zone_id" = z."id" AND u."role" = 'ZONE_OFFICER'
+              ORDER BY u."id"
+              LIMIT 1
+            ) AS "zoneOfficer",
+            COALESCE(COUNT(DISTINCT w."id"), 0) AS "totalWards",
+            COALESCE(COUNT(i.*), 0) AS "totalIssues",
+            CASE
+              WHEN COALESCE(COUNT(i.*), 0) = 0 THEN 100
+              ELSE ROUND(
+                100.0
+                * (COUNT(*) FILTER (
+                    WHERE i."resolved_at" IS NOT NULL
+                      AND i."sla_target_at" IS NOT NULL
+                      AND i."resolved_at" <= i."sla_target_at"
+                  ))::numeric
+                / NULLIF(COUNT(i.*), 0)
+              )::int
+            END AS "slaCompliance"
+          FROM "zones" z
+          LEFT JOIN "wards" w ON w."zone_id" = z."id"
+          LEFT JOIN "issues" i ON i."ward_id" = w."id" AND i."deleted_at" IS NULL
+          WHERE z."id" = ${zoneId}::uuid
+          GROUP BY z."id", z."name";
+        `;
 
-    if (!rows || rows.length === 0) return null;
+        if (!rows || rows.length === 0) return null;
 
-    const r = rows[0];
-    return {
-      zoneName: r.zoneName ?? "",
-      zoneOfficer: r.zoneOfficer ?? null,
-      totalWards: Number(r.totalWards ?? 0),
-      totalIssues: Number(r.totalIssues ?? 0),
-      slaCompliance: Number(r.slaCompliance ?? 100),
-    };
+        const r = rows[0];
+        return {
+          zoneName: r.zoneName ?? "",
+          zoneOfficer: r.zoneOfficer ?? null,
+          totalWards: Number(r.totalWards ?? 0),
+          totalIssues: Number(r.totalIssues ?? 0),
+          slaCompliance: Number(r.slaCompliance ?? 100),
+        };
+      }
+    );
   }
 
 
   static async getZoneWards(zoneId: string): Promise<WardOverview[]> {
-    const rows = await prisma.$queryRaw<WardOverview[]>`
-      SELECT
-        w."id"                         AS "wardId",
-        w."ward_number"                AS "wardNumber",
-        w."name"                       AS "name",
-        COALESCE(COUNT(i."id") FILTER (WHERE i."status" = 'OPEN'), 0)          AS "open",
-        COALESCE(COUNT(i."id") FILTER (WHERE i."status" = 'IN_PROGRESS'), 0)   AS "inProgress",
-        COALESCE(COUNT(i."id") FILTER (
-          WHERE i."resolved_at" IS NULL
-            AND i."sla_target_at" < NOW()
-        ), 0) AS "slaBreached",
-        COALESCE(COUNT(i."id"), 0)    AS "totalIssues",
-        (
-          SELECT u."full_name"
-          FROM "users" u
-          WHERE u."ward_id" = w."id" AND u."role" = 'WARD_ENGINEER'
-          ORDER BY u."id"
-          LIMIT 1
-        ) AS "engineer"
-      FROM "wards" w
-      LEFT JOIN "issues" i
-        ON i."ward_id" = w."id"
-       AND i."deleted_at" IS NULL
-      WHERE w."zone_id" = ${zoneId}::uuid
-      GROUP BY w."id", w."ward_number", w."name"
-      ORDER BY w."ward_number" ASC;
-    `;
+    return cache.getOrSet(
+      { ttl: 1200, prefix: 'admin:zone:wards' },
+      zoneId,
+      async () => {
+        const rows = await prisma.$queryRaw<WardOverview[]>`
+          SELECT
+            w."id"                         AS "wardId",
+            w."ward_number"                AS "wardNumber",
+            w."name"                       AS "name",
+            COALESCE(COUNT(i."id") FILTER (WHERE i."status" = 'OPEN'), 0)          AS "open",
+            COALESCE(COUNT(i."id") FILTER (WHERE i."status" = 'IN_PROGRESS'), 0)   AS "inProgress",
+            COALESCE(COUNT(i."id") FILTER (
+              WHERE i."resolved_at" IS NULL
+                AND i."sla_target_at" < NOW()
+            ), 0) AS "slaBreached",
+            COALESCE(COUNT(i."id"), 0)    AS "totalIssues",
+            (
+              SELECT u."full_name"
+              FROM "users" u
+              WHERE u."ward_id" = w."id" AND u."role" = 'WARD_ENGINEER'
+              ORDER BY u."id"
+              LIMIT 1
+            ) AS "engineer"
+          FROM "wards" w
+          LEFT JOIN "issues" i
+            ON i."ward_id" = w."id"
+           AND i."deleted_at" IS NULL
+          WHERE w."zone_id" = ${zoneId}::uuid
+          GROUP BY w."id", w."ward_number", w."name"
+          ORDER BY w."ward_number" ASC;
+        `;
 
-    return (rows ?? []).map(r => ({
-      wardId: String(r.wardId),
-      wardNumber: Number(r.wardNumber ?? 0),
-      name: r.name ?? "",
-      open: Number(r.open ?? 0),
-      inProgress: Number(r.inProgress ?? 0),
-      slaBreached: Number(r.slaBreached ?? 0),
-      totalIssues: Number(r.totalIssues ?? 0),
-      engineer: r.engineer ?? null,
-    }));
+        return (rows ?? []).map(r => ({
+          wardId: String(r.wardId),
+          wardNumber: Number(r.wardNumber ?? 0),
+          name: r.name ?? "",
+          open: Number(r.open ?? 0),
+          inProgress: Number(r.inProgress ?? 0),
+          slaBreached: Number(r.slaBreached ?? 0),
+          totalIssues: Number(r.totalIssues ?? 0),
+          engineer: r.engineer ?? null,
+        }));
+      }
+    );
   }
 
-
   static async getWardDetail(wardId: string): Promise<WardDetailPayload | null> {
-    const rows = await prisma.$queryRaw<any[]>`
-      SELECT
-        w."ward_number" AS "wardNumber",
-        w."name"        AS "wardName",
-        z."name"        AS "zoneName",
+    return cache.getOrSet(
+      { ttl: 1200, prefix: 'admin:ward:detail' },
+      wardId,
+      async () => {
+        const rows = await prisma.$queryRaw<any[]>`
+          SELECT
+            w."ward_number" AS "wardNumber",
+            w."name"        AS "wardName",
+            z."name"        AS "zoneName",
 
-        -- Engineers (include department from users table)
-        COALESCE(
-          jsonb_agg(DISTINCT jsonb_build_object(
-            'id', u."id",
-            'fullName', u."full_name",
-            'email', u."email",
-            'phoneNumber', u."phone_number",
-            'isActive', u."is_active",
-            'department', u."department"
-          )) FILTER (WHERE u."id" IS NOT NULL),
-          '[]'::jsonb
-        ) AS "engineers",
+            -- Engineers (include department from users table)
+            COALESCE(
+              jsonb_agg(DISTINCT jsonb_build_object(
+                'id', u."id",
+                'fullName', u."full_name",
+                'email', u."email",
+                'phoneNumber', u."phone_number",
+                'isActive', u."is_active",
+                'department', u."department"
+              )) FILTER (WHERE u."id" IS NOT NULL),
+              '[]'::jsonb
+            ) AS "engineers",
 
-        -- Core issue stats
-        COALESCE(COUNT(DISTINCT i."id"), 0) AS "totalIssues",
-        COALESCE(COUNT(DISTINCT i."id") FILTER (WHERE i."status" = 'OPEN'), 0) AS "open",
-        COALESCE(COUNT(DISTINCT i."id") FILTER (WHERE i."status" = 'ASSIGNED'), 0) AS "assigned",
-        COALESCE(COUNT(DISTINCT i."id") FILTER (WHERE i."status" = 'IN_PROGRESS'), 0) AS "inProgress",
-        COALESCE(COUNT(DISTINCT i."id") FILTER (WHERE i."status" = 'RESOLVED'), 0) AS "resolved",
-        COALESCE(COUNT(DISTINCT i."id") FILTER (WHERE i."status" = 'VERIFIED'), 0) AS "verified",
-        COALESCE(COUNT(DISTINCT i."id") FILTER (WHERE i."status" = 'REOPENED'), 0) AS "reopened",
-        COALESCE(COUNT(DISTINCT i."id") FILTER (WHERE i."status" = 'REJECTED'), 0) AS "rejected",
-        COALESCE(COUNT(DISTINCT i."id") FILTER (
-          WHERE i."resolved_at" IS NULL
-            AND i."sla_target_at" < NOW()
-        ), 0) AS "slaBreached",
+            -- Core issue stats
+            COALESCE(COUNT(DISTINCT i."id"), 0) AS "totalIssues",
+            COALESCE(COUNT(DISTINCT i."id") FILTER (WHERE i."status" = 'OPEN'), 0) AS "open",
+            COALESCE(COUNT(DISTINCT i."id") FILTER (WHERE i."status" = 'ASSIGNED'), 0) AS "assigned",
+            COALESCE(COUNT(DISTINCT i."id") FILTER (WHERE i."status" = 'IN_PROGRESS'), 0) AS "inProgress",
+            COALESCE(COUNT(DISTINCT i."id") FILTER (WHERE i."status" = 'RESOLVED'), 0) AS "resolved",
+            COALESCE(COUNT(DISTINCT i."id") FILTER (WHERE i."status" = 'VERIFIED'), 0) AS "verified",
+            COALESCE(COUNT(DISTINCT i."id") FILTER (WHERE i."status" = 'REOPENED'), 0) AS "reopened",
+            COALESCE(COUNT(DISTINCT i."id") FILTER (WHERE i."status" = 'REJECTED'), 0) AS "rejected",
+            COALESCE(COUNT(DISTINCT i."id") FILTER (
+              WHERE i."resolved_at" IS NULL
+                AND i."sla_target_at" < NOW()
+            ), 0) AS "slaBreached",
 
-        CASE
-          WHEN COALESCE(COUNT(DISTINCT i."id"), 0) = 0 THEN 100
-          ELSE ROUND(
-            100.0
-            * (COUNT(DISTINCT i."id") FILTER (
-                WHERE i."resolved_at" IS NOT NULL
-                  AND i."sla_target_at" IS NOT NULL
-                  AND i."resolved_at" <= i."sla_target_at"
-              ))::numeric
-            / NULLIF(COUNT(DISTINCT i."id"), 0)
-          )::int
-        END AS "slaCompliance",
+            CASE
+              WHEN COALESCE(COUNT(DISTINCT i."id"), 0) = 0 THEN 100
+              ELSE ROUND(
+                100.0
+                * (COUNT(DISTINCT i."id") FILTER (
+                    WHERE i."resolved_at" IS NOT NULL
+                      AND i."sla_target_at" IS NOT NULL
+                      AND i."resolved_at" <= i."sla_target_at"
+                  ))::numeric
+                / NULLIF(COUNT(DISTINCT i."id"), 0)
+              )::int
+            END AS "slaCompliance",
 
-        -- Priority distribution
-        COALESCE(COUNT(DISTINCT i."id") FILTER (WHERE i."priority" = 'CRITICAL'), 0) AS "critical",
-        COALESCE(COUNT(DISTINCT i."id") FILTER (WHERE i."priority" = 'HIGH'), 0) AS "high",
-        COALESCE(COUNT(DISTINCT i."id") FILTER (WHERE i."priority" = 'MEDIUM'), 0) AS "medium",
-        COALESCE(COUNT(DISTINCT i."id") FILTER (WHERE i."priority" = 'LOW'), 0) AS "low",
+            -- Priority distribution
+            COALESCE(COUNT(DISTINCT i."id") FILTER (WHERE i."priority" = 'CRITICAL'), 0) AS "critical",
+            COALESCE(COUNT(DISTINCT i."id") FILTER (WHERE i."priority" = 'HIGH'), 0) AS "high",
+            COALESCE(COUNT(DISTINCT i."id") FILTER (WHERE i."priority" = 'MEDIUM'), 0) AS "medium",
+            COALESCE(COUNT(DISTINCT i."id") FILTER (WHERE i."priority" = 'LOW'), 0) AS "low",
 
-        -- Aging for active issues
-        COALESCE(
-          ROUND(
-            (AVG(DISTINCT EXTRACT(EPOCH FROM (NOW() - i."created_at")) / 86400)
-              FILTER (WHERE i."status" IN ('OPEN','ASSIGNED','IN_PROGRESS'))
-            )::numeric,
-            2
-          ),
-          0
-        ) AS "avgOpenDays",
-        COALESCE(
-          MAX(EXTRACT(EPOCH FROM (NOW() - i."created_at")) / 86400)
-            FILTER (WHERE i."status" IN ('OPEN','ASSIGNED','IN_PROGRESS')),
-          0
-        ) AS "oldestOpenDays",
+            -- Aging for active issues
+            COALESCE(
+              ROUND(
+                (AVG(DISTINCT EXTRACT(EPOCH FROM (NOW() - i."created_at")) / 86400)
+                  FILTER (WHERE i."status" IN ('OPEN','ASSIGNED','IN_PROGRESS'))
+                )::numeric,
+                2
+              ),
+              0
+            ) AS "avgOpenDays",
+            COALESCE(
+              MAX(EXTRACT(EPOCH FROM (NOW() - i."created_at")) / 86400)
+                FILTER (WHERE i."status" IN ('OPEN','ASSIGNED','IN_PROGRESS')),
+              0
+            ) AS "oldestOpenDays",
 
-        -- Top issues list (remove this section to optimize response)
-        '[]'::jsonb AS "issues"
+            -- Top issues list (remove this section to optimize response)
+            '[]'::jsonb AS "issues"
 
-      FROM "wards" w
-      JOIN "zones" z ON z."id" = w."zone_id"
-      LEFT JOIN "users" u
-        ON u."ward_id" = w."id"
-       AND u."role" = 'WARD_ENGINEER'
-      LEFT JOIN "issues" i
-        ON i."ward_id" = w."id"
-       AND i."deleted_at" IS NULL
-      WHERE w."id" = ${wardId}
-      GROUP BY w."id", w."ward_number", w."name", z."name";
-    `;
+          FROM "wards" w
+          JOIN "zones" z ON z."id" = w."zone_id"
+          LEFT JOIN "users" u
+            ON u."ward_id" = w."id"
+           AND u."role" = 'WARD_ENGINEER'
+          LEFT JOIN "issues" i
+            ON i."ward_id" = w."id"
+           AND i."deleted_at" IS NULL
+          WHERE w."id" = ${wardId}
+          GROUP BY w."id", w."ward_number", w."name", z."name";
+        `;
 
-    if (!rows || rows.length === 0) return null;
+        if (!rows || rows.length === 0) return null;
 
-    const r = rows[0];
-    const engineers = Array.isArray(r.engineers) ? r.engineers : [];
-    const issues = []; // Always empty since we fetch issues separately
+        const r = rows[0];
+        const engineers = Array.isArray(r.engineers) ? r.engineers : [];
+        const issues = []; // Always empty since we fetch issues separately
 
-    return {
-      wardNumber: Number(r.wardNumber ?? 0),
-      wardName: r.wardName ?? "",
-      zoneName: r.zoneName ?? "",
-      engineers: engineers.map((e: any) => ({
-        id: String(e.id),
-        fullName: e.fullName ?? "",
-        email: e.email ?? "",
-        phoneNumber: e.phoneNumber ?? "",
-        isActive: Boolean(e.isActive ?? false),
-        department: e.department ?? null,
-      })),
-      totalEngineers: engineers.length,
+        return {
+          wardNumber: Number(r.wardNumber ?? 0),
+          wardName: r.wardName ?? "",
+          zoneName: r.zoneName ?? "",
+          engineers: engineers.map((e: any) => ({
+            id: String(e.id),
+            fullName: e.fullName ?? "",
+            email: e.email ?? "",
+            phoneNumber: e.phoneNumber ?? "",
+            isActive: Boolean(e.isActive ?? false),
+            department: e.department ?? null,
+          })),
+          totalEngineers: engineers.length,
 
-      totalIssues: Number(r.totalIssues ?? 0),
-      open: Number(r.open ?? 0),
-      inProgress: Number(r.inProgress ?? 0),
-      assigned: Number(r.assigned ?? 0),
-      resolved: Number(r.resolved ?? 0),
-      verified: Number(r.verified ?? 0),
-      reopened: Number(r.reopened ?? 0),
-      rejected: Number(r.rejected ?? 0),
-      slaBreached: Number(r.slaBreached ?? 0),
-      slaCompliance: Number(r.slaCompliance ?? 100),
+          totalIssues: Number(r.totalIssues ?? 0),
+          open: Number(r.open ?? 0),
+          inProgress: Number(r.inProgress ?? 0),
+          assigned: Number(r.assigned ?? 0),
+          resolved: Number(r.resolved ?? 0),
+          verified: Number(r.verified ?? 0),
+          reopened: Number(r.reopened ?? 0),
+          rejected: Number(r.rejected ?? 0),
+          slaBreached: Number(r.slaBreached ?? 0),
+          slaCompliance: Number(r.slaCompliance ?? 100),
 
-      priorities: {
-        critical: Number(r.critical ?? 0),
-        high: Number(r.high ?? 0),
-        medium: Number(r.medium ?? 0),
-        low: Number(r.low ?? 0),
-      },
+          priorities: {
+            critical: Number(r.critical ?? 0),
+            high: Number(r.high ?? 0),
+            medium: Number(r.medium ?? 0),
+            low: Number(r.low ?? 0),
+          },
 
-      avgOpenDays: Number(r.avgOpenDays ?? 0),
-      oldestOpenDays: Math.round(Number(r.oldestOpenDays ?? 0)),
+          avgOpenDays: Number(r.avgOpenDays ?? 0),
+          oldestOpenDays: Math.round(Number(r.oldestOpenDays ?? 0)),
 
-      issues: [], // Always empty array since we fetch issues separately
-    };
+          issues: [], // Always empty array since we fetch issues separately
+        };
+      }
+    );
   }
 }

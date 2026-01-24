@@ -2,6 +2,7 @@ import { Prisma, type Department, type IssueStatus, type Priority } from "@prism
 import { prisma } from "../../lib/prisma";
 import { ApiError } from "../../utils/apiError";
 import { hashPassword, comparePassword } from "../auth/auth.utils";
+import { cache } from "../../lib/cache";
 import type {
   AssignedIssuesDashboardPayload,
   DashboardIssueListItem,
@@ -22,42 +23,49 @@ export class UserDashboardService {
     
   static async getFieldWorkerDashboard(userId: string, limit = 10): Promise<FieldWorkerDashboardPayload> {
     const safeLimit = Math.min(Math.max(limit, 1), 50);
+    const cacheKey = `${userId}:${safeLimit}`;
+    
+    return cache.getOrSet(
+      { ttl: 1200, prefix: 'user:dashboard:fieldworker' },
+      cacheKey,
+      async () => {
+        const where: Prisma.IssueWhereInput = {
+          deletedAt: null,
+          reporterId: userId,
+        };
 
-    const where: Prisma.IssueWhereInput = {
-      deletedAt: null,
-      reporterId: userId,
-    };
+        const [totalIssuesCreated, byStatusRows, recentIssues] = await Promise.all([
+          prisma.issue.count({ where }),
+          prisma.issue.groupBy({
+            by: ["status"],
+            where,
+            _count: { _all: true },
+          }),
+          prisma.issue.findMany({
+            where,
+            orderBy: { createdAt: "desc" },
+            take: safeLimit,
+            select: {
+              id: true,
+              ticketNumber: true,
+              status: true,
+              priority: true,
+              createdAt: true,
+            },
+          }),
+        ]);
 
-    const [totalIssuesCreated, byStatusRows, recentIssues] = await Promise.all([
-      prisma.issue.count({ where }),
-      prisma.issue.groupBy({
-        by: ["status"],
-        where,
-        _count: { _all: true },
-      }),
-      prisma.issue.findMany({
-        where,
-        orderBy: { createdAt: "desc" },
-        take: safeLimit,
-        select: {
-          id: true,
-          ticketNumber: true,
-          status: true,
-          priority: true,
-          createdAt: true,
-        },
-      }),
-    ]);
+        const issuesByStatus = groupByToCountMap<IssueStatus>(
+          byStatusRows.map((r) => ({ key: r.status, count: r._count._all }))
+        );
 
-    const issuesByStatus = groupByToCountMap<IssueStatus>(
-      byStatusRows.map((r) => ({ key: r.status, count: r._count._all }))
+        return {
+          totalIssuesCreated,
+          issuesByStatus,
+          recentIssues: recentIssues as DashboardIssueListItem[],
+        };
+      }
     );
-
-    return {
-      totalIssuesCreated,
-      issuesByStatus,
-      recentIssues: recentIssues as DashboardIssueListItem[],
-    };
   }
 
   static async getWardEngineerDashboard(args: {
@@ -68,100 +76,108 @@ export class UserDashboardService {
     if (!args.wardId) throw new ApiError(400, "WARD_ENGINEER must have wardId");
     if (!args.department) throw new ApiError(400, "WARD_ENGINEER must have department");
 
-    const wardId = args.wardId;
-    const department = args.department;
-    const userId = args.userId;
-    const now = new Date();
+    const cacheKey = `${args.userId}:${args.wardId}:${args.department}`;
+    
+    return cache.getOrSet(
+      { ttl: 1200, prefix: 'user:dashboard:wardengineer' },
+      cacheKey,
+      async () => {
+        const wardId = args.wardId!;
+        const department = args.department!;
+        const userId = args.userId;
+        const now = new Date();
 
-    // Show all issues assigned to this engineer in their ward, regardless of department
-    const where: Prisma.IssueWhereInput = {
-      deletedAt: null,
-      wardId,
-      assigneeId: userId,
-    };
-
-    const [
-      totalIssues,
-      byStatusRows,
-      byPriorityRows,
-      withinSla,
-      breachedSla,
-      recentResolvedForAvg,
-    ] = await Promise.all([
-      prisma.issue.count({ where }),
-
-      prisma.issue.groupBy({
-        by: ["status"],
-        where,
-        _count: { _all: true },
-      }),
-
-      prisma.issue.groupBy({
-        by: ["priority"],
-        where,
-        _count: { _all: true },
-      }),
-
-      prisma.issue.count({
-        where: {
+        // Show all issues assigned to this engineer in their ward, regardless of department
+        const where: Prisma.IssueWhereInput = {
           deletedAt: null,
           wardId,
           assigneeId: userId,
-          resolvedAt: { not: null },
-          slaTargetAt: { not: null },
-        },
-      }),
+        };
 
-      prisma.issue.count({
-        where: {
-          deletedAt: null,
+        const [
+          totalIssues,
+          byStatusRows,
+          byPriorityRows,
+          withinSla,
+          breachedSla,
+          recentResolvedForAvg,
+        ] = await Promise.all([
+          prisma.issue.count({ where }),
+
+          prisma.issue.groupBy({
+            by: ["status"],
+            where,
+            _count: { _all: true },
+          }),
+
+          prisma.issue.groupBy({
+            by: ["priority"],
+            where,
+            _count: { _all: true },
+          }),
+
+          prisma.issue.count({
+            where: {
+              deletedAt: null,
+              wardId,
+              assigneeId: userId,
+              resolvedAt: { not: null },
+              slaTargetAt: { not: null },
+            },
+          }),
+
+          prisma.issue.count({
+            where: {
+              deletedAt: null,
+              wardId,
+              assigneeId: userId,
+              slaTargetAt: { not: null, lt: now },
+              resolvedAt: null,
+            },
+          }),
+
+          prisma.issue.findMany({
+            where: {
+              ...where,
+              resolvedAt: { not: null },
+              assignedAt: { not: null },
+            },
+            select: { assignedAt: true, resolvedAt: true },
+            take: 100,
+          }),
+        ]);
+
+        let avgResolutionTimeHours: number | null = null;
+        if (recentResolvedForAvg.length > 0) {
+          const totalMs = recentResolvedForAvg.reduce((sum, item) => {
+            if (!item.assignedAt || !item.resolvedAt) return sum;
+            return sum + (item.resolvedAt.getTime() - item.assignedAt.getTime());
+          }, 0);
+          avgResolutionTimeHours = totalMs / recentResolvedForAvg.length / (1000 * 60 * 60);
+        }
+
+        const issuesByStatus = groupByToCountMap<IssueStatus>(
+          byStatusRows.map((r) => ({ key: r.status, count: r._count._all }))
+        );
+
+        const issuesByPriority = groupByToCountMap<Priority>(
+          byPriorityRows.map((r) => ({ key: r.priority!, count: (r._count as any)._all }))
+        );
+
+        return {
           wardId,
-          assigneeId: userId,
-          slaTargetAt: { not: null, lt: now },
-          resolvedAt: null,
-        },
-      }),
-
-      prisma.issue.findMany({
-        where: {
-          ...where,
-          resolvedAt: { not: null },
-          assignedAt: { not: null },
-        },
-        select: { assignedAt: true, resolvedAt: true },
-        take: 100,
-      }),
-    ]);
-
-    let avgResolutionTimeHours: number | null = null;
-    if (recentResolvedForAvg.length > 0) {
-      const totalMs = recentResolvedForAvg.reduce((sum, item) => {
-        if (!item.assignedAt || !item.resolvedAt) return sum;
-        return sum + (item.resolvedAt.getTime() - item.assignedAt.getTime());
-      }, 0);
-      avgResolutionTimeHours = totalMs / recentResolvedForAvg.length / (1000 * 60 * 60);
-    }
-
-    const issuesByStatus = groupByToCountMap<IssueStatus>(
-      byStatusRows.map((r) => ({ key: r.status, count: r._count._all }))
+          department,
+          totalIssues,
+          issuesByStatus,
+          issuesByPriority,
+          sla: {
+            withinSla,
+            breachedSla,
+          },
+          averageResolutionTimeHours: avgResolutionTimeHours,
+        };
+      }
     );
-
-    const issuesByPriority = groupByToCountMap<Priority>(
-      byPriorityRows.map((r) => ({ key: r.priority!, count: (r._count as any)._all }))
-    );
-
-    return {
-      wardId,
-      department,
-      totalIssues,
-      issuesByStatus,
-      issuesByPriority,
-      sla: {
-        withinSla,
-        breachedSla,
-      },
-      averageResolutionTimeHours: avgResolutionTimeHours,
-    };
   }
 
   static assertWardEngineerScope(wardId: string | null | undefined, department: string | null | undefined) {
@@ -169,7 +185,7 @@ export class UserDashboardService {
     if (!department) throw new ApiError(400, "WARD_ENGINEER must have department");
   }
 
-  // Update user's own profile (name, phone)
+  // Update user's own profile (name, phone) with cache invalidation
   static async updateOwnProfile(userId: string, updateData: { fullName?: string; phoneNumber?: string }) {
     const { fullName, phoneNumber } = updateData;
 
@@ -209,6 +225,9 @@ export class UserDashboardService {
       }
     });
 
+    // Invalidate user cache
+    await cache.invalidateUserCache(userId);
+
     // Log profile update
     await prisma.auditLog.create({
       data: {
@@ -225,7 +244,7 @@ export class UserDashboardService {
     return updatedUser;
   }
 
-  // Change user's own password
+  // Change user's own password with cache invalidation
   static async changeOwnPassword(userId: string, currentPassword: string, newPassword: string) {
     // Get user with password
     const user = await prisma.user.findUnique({
@@ -252,6 +271,9 @@ export class UserDashboardService {
       data: { hashedPassword }
     });
 
+    // Invalidate user cache
+    await cache.invalidateUserCache(userId);
+
     // Log password change
     await prisma.auditLog.create({
       data: {
@@ -268,34 +290,41 @@ export class UserDashboardService {
     return { message: "Password changed successfully" };
   }
 
-  // Get user's activity log
+  // Get user's activity log with caching
   static async getUserActivityLog(userId: string, limit = 20) {
     const safeLimit = Math.min(Math.max(limit, 1), 100);
+    const cacheKey = `${userId}:${safeLimit}`;
+    
+    return cache.getOrSet(
+      { ttl: 600, prefix: 'user:activity' },
+      cacheKey,
+      async () => {
+        const activities = await prisma.auditLog.findMany({
+          where: { 
+            userId,
+            // Filter out login/logout activities - only show issue-related activities
+            action: {
+              notIn: ['LOGIN', 'LOGOUT']
+            }
+          },
+          orderBy: { createdAt: "desc" },
+          take: safeLimit,
+          select: {
+            id: true,
+            action: true,
+            resource: true,
+            resourceId: true,
+            metadata: true,
+            createdAt: true
+          }
+        });
 
-    const activities = await prisma.auditLog.findMany({
-      where: { 
-        userId,
-        // Filter out login/logout activities - only show issue-related activities
-        action: {
-          notIn: ['LOGIN', 'LOGOUT']
-        }
-      },
-      orderBy: { createdAt: "desc" },
-      take: safeLimit,
-      select: {
-        id: true,
-        action: true,
-        resource: true,
-        resourceId: true,
-        metadata: true,
-        createdAt: true
+        return {
+          userId,
+          activities,
+          count: activities.length
+        };
       }
-    });
-
-    return {
-      userId,
-      activities,
-      count: activities.length
-    };
+    );
   }
 }

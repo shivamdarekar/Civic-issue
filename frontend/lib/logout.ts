@@ -3,5 +3,5 @@ import { authService } from './auth';
 
 export const handleLogout = async (dispatch: AppDispatch, router: any) => {
   await authService.logout(dispatch);
-  router.push('/login');
+  // The authService.logout already handles the redirect with window.location.replace
 };

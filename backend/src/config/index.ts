@@ -24,6 +24,13 @@ const envSchema = z.object({
   CLOUDINARY_CLOUD_NAME: z.string().optional(),
   CLOUDINARY_API_KEY: z.string().optional(),
   CLOUDINARY_API_SECRET: z.string().optional(),
+
+  // Redis Configuration
+  REDIS_HOST: z.string().default('localhost'),
+  REDIS_PORT: z.string().default('6379'),
+  REDIS_USERNAME: z.string().optional(),
+  REDIS_PASSWORD: z.string().optional(),
+  REDIS_USE_TLS: z.string().default('false'),
 });
 
 const parsed = envSchema.safeParse(process.env);

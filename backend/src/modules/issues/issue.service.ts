@@ -13,7 +13,7 @@ import type {
 } from "../../types";
 import { EmailService } from "../../services/email/emailService";
 import { IssueUploadService } from "./issue.upload.service";
-
+import { cache } from "../../lib/cache";
 
 const SYSTEM_COUNTER_KEY = (year: number) => `ticket_counter_${year}`;
 
@@ -42,6 +42,11 @@ async function nextTicketNumber(tx: Prisma.TransactionClient) {
 
 async function findWardIdByLatLng(latitude: number, longitude: number): Promise<string | null> {
   try {
+    // Check cache first
+    const cacheKey = `ward:location:${latitude}:${longitude}`;
+    const cached = await cache.getGeoData(cacheKey);
+    if (cached) return cached;
+
     // Uses wards.boundary geometry(Polygon, 4326)
     // Point: ST_SetSRID(ST_MakePoint(lon, lat), 4326)
     const rows = await prisma.$queryRaw<Array<{ id: string }>>`
@@ -55,13 +60,18 @@ async function findWardIdByLatLng(latitude: number, longitude: number): Promise<
       LIMIT 1;
     `;
 
-    if (rows && rows.length > 0) {
-      console.log(`✅ Issue location mapped to ward: ${rows[0].id}`);
-      return rows[0].id;
+    const wardId = rows && rows.length > 0 ? rows[0].id : null;
+    
+    // Cache result for 1 hour
+    await cache.setGeoData(cacheKey, wardId);
+    
+    if (wardId) {
+      console.log(`✅ Issue location mapped to ward: ${wardId}`);
+    } else {
+      console.warn(`⚠️  No ward found for coordinates: ${latitude}, ${longitude}`);
     }
     
-    console.warn(`⚠️  No ward found for coordinates: ${latitude}, ${longitude}`);
-    return null;
+    return wardId;
   } catch (error) {
     console.error('❌ Error finding ward by coordinates:', error);
     return null;
@@ -95,72 +105,83 @@ async function pickAssigneeId(args: { wardId: string | null; department: Departm
   return fallback?.id ?? null;
 }
 
-
 export class IssuesService {
-  // Get all active issue categories
+  // Get all active issue categories with caching
   static async getCategories() {
-    const categories = await prisma.issueCategory.findMany({
-      select: {
-        id: true,
-        name: true,
-        slug: true,
-        description: true,
-        department: true,
-        slaHours: true,
-        formSchema: true,
-        isActive: true
-      },
-      where: {
-        isActive: true
-      },
-      orderBy: {
-        name: 'asc'
+    return cache.getOrSet(
+      { ttl: 1800, prefix: 'categories' },
+      'active',
+      async () => {
+        return prisma.issueCategory.findMany({
+          select: {
+            id: true,
+            name: true,
+            slug: true,
+            description: true,
+            department: true,
+            slaHours: true,
+            formSchema: true,
+            isActive: true
+          },
+          where: {
+            isActive: true
+          },
+          orderBy: {
+            name: 'asc'
+          }
+        });
       }
-    });
-
-    return categories;
+    );
   }
 
-  // Get issue statistics
+  // Get issue statistics with user-specific caching
   static async getIssueStats(filters?: { wardId?: string; zoneId?: string; assigneeId?: string; reporterId?: string }) {
-    const where: Prisma.IssueWhereInput = {
-      deletedAt: null,
-      ...(filters?.wardId ? { wardId: filters.wardId } : {}),
-      ...(filters?.zoneId ? { ward: { zoneId: filters.zoneId } } : {}),
-      ...(filters?.assigneeId ? { assigneeId: filters.assigneeId } : {}),
-      ...(filters?.reporterId ? { reporterId: filters.reporterId } : {}),
-    };
+    const cacheKey = `${JSON.stringify(filters || {})}:${filters?.assigneeId || filters?.reporterId || 'global'}`;
+    
+    return cache.getOrSet(
+      { ttl: 900, prefix: 'issue:stats' },
+      cacheKey,
+      async () => {
+        const where: Prisma.IssueWhereInput = {
+          deletedAt: null,
+          ...(filters?.wardId ? { wardId: filters.wardId } : {}),
+          ...(filters?.zoneId ? { ward: { zoneId: filters.zoneId } } : {}),
+          ...(filters?.assigneeId ? { assigneeId: filters.assigneeId } : {}),
+          ...(filters?.reporterId ? { reporterId: filters.reporterId } : {}),
+        };
 
-    const [totalIssues, statusCounts, priorityCounts] = await Promise.all([
-      prisma.issue.count({ where }),
-      prisma.issue.groupBy({
-        by: ['status'],
-        where,
-        _count: { status: true }
-      }),
-      prisma.issue.groupBy({
-        by: ['priority'],
-        where,
-        _count: { priority: true }
-      })
-    ]);
+        const [totalIssues, statusCounts, priorityCounts] = await Promise.all([
+          prisma.issue.count({ where }),
+          prisma.issue.groupBy({
+            by: ['status'],
+            where,
+            _count: { status: true }
+          }),
+          prisma.issue.groupBy({
+            by: ['priority'],
+            where,
+            _count: { priority: true }
+          })
+        ]);
 
-    // Convert arrays to objects
-    const issuesByStatus: Record<string, number> = {};
-    statusCounts.forEach(item => {
-      issuesByStatus[item.status] = item._count.status;
-    });
+        // Convert arrays to objects
+        const issuesByStatus: Record<string, number> = {};
+        statusCounts.forEach(item => {
+          issuesByStatus[item.status] = item._count.status;
+        });
 
-    const issuesByPriority: Record<string, number> = {};
-    priorityCounts.forEach(item => {
-      issuesByPriority[item.priority] = item._count.priority;
-    });
+        const issuesByPriority: Record<string, number> = {};
+        priorityCounts.forEach(item => {
+          issuesByPriority[item.priority] = item._count.priority;
+        });
 
-    return {
-      totalIssues,
-      issuesByStatus,
-      issuesByPriority
-    };
+        return {
+          totalIssues,
+          issuesByStatus,
+          issuesByPriority
+        };
+      }
+    );
   }
 
   static async createIssue(input: CreateIssueInput) {
@@ -247,6 +268,14 @@ export class IssuesService {
       return issue;
     });
 
+    // Invalidate related caches
+    await Promise.all([
+      cache.invalidateIssueCache(),
+      cache.invalidateAdminCache(),
+      input.reporterId ? cache.invalidateUserCache(input.reporterId) : Promise.resolve(),
+      issue.assigneeId ? cache.invalidateUserCache(issue.assigneeId) : Promise.resolve(),
+    ]);
+
     // Send email notification if issue was assigned (outside transaction)
     if (issue.assigneeId && issue.assignee) {
       try {
@@ -272,103 +301,119 @@ export class IssuesService {
   static async listIssues(input: ListIssuesInput) {
     const skip = (input.page - 1) * input.pageSize;
     const take = input.pageSize;
+    
+    // Create user-specific cache key
+    const userContext = input.assigneeId || input.reporterId || 'global';
+    const cacheKey = `${JSON.stringify({ ...input, skip, take })}:${userContext}`;
+    
+    return cache.getOrSet(
+      { ttl: 600, prefix: 'issues:list' },
+      cacheKey,
+      async () => {
+        const where: Prisma.IssueWhereInput = {
+          deletedAt: null,
+          ...(input.status ? { status: input.status } : {}),
+          ...(input.priority ? { priority: input.priority } : {}),
+          ...(input.wardId ? { wardId: input.wardId } : {}),
+          ...(input.categoryId ? { categoryId: input.categoryId } : {}),
+          ...(input.reporterId ? { reporterId: input.reporterId } : {}),
+          ...(input.assigneeId ? { assigneeId: input.assigneeId } : {}),
+          ...(input.q ? { ticketNumber: { contains: input.q, mode: "insensitive" } } : {}),
+          ...(input.zoneId
+            ? {
+                ward: { zoneId: input.zoneId },
+              }
+            : {}),
+          ...(input.department
+            ? {
+                category: { department: input.department },
+              }
+            : {}),
+        };
 
-    const where: Prisma.IssueWhereInput = {
-      deletedAt: null,
-      ...(input.status ? { status: input.status } : {}),
-      ...(input.priority ? { priority: input.priority } : {}),
-      ...(input.wardId ? { wardId: input.wardId } : {}),
-      ...(input.categoryId ? { categoryId: input.categoryId } : {}),
-      ...(input.reporterId ? { reporterId: input.reporterId } : {}),
-      ...(input.assigneeId ? { assigneeId: input.assigneeId } : {}),
-      ...(input.q ? { ticketNumber: { contains: input.q, mode: "insensitive" } } : {}),
-      ...(input.zoneId
-        ? {
-            ward: { zoneId: input.zoneId },
-          }
-        : {}),
-      ...(input.department
-        ? {
-            category: { department: input.department },
-          }
-        : {}),
-    };
+        const [rawItems, total] = await Promise.all([
+          prisma.issue.findMany({
+            where,
+            orderBy: { updatedAt: "desc" },
+            skip,
+            take,
+            select: {
+              id: true,
+              ticketNumber: true,
+              status: true,
+              priority: true,
+              description: true,
+              latitude: true,
+              longitude: true,
+              address: true,
+              eloc: true,
+              slaTargetAt: true,
+              resolvedAt: true,
+              createdAt: true,
+              updatedAt: true,
+              category: { select: { id: true, name: true, slug: true, department: true } },
+              ward: { select: { id: true, wardNumber: true, name: true, zone: { select: { id: true, name: true, code: true } } } },
+              reporter: { select: { id: true, fullName: true, role: true } },
+              assignee: { select: { id: true, fullName: true, email: true, phoneNumber: true, role: true, department: true } },
+              media: { select: { id: true, type: true, url: true, createdAt: true } },
+            },
+          }),
+          prisma.issue.count({ where }),
+        ]);
 
-    const [rawItems, total] = await Promise.all([
-      prisma.issue.findMany({
-        where,
-        orderBy: { updatedAt: "desc" },
-        skip,
-        take,
-        select: {
-          id: true,
-          ticketNumber: true,
-          status: true,
-          priority: true,
-          description: true,
-          latitude: true,
-          longitude: true,
-          address: true,
-          eloc: true,
-          slaTargetAt: true,
-          resolvedAt: true,
-          createdAt: true,
-          updatedAt: true,
-          category: { select: { id: true, name: true, slug: true, department: true } },
-          ward: { select: { id: true, wardNumber: true, name: true, zone: { select: { id: true, name: true, code: true } } } },
-          reporter: { select: { id: true, fullName: true, role: true } },
-          assignee: { select: { id: true, fullName: true, email: true, phoneNumber: true, role: true, department: true } },
-          media: { select: { id: true, type: true, url: true, createdAt: true } },
-        },
-      }),
-      prisma.issue.count({ where }),
-    ]);
+        // Add SLA breach indicator
+        const items = rawItems.map(issue => ({
+          ...issue,
+          slaBreached: issue.slaTargetAt && !issue.resolvedAt
+            ? new Date() > new Date(issue.slaTargetAt)
+            : false
+        }));
 
-    // Add SLA breach indicator
-    const items = rawItems.map(issue => ({
-      ...issue,
-      slaBreached: issue.slaTargetAt && !issue.resolvedAt
-        ? new Date() > new Date(issue.slaTargetAt)
-        : false
-    }));
-
-    return {
-      items,
-      page: input.page,
-      pageSize: input.pageSize,
-      total,
-      totalPages: Math.ceil(total / input.pageSize),
-    };
+        return {
+          items,
+          page: input.page,
+          pageSize: input.pageSize,
+          total,
+          totalPages: Math.ceil(total / input.pageSize),
+        };
+      }
+    );
   }
-
 
   static async getIssueById(issueId: string) {
-    const issue = await prisma.issue.findFirst({
-      where: { id: issueId, deletedAt: null },
-      include: {
-        category: true,
-        ward: { include: { zone: true } },
-        reporter: { select: { id: true, fullName: true, role: true, phoneNumber: true } },
-        assignee: { select: { id: true, fullName: true, role: true, department: true, phoneNumber: true } },
-        media: true,
-        comments: {
-          orderBy: { createdAt: "asc" },
-          include: { user: { select: { id: true, fullName: true, role: true } } },
-        },
-        history: { orderBy: { createdAt: "desc" } },
-      },
-    });
+    return cache.getOrSet(
+      { ttl: 1200, prefix: 'issue:detail' },
+      issueId,
+      async () => {
+        const issue = await prisma.issue.findFirst({
+          where: { id: issueId, deletedAt: null },
+          include: {
+            category: true,
+            ward: { include: { zone: true } },
+            reporter: { select: { id: true, fullName: true, role: true, phoneNumber: true } },
+            assignee: { select: { id: true, fullName: true, role: true, department: true, phoneNumber: true } },
+            media: true,
+            comments: {
+              orderBy: { createdAt: "asc" },
+              include: { user: { select: { id: true, fullName: true, role: true } } },
+            },
+            history: { orderBy: { createdAt: "desc" } },
+          },
+        });
 
-    if (!issue) throw new ApiError(404, "Issue not found");
-    return issue;
+        if (!issue) throw new ApiError(404, "Issue not found");
+        return issue;
+      }
+    );
   }
 
 
-   static async addAfterMediaIssue(args: AddAfterMediaInput) {
-    return prisma.$transaction(async (tx) => {
+  // Add after media with cache invalidation
+  static async addAfterMediaIssue(args: AddAfterMediaInput) {
+    const result = await prisma.$transaction(async (tx) => {
       const issue = await tx.issue.findFirst({
         where: { id: args.issueId, deletedAt: null },
-        select: { id: true, status: true, assigneeId: true, reporterId: true },
+        select: { id: true, status: true, assigneeId: true, reporterId: true, wardId: true },
       });
 
       if (!issue) throw new ApiError(404, "Issue not found");
@@ -446,20 +491,33 @@ export class IssuesService {
         },
       });
 
-      return updated;
+      return { updated, issue };
     });
+
+    // Invalidate related caches
+    await Promise.all([
+      cache.invalidateIssueCache(args.issueId),
+      cache.invalidateAdminCache(),
+      result.issue.assigneeId ? cache.invalidateUserCache(result.issue.assigneeId) : Promise.resolve(),
+      result.issue.reporterId ? cache.invalidateUserCache(result.issue.reporterId) : Promise.resolve(),
+      result.issue.wardId ? cache.invalidateRelatedCache('ward', result.issue.wardId) : Promise.resolve(),
+    ]);
+
+    return result.updated;
   }
 
 
-  // Update issue status
+  // Update issue status with cache invalidation
   static async updateIssueStatus(args: UpdateIssueStatusInput) {
-    return prisma.$transaction(async (tx) => {
+    const result = await prisma.$transaction(async (tx) => {
       const issue = await tx.issue.findFirst({
         where: { id: args.issueId, deletedAt: null },
         select: { 
           id: true, 
           status: true, 
           assigneeId: true,
+          reporterId: true,
+          wardId: true,
           media: {
             select: { type: true }
           }
@@ -534,16 +592,27 @@ export class IssuesService {
         }
       });
 
-      return updated;
+      return { updated, issue };
     });
+
+    // Invalidate related caches
+    await Promise.all([
+      cache.invalidateIssueCache(args.issueId),
+      cache.invalidateAdminCache(),
+      result.issue.assigneeId ? cache.invalidateUserCache(result.issue.assigneeId) : Promise.resolve(),
+      result.issue.reporterId ? cache.invalidateUserCache(result.issue.reporterId) : Promise.resolve(),
+      result.issue.wardId ? cache.invalidateRelatedCache('ward', result.issue.wardId) : Promise.resolve(),
+    ]);
+
+    return result.updated;
   }
 
 
-  // Add comment to issue
+  // Add comment to issue with cache invalidation
   static async addComment(args: AddCommentInput) {
     const issue = await prisma.issue.findFirst({
       where: { id: args.issueId, deletedAt: null },
-      select: { id: true }
+      select: { id: true, assigneeId: true, reporterId: true, wardId: true }
     });
 
     if (!issue) throw new ApiError(404, "Issue not found");
@@ -559,13 +628,15 @@ export class IssuesService {
       }
     });
 
+    // Invalidate issue detail cache
+    await cache.invalidateIssueCache(args.issueId);
+
     return comment;
   }
 
-
-  // Reassign issue to different engineer
+  // Reassign issue to different engineer with cache invalidation
   static async reassignIssue(args: ReassignIssueInput) {
-    return prisma.$transaction(async (tx) => {
+    const result = await prisma.$transaction(async (tx) => {
       const [issue, newAssignee] = await Promise.all([
         tx.issue.findFirst({
           where: { id: args.issueId, deletedAt: null },
@@ -611,34 +682,47 @@ export class IssuesService {
         }
       });
 
-      // Send email notification to new assignee
-      try {
-        await EmailService.sendIssueAssignmentEmail(
-          newAssignee.email,
-          newAssignee.fullName,
-          issue.ticketNumber,
-          issue.category.name,
-          issue.address || `${issue.latitude}, ${issue.longitude}`,
-          issue.priority
-        );
-        console.log(`✅ Reassignment email sent to ${newAssignee.email} for ticket ${issue.ticketNumber}`);
-      } catch (emailError) {
-        console.error('❌ Failed to send reassignment email:', emailError);
-      }
-
-      return updated;
+      return { updated, issue, newAssignee };
     });
+
+    // Invalidate related caches
+    await Promise.all([
+      cache.invalidateIssueCache(args.issueId),
+      cache.invalidateAdminCache(),
+      result.issue.assigneeId ? cache.invalidateUserCache(result.issue.assigneeId) : Promise.resolve(),
+      cache.invalidateUserCache(args.newAssigneeId),
+      result.issue.wardId ? cache.invalidateRelatedCache('ward', result.issue.wardId) : Promise.resolve(),
+    ]);
+
+    // Send email notification to new assignee
+    try {
+      await EmailService.sendIssueAssignmentEmail(
+        result.newAssignee.email,
+        result.newAssignee.fullName,
+        result.issue.ticketNumber,
+        result.issue.category.name,
+        result.issue.address || `${result.issue.latitude}, ${result.issue.longitude}`,
+        result.issue.priority
+      );
+      console.log(`✅ Reassignment email sent to ${result.newAssignee.email} for ticket ${result.issue.ticketNumber}`);
+    } catch (emailError) {
+      console.error('❌ Failed to send reassignment email:', emailError);
+    }
+
+    return result.updated;
   }
 
-
-  // Verify or reject resolved issue
+  // Verify or reject resolved issue with cache invalidation
   static async verifyResolution(args: VerifyResolutionInput) {
-    return prisma.$transaction(async (tx) => {
+    const result = await prisma.$transaction(async (tx) => {
       const issue = await tx.issue.findFirst({
         where: { id: args.issueId, deletedAt: null },
         select: { 
           id: true, 
           status: true,
+          assigneeId: true,
+          reporterId: true,
+          wardId: true,
           media: {
             select: { type: true }
           }
@@ -688,13 +772,24 @@ export class IssuesService {
         }
       });
 
-      return updated;
+      return { updated, issue };
     });
+
+    // Invalidate related caches
+    await Promise.all([
+      cache.invalidateIssueCache(args.issueId),
+      cache.invalidateAdminCache(),
+      result.issue.assigneeId ? cache.invalidateUserCache(result.issue.assigneeId) : Promise.resolve(),
+      result.issue.reporterId ? cache.invalidateUserCache(result.issue.reporterId) : Promise.resolve(),
+      result.issue.wardId ? cache.invalidateRelatedCache('ward', result.issue.wardId) : Promise.resolve(),
+    ]);
+
+    return result.updated;
   }
 
-  // Reopen verified issue
+  // Reopen verified issue with cache invalidation
   static async reopenIssue(args: { issueId: string; reopenedBy: string; comment?: string }) {
-    return prisma.$transaction(async (tx) => {
+    const result = await prisma.$transaction(async (tx) => {
       const issue = await tx.issue.findFirst({
         where: { id: args.issueId, deletedAt: null },
         include: {
@@ -751,7 +846,18 @@ export class IssuesService {
         }
       });
 
-      return { updated, deletedImages: afterImages };
+      return { updated, deletedImages: afterImages, issue };
     });
+
+    // Invalidate related caches
+    await Promise.all([
+      cache.invalidateIssueCache(args.issueId),
+      cache.invalidateAdminCache(),
+      result.issue.assigneeId ? cache.invalidateUserCache(result.issue.assigneeId) : Promise.resolve(),
+      result.issue.reporterId ? cache.invalidateUserCache(result.issue.reporterId) : Promise.resolve(),
+      result.issue.wardId ? cache.invalidateRelatedCache('ward', result.issue.wardId) : Promise.resolve(),
+    ]);
+
+    return { updated: result.updated, deletedImages: result.deletedImages };
   }
 }

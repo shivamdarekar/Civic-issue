@@ -76,7 +76,8 @@ export const authService = {
       localStorage.removeItem('authToken');
       dispatch(clearAuth());
       dispatch(clearUserState());
-      window.location.href = '/login';
+      // Force a hard redirect to ensure clean state
+      window.location.replace('/login');
     }
   },
 
