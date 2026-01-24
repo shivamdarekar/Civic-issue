@@ -59,9 +59,13 @@ interface Department {
 interface Zone {
   id: string;
   name: string;
+  departments: any[];
+  zones: any[];
+  onFiltersChange: (filters: { status: string; role: string }) => void;
+  allRoles: string[]; // Add this prop for all available roles
 }
 
-export default function UserManagement({ users, onUsersChange, onViewUser, onEditUser }: UserManagementProps) {
+export default function UserManagement({ users, onUsersChange, onViewUser, onEditUser, onFiltersChange, allRoles }: UserManagementProps) {
   const dispatch = useAppDispatch();
   const [viewingUser, setViewingUser] = useState<User | null>(null);
   const [userToDelete, setUserToDelete] = useState<string | null>(null);
@@ -87,11 +91,16 @@ export default function UserManagement({ users, onUsersChange, onViewUser, onEdi
       return statusMatch && roleMatch;
     });
   }, [users, statusFilter, roleFilter]);
+  // Handle filter changes
+  const handleStatusFilterChange = (value: string) => {
+    setStatusFilter(value);
+    onFiltersChange({ status: value, role: roleFilter });
+  };
 
-  const uniqueRoles = useMemo(() => {
-    const roles = [...new Set(users.map(user => user.role))];
-    return roles.sort();
-  }, [users]);
+  const handleRoleFilterChange = (value: string) => {
+    setRoleFilter(value);
+    onFiltersChange({ status: statusFilter, role: value });
+  };
 
   const handleEditUser = (user: User) => {
     if (onEditUser) {
@@ -182,7 +191,7 @@ export default function UserManagement({ users, onUsersChange, onViewUser, onEdi
             <div className="flex items-center gap-2">
               <Filter className="w-4 h-4 text-gray-500" />
               <Label className="text-sm font-medium text-gray-700">Status:</Label>
-              <Select value={statusFilter} onValueChange={setStatusFilter}>
+              <Select value={statusFilter} onValueChange={handleStatusFilterChange}>
                 <SelectTrigger className="w-32">
                   <SelectValue />
                 </SelectTrigger>
@@ -196,13 +205,13 @@ export default function UserManagement({ users, onUsersChange, onViewUser, onEdi
             
             <div className="flex items-center gap-2">
               <Label className="text-sm font-medium text-gray-700">Role:</Label>
-              <Select value={roleFilter} onValueChange={setRoleFilter}>
+              <Select value={roleFilter} onValueChange={handleRoleFilterChange}>
                 <SelectTrigger className="w-40">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="All">All Roles</SelectItem>
-                  {uniqueRoles.map(role => (
+                  {allRoles.map(role => (
                     <SelectItem key={role} value={role}>
                       {role.replace('_', ' ')}
                     </SelectItem>
@@ -213,7 +222,7 @@ export default function UserManagement({ users, onUsersChange, onViewUser, onEdi
           </div>
         </div>
         
-        {filteredUsers.length === 0 ? (
+        {users.length === 0 ? (
           <Alert>
             <AlertDescription>
               No users found matching the selected filters.
@@ -233,7 +242,7 @@ export default function UserManagement({ users, onUsersChange, onViewUser, onEdi
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filteredUsers.map((user) => (
+              {users.map((user) => (
                 <TableRow key={user.id}>
                   <TableCell className="font-medium text-gray-900">{user.id.slice(0, 6)}...</TableCell>
                   <TableCell className="text-gray-800">{user.name}</TableCell>

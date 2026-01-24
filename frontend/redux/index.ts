@@ -71,6 +71,7 @@ export {
   reactivateUser,
   fetchUsersByFilter,
   fetchDepartments,
+  fetchAvailableRoles,
   fetchAdminDashboard,
   fetchZonesOverview,
   fetchWardsForZone, // NEW

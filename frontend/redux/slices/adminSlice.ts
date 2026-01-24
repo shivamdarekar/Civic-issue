@@ -118,6 +118,7 @@ interface AdminState {
     limit: number;
   } | null;
   departments: Department[];
+  availableRoles: string[];
   dashboard: AdminDashboard | null;
   zonesOverview: ZoneOverview[];
   wardsByZone: Record<string, WardInZone[]>;
@@ -164,6 +165,7 @@ const initialState: AdminState = {
   users: [],
   usersPagination: null,
   departments: [],
+  availableRoles: [],
   dashboard: null,
   zonesOverview: [],
   wardsByZone: {},
@@ -191,9 +193,17 @@ export const registerUser = createAsyncThunk(
 // Fetch all users
 export const fetchAllUsers = createAsyncThunk(
   "admin/fetchAllUsers",
-  async ({ page = 1, limit = 18 }: { page?: number; limit?: number } = {}, { rejectWithValue }) => {
+  async ({ page = 1, limit = 18, status, role }: { page?: number; limit?: number; status?: string; role?: string } = {}, { rejectWithValue }) => {
     try {
-      const response = await axiosInstance.get(`/admin/users?page=${page}&limit=${limit}`);
+      const params = new URLSearchParams({
+        page: page.toString(),
+        limit: limit.toString()
+      });
+      
+      if (status) params.append('status', status);
+      if (role) params.append('role', role);
+      
+      const response = await axiosInstance.get(`/admin/users?${params.toString()}`);
       return response.data.data;
     } catch (error: unknown) {
       return rejectWithValue(handleAxiosError(error, "Failed to fetch users"));
@@ -275,6 +285,19 @@ export const fetchDepartments = createAsyncThunk(
       return response.data.data;
     } catch (error: unknown) {
       return rejectWithValue(handleAxiosError(error, "Failed to fetch departments"));
+    }
+  }
+);
+
+// Fetch available roles
+export const fetchAvailableRoles = createAsyncThunk(
+  "admin/fetchAvailableRoles",
+  async (_, { rejectWithValue }) => {
+    try {
+      const response = await axiosInstance.get("/admin/roles");
+      return response.data.data;
+    } catch (error: unknown) {
+      return rejectWithValue(handleAxiosError(error, "Failed to fetch available roles"));
     }
   }
 );
@@ -483,6 +506,15 @@ const adminSlice = createSlice({
         state.departments = action.payload;
       })
       .addCase(fetchDepartments.rejected, (state, action) => {
+        state.error = action.payload as string;
+      });
+
+    // Fetch available roles
+    builder
+      .addCase(fetchAvailableRoles.fulfilled, (state, action) => {
+        state.availableRoles = action.payload;
+      })
+      .addCase(fetchAvailableRoles.rejected, (state, action) => {
         state.error = action.payload as string;
       });
 

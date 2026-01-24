@@ -9,23 +9,30 @@ import AddUserDialog from "@/components/admin/AddUserDialog";
 import ViewUserDialog from "@/components/admin/ViewUserDialog";
 import EditUserDialog from "@/components/admin/EditUserDialog";
 import { useAppDispatch, useAppSelector } from "@/redux/hooks";
-import { fetchDepartments, fetchZonesOverview, fetchAllUsers } from "@/redux";
+import { fetchDepartments, fetchZonesOverview, fetchAllUsers, fetchAvailableRoles } from "@/redux";
 
 export default function UserManagementPage() {
   const dispatch = useAppDispatch();
-  const { departments, zonesOverview: zones, users: apiUsers, usersPagination, loading } = useAppSelector(state => state.admin);
+  const { departments, zonesOverview: zones, users: apiUsers, usersPagination, availableRoles, loading } = useAppSelector(state => state.admin);
   const [users, setUsers] = useState<any[]>([]);
   const [currentPage, setCurrentPage] = useState(1);
+  const [filters, setFilters] = useState({ status: 'Active', role: 'All' });
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [showViewDialog, setShowViewDialog] = useState(false);
   const [showEditDialog, setShowEditDialog] = useState(false);
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
 
   useEffect(() => {
-    dispatch(fetchAllUsers({ page: currentPage, limit: 18 }));
+    dispatch(fetchAllUsers({ 
+      page: currentPage, 
+      limit: 18, 
+      status: filters.status !== 'All' ? filters.status : undefined,
+      role: filters.role !== 'All' ? filters.role : undefined
+    }));
     dispatch(fetchDepartments());
     dispatch(fetchZonesOverview());
-  }, [dispatch, currentPage]);
+    dispatch(fetchAvailableRoles());
+  }, [dispatch, currentPage, filters]);
 
   useEffect(() => {
     if (apiUsers) {
@@ -48,7 +55,17 @@ export default function UserManagementPage() {
 
   const handleUserAdded = (newUser: any) => {
     // Refresh users list after adding new user
-    dispatch(fetchAllUsers({ page: currentPage, limit: 18 }));
+    dispatch(fetchAllUsers({ 
+      page: currentPage, 
+      limit: 18, 
+      status: filters.status !== 'All' ? filters.status : undefined,
+      role: filters.role !== 'All' ? filters.role : undefined
+    }));
+  };
+
+  const handleFiltersChange = (newFilters: { status: string; role: string }) => {
+    setFilters(newFilters);
+    setCurrentPage(1); // Reset to first page when filters change
   };
 
   const handleViewUser = (userId: string) => {
@@ -62,7 +79,12 @@ export default function UserManagementPage() {
   };
 
   const handleUserUpdated = () => {
-    dispatch(fetchAllUsers({ page: currentPage, limit: 18 }));
+    dispatch(fetchAllUsers({ 
+      page: currentPage, 
+      limit: 18, 
+      status: filters.status !== 'All' ? filters.status : undefined,
+      role: filters.role !== 'All' ? filters.role : undefined
+    }));
   };
 
   const handlePageChange = (page: number) => {
@@ -104,6 +126,8 @@ export default function UserManagementPage() {
         onUsersChange={setUsers}
         onViewUser={handleViewUser}
         onEditUser={handleEditUser}
+        onFiltersChange={handleFiltersChange}
+        allRoles={availableRoles}
         departments={departments}
         zones={zones}
       />

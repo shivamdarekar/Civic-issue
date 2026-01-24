@@ -700,11 +700,27 @@ export class AdminService {
   }
 
 
-  static async getAllUsers(page: number = 1, limit: number = 18): Promise<PaginatedUsersResponse> {
+  static async getAllUsers(
+    page: number = 1, 
+    limit: number = 18, 
+    filters: { status?: string; role?: string } = {}
+  ): Promise<PaginatedUsersResponse> {
     const skip = (page - 1) * limit;
+    
+    // Build where clause based on filters
+    const whereClause: any = {};
+    
+    if (filters.status && filters.status !== 'All') {
+      whereClause.isActive = filters.status === 'Active';
+    }
+    
+    if (filters.role && filters.role !== 'All') {
+      whereClause.role = filters.role;
+    }
     
     const [users, totalCount] = await Promise.all([
       prisma.user.findMany({
+        where: whereClause,
         select: {
           id: true,
           fullName: true,
@@ -727,7 +743,7 @@ export class AdminService {
         skip,
         take: limit
       }),
-      prisma.user.count()
+      prisma.user.count({ where: whereClause })
     ]);
 
     return {
@@ -741,6 +757,18 @@ export class AdminService {
         limit
       }
     };
+  }
+
+
+  // Get available roles
+  static async getAvailableRoles() {
+    const roles = await prisma.user.findMany({
+      select: { role: true },
+      distinct: ['role'],
+      orderBy: { role: 'asc' }
+    });
+    
+    return roles.map(r => r.role);
   }
 
 

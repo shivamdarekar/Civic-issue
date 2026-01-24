@@ -24,8 +24,15 @@ export class AdminController {
   static getAllUsers = asyncHandler(async (req: Request, res: Response) => {
     const page = parseInt(req.query.page as string) || 1;
     const limit = parseInt(req.query.limit as string) || 18;
+    const status = req.query.status as string;
+    const role = req.query.role as string;
     
-    const result = await AdminService.getAllUsers(page, limit);
+    const filters = {
+      ...(status && { status }),
+      ...(role && { role })
+    };
+    
+    const result = await AdminService.getAllUsers(page, limit, filters);
 
     res.status(200).json(
       new ApiResponse(200, result, "Users retrieved successfully")
@@ -120,6 +127,15 @@ export class AdminController {
 
     res.status(200).json(
       new ApiResponse(200, users, "Filtered users retrieved successfully")
+    );
+  });
+
+
+  static getAvailableRoles = asyncHandler(async (req: Request, res: Response) => {
+    const roles = await AdminService.getAvailableRoles();
+
+    res.status(200).json(
+      new ApiResponse(200, roles, "Available roles retrieved successfully")
     );
   });
 

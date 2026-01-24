@@ -301,9 +301,16 @@ export default function ReportIssueForm() {
       // Fetch updated dashboard data
       dispatch(fetchFieldWorkerDashboard(10));
       
-    } catch (error) {
+    } catch (error: any) {
       console.error("Failed to submit issue:", error);
-      toast.error("Failed to submit issue. Please try again.");
+      
+      // Check if error is about location being outside VMC jurisdiction
+      if (error?.message?.includes("outside VMC jurisdiction") || 
+          error?.message?.includes("ward boundaries")) {
+        toast.error("You are not in any VMC ward. Please report issues only within VMC boundaries.");
+      } else {
+        toast.error(error?.message || "Failed to submit issue. Please try again.");
+      }
     } finally {
       setLoading(false);
     }

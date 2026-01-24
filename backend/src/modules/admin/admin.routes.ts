@@ -78,6 +78,11 @@ router.get("/departments",
   AdminController.getDepartments
 );
 
+router.get("/roles", 
+  requireRole(["SUPER_ADMIN"]), 
+  AdminController.getAvailableRoles
+);
+
 // Dashboard Routes (Super Admin only)
 router.get("/dashboard", requireRole(["SUPER_ADMIN"]), AdminController.getDashboard);
 router.get("/zones", requireRole(["SUPER_ADMIN"]), AdminController.getZonesOverview);

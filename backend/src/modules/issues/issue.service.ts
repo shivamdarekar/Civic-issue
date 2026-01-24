@@ -174,6 +174,11 @@ export class IssuesService {
       }
 
       const wardId = await findWardIdByLatLng(input.latitude, input.longitude);
+      
+      // Throw error if location is not within any VMC ward
+      if (!wardId) {
+        throw new ApiError(400, "Location is outside VMC jurisdiction. Please report issues only within VMC ward boundaries.");
+      }
 
       const ticketNumber = await nextTicketNumber(tx);
       const now = new Date();
@@ -200,7 +205,7 @@ export class IssuesService {
           longitude: input.longitude,
           eloc: input.eloc,
 
-          wardId: wardId ?? undefined,
+          wardId: wardId,
 
           reporterId: input.reporterId,
           assigneeId: assigneeId ?? undefined,
