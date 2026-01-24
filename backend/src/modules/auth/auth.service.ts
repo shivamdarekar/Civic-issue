@@ -4,9 +4,12 @@ import { generateTokenWithUser } from "../../utils/tokens";
 import { comparePassword, hashPassword } from "./auth.utils";
 import { LoginData, AuthResponse, ForgotPasswordResponse, VerifyOtpResponse, ResetPasswordResponse, LogoutResponse } from "../../types";
 import { EmailService } from "../../services/email/emailService";
+import { redis, connectRedis, setSession, getSession, delSession, blacklist, isBlacklisted } from "../../lib/redis";
+import { cache } from "../../lib/cache";
+import jwt from "jsonwebtoken";
 
 export class AuthService {
-  // Login functionality
+  // Login functionality with Redis session
   static async login(loginData: LoginData): Promise<AuthResponse> {
     const { email, password } = loginData;
 
@@ -40,15 +43,33 @@ export class AuthService {
       throw new ApiError(401, "Invalid credentials");
     }
 
-    // Generate token
+    // Generate token with JTI
     const { token, user: userInfo } = await generateTokenWithUser(user.id);
+    
+    // Extract JTI from token
+    const decoded = jwt.decode(token) as any;
+    const jti = decoded.jti;
+
+    // Store session in Redis
+    const sessionData = {
+      userId: user.id,
+      role: user.role,
+      email: user.email,
+      name: user.fullName,
+      wardId: user.wardId || undefined,
+      zoneId: user.zoneId || undefined,
+      departmentId: user.department || undefined,
+      lastActivity: Date.now(),
+    };
+    
+    await setSession(jti, sessionData, 1800); // 30 min session
 
     // Log login
     await prisma.auditLog.create({
       data: {
         userId: user.id,
         action: "LOGIN",
-        metadata: { loginTime: new Date() }
+        metadata: { loginTime: new Date(), sessionId: jti }
       }
     });
 
@@ -226,22 +247,35 @@ export class AuthService {
     return { message: "Password reset successfully" };
   }
 
-  // Logout functionality
-  static async logout(userId: string): Promise<LogoutResponse> {
+  // Logout functionality with Redis cleanup
+  static async logout(userId: string, sessionId?: string): Promise<LogoutResponse> {
+    // If sessionId provided, blacklist token and clear session
+    if (sessionId) {
+      await Promise.all([
+        blacklist(sessionId, 1800),
+        delSession(sessionId),
+        cache.invalidateUserCache(userId)
+      ]);
+    }
+
     // Log logout
     await prisma.auditLog.create({
       data: {
         userId,
         action: "LOGOUT",
-        metadata: { logoutTime: new Date() }
+        metadata: { logoutTime: new Date(), sessionId }
       }
     });
 
     return { success: true };
   }
 
-  // Get user profile
+  // Get user profile with caching
   static async getProfile(userId: string) {
+    // Try cache first
+    const cachedProfile = await cache.getUserProfile(userId);
+    if (cachedProfile) return cachedProfile;
+
     const user = await prisma.user.findUnique({
       where: { id: userId },
       select: {
@@ -288,6 +322,9 @@ export class AuthService {
     if (!user) {
       throw new ApiError(404, "User not found");
     }
+
+    // Cache the profile
+    await cache.setUserProfile(userId, user);
 
     return user;
   }

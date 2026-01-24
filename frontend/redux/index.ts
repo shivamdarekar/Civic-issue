@@ -67,7 +67,7 @@ export {
   fetchAllUsers,
   fetchUserById,
   updateUser,
-  deactivateUser,
+  deactivateUserWithReassignment,
   reactivateUser,
   fetchUsersByFilter,
   fetchDepartments,

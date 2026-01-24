@@ -67,17 +67,17 @@ export default function AssignedIssuesPage() {
 
   if (loading) {
     return (
-      <div className="p-6 space-y-6">
-        <div className="flex items-center gap-3 mb-6">
-          <FileText className="w-6 h-6 text-blue-600" />
-          <h1 className="text-2xl font-bold text-gray-900">Assigned Issues</h1>
+      <div className="p-3 sm:p-4 lg:p-6 space-y-4 sm:space-y-6">
+        <div className="flex items-center gap-2 sm:gap-3 mb-4 sm:mb-6">
+          <FileText className="w-5 h-5 sm:w-6 sm:h-6 text-blue-600" />
+          <h1 className="text-xl sm:text-2xl font-bold text-gray-900">Assigned Issues</h1>
         </div>
         <Card>
-          <CardContent className="p-6">
-            <div className="space-y-4">
+          <CardContent className="p-4 sm:p-6">
+            <div className="space-y-3 sm:space-y-4">
               {[...Array(5)].map((_, i) => (
                 <div key={i} className="animate-pulse">
-                  <div className="h-20 bg-gray-100 rounded-lg"></div>
+                  <div className="h-16 sm:h-20 bg-gray-100 rounded-lg"></div>
                 </div>
               ))}
             </div>
@@ -89,19 +89,21 @@ export default function AssignedIssuesPage() {
 
   if (error) {
     return (
-      <div className="p-6">
-        <div className="flex items-center gap-3 mb-6">
-          <FileText className="w-6 h-6 text-blue-600" />
-          <h1 className="text-2xl font-bold text-gray-900">Assigned Issues</h1>
+      <div className="p-3 sm:p-4 lg:p-6">
+        <div className="flex items-center gap-2 sm:gap-3 mb-4 sm:mb-6">
+          <FileText className="w-5 h-5 sm:w-6 sm:h-6 text-blue-600" />
+          <h1 className="text-xl sm:text-2xl font-bold text-gray-900">Assigned Issues</h1>
         </div>
         <Card>
-          <CardContent className="p-6">
-            <div className="text-center py-8">
-              <AlertTriangle className="w-12 h-12 text-red-400 mx-auto mb-3" />
-              <p className="text-red-600 mb-4">{error}</p>
+          <CardContent className="p-4 sm:p-6">
+            <div className="text-center py-6 sm:py-8">
+              <AlertTriangle className="w-10 h-10 sm:w-12 sm:h-12 text-red-400 mx-auto mb-3" />
+              <p className="text-red-600 mb-4 text-sm sm:text-base">{error}</p>
               <Button 
                 onClick={() => dispatch(fetchAssignedIssuesPaginated({ page: currentPage, pageSize }))}
                 variant="outline"
+                size="sm"
+                className="text-xs sm:text-sm"
               >
                 Retry
               </Button>
@@ -113,14 +115,14 @@ export default function AssignedIssuesPage() {
   }
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="p-3 sm:p-4 lg:p-6 space-y-4 sm:space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <FileText className="w-6 h-6 text-blue-600" />
-          <h1 className="text-2xl font-bold text-gray-900">Assigned Issues</h1>
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4">
+        <div className="flex items-center gap-2 sm:gap-3">
+          <FileText className="w-5 h-5 sm:w-6 sm:h-6 text-blue-600" />
+          <h1 className="text-xl sm:text-2xl font-bold text-gray-900">Assigned Issues</h1>
           {assignedIssuesPaginated && (
-            <Badge variant="outline" className="ml-2">
+            <Badge variant="outline" className="ml-2 text-xs sm:text-sm">
               {assignedIssuesPaginated.total} Total
             </Badge>
           )}
@@ -129,25 +131,25 @@ export default function AssignedIssuesPage() {
 
       {/* Filters */}
       <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Filter className="w-5 h-5" />
+        <CardHeader className="pb-3 sm:pb-4">
+          <CardTitle className="flex items-center gap-2 text-sm sm:text-base">
+            <Filter className="w-4 h-4 sm:w-5 sm:h-5" />
             Filters
           </CardTitle>
         </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <CardContent className="pt-0">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
             <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-3 h-3 sm:w-4 sm:h-4" />
               <Input
                 placeholder="Search by ticket number..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-10"
+                className="pl-8 sm:pl-10 text-sm"
               />
             </div>
             <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger>
+              <SelectTrigger className="text-sm">
                 <SelectValue placeholder="Filter by status" />
               </SelectTrigger>
               <SelectContent>
@@ -158,7 +160,7 @@ export default function AssignedIssuesPage() {
               </SelectContent>
             </Select>
             <Select value={priorityFilter} onValueChange={setPriorityFilter}>
-              <SelectTrigger>
+              <SelectTrigger className="text-sm">
                 <SelectValue placeholder="Filter by priority" />
               </SelectTrigger>
               <SelectContent>
@@ -175,16 +177,16 @@ export default function AssignedIssuesPage() {
 
       {/* Issues List */}
       <Card>
-        <CardHeader>
-          <CardTitle>
+        <CardHeader className="pb-3 sm:pb-4">
+          <CardTitle className="text-sm sm:text-base">
             Issues ({filteredIssues.length})
           </CardTitle>
         </CardHeader>
-        <CardContent>
+        <CardContent className="pt-0">
           {filteredIssues.length === 0 ? (
-            <div className="text-center py-8">
-              <FileText className="w-12 h-12 text-gray-400 mx-auto mb-3" />
-              <p className="text-gray-500">
+            <div className="text-center py-6 sm:py-8">
+              <FileText className="w-10 h-10 sm:w-12 sm:h-12 text-gray-400 mx-auto mb-3" />
+              <p className="text-gray-500 text-sm sm:text-base">
                 {searchQuery || statusFilter !== "all" || priorityFilter !== "all" 
                   ? "No issues match your filters" 
                   : "No issues assigned"
@@ -192,12 +194,12 @@ export default function AssignedIssuesPage() {
               </p>
             </div>
           ) : (
-            <div className="space-y-4">
+            <div className="space-y-3 sm:space-y-4">
               {filteredIssues.map((issue) => (
-                <div key={issue.id} className="p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
-                  <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+                <div key={issue.id} className="p-3 sm:p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
+                  <div className="flex flex-col gap-3 sm:gap-4">
                     <div className="flex-1 min-w-0">
-                      <div className="flex flex-wrap items-center gap-2 mb-2">
+                      <div className="flex flex-wrap items-center gap-1 sm:gap-2 mb-2">
                         <Badge className={`text-xs ${getStatusColor(issue.status)}`}>
                           {issue.status.replace('_', ' ')}
                         </Badge>
@@ -205,15 +207,15 @@ export default function AssignedIssuesPage() {
                           {issue.priority}
                         </Badge>
                       </div>
-                      <p className="font-semibold text-gray-900 mb-1">#{issue.ticketNumber}</p>
-                      <p className="text-sm text-gray-600 mb-1">
+                      <p className="font-semibold text-gray-900 mb-1 text-sm sm:text-base">#{issue.ticketNumber}</p>
+                      <p className="text-xs sm:text-sm text-gray-600 mb-1">
                         {issue.category?.name || 'N/A'} • Ward {issue.ward?.wardNumber} - {issue.ward?.name}
                       </p>
                       <p className="text-xs text-gray-500">
                         Created: {formatDate(issue.createdAt)}
                       </p>
                     </div>
-                    <div className="flex items-center gap-2">
+                    <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
                       <StatusUpdateButton 
                         issueId={issue.id}
                         currentStatus={issue.status}
@@ -223,9 +225,9 @@ export default function AssignedIssuesPage() {
                         variant="ghost" 
                         size="sm"
                         onClick={() => setSelectedIssueId(issue.id)}
-                        className="flex items-center gap-1"
+                        className="flex items-center gap-1 text-xs sm:text-sm"
                       >
-                        <ExternalLink className="w-4 h-4" />
+                        <ExternalLink className="w-3 h-3 sm:w-4 sm:h-4" />
                         View
                       </Button>
                     </div>
@@ -240,9 +242,9 @@ export default function AssignedIssuesPage() {
       {/* Pagination */}
       {assignedIssuesPaginated && assignedIssuesPaginated.totalPages > 1 && (
         <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div className="text-sm text-gray-600">
+          <CardContent className="p-3 sm:p-4">
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-3">
+              <div className="text-xs sm:text-sm text-gray-600 text-center sm:text-left">
                 Showing {((currentPage - 1) * pageSize) + 1} to {Math.min(currentPage * pageSize, assignedIssuesPaginated.total)} of {assignedIssuesPaginated.total} issues
               </div>
               <div className="flex items-center gap-2">
@@ -251,10 +253,11 @@ export default function AssignedIssuesPage() {
                   size="sm"
                   onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
                   disabled={currentPage === 1}
+                  className="text-xs sm:text-sm"
                 >
                   Previous
                 </Button>
-                <span className="text-sm text-gray-600">
+                <span className="text-xs sm:text-sm text-gray-600 px-2">
                   Page {currentPage} of {assignedIssuesPaginated.totalPages}
                 </span>
                 <Button
@@ -262,6 +265,7 @@ export default function AssignedIssuesPage() {
                   size="sm"
                   onClick={() => setCurrentPage(prev => Math.min(assignedIssuesPaginated.totalPages, prev + 1))}
                   disabled={currentPage === assignedIssuesPaginated.totalPages}
+                  className="text-xs sm:text-sm"
                 >
                   Next
                 </Button>

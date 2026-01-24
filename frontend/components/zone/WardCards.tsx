@@ -41,10 +41,10 @@ export default function WardCards({ wards, loading }: WardCardsProps) {
 
   if (loading) {
     return (
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 sm:gap-3 lg:gap-4">
         {[1, 2, 3, 4, 5, 6].map((i) => (
           <Card key={i} className="animate-pulse">
-            <CardContent className="p-4 sm:p-6">
+            <CardContent className="p-3 sm:p-4 lg:p-6">
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
                   <div className="h-5 bg-gray-200 rounded w-20"></div>
@@ -70,11 +70,11 @@ export default function WardCards({ wards, loading }: WardCardsProps) {
   if (wards.length === 0) {
     return (
       <Card className="border-dashed">
-        <CardContent className="p-8 sm:p-12">
+        <CardContent className="p-6 sm:p-8 lg:p-12">
           <div className="text-center space-y-3">
-            <Users className="w-12 h-12 text-gray-400 mx-auto" />
-            <p className="text-gray-500 text-lg font-medium">No wards found</p>
-            <p className="text-gray-400 text-sm">This zone doesn't have any wards assigned yet.</p>
+            <Users className="w-10 h-10 sm:w-12 sm:h-12 text-gray-400 mx-auto" />
+            <p className="text-gray-500 text-base sm:text-lg font-medium">No wards found</p>
+            <p className="text-gray-400 text-xs sm:text-sm">This zone doesn't have any wards assigned yet.</p>
           </div>
         </CardContent>
       </Card>
@@ -82,7 +82,7 @@ export default function WardCards({ wards, loading }: WardCardsProps) {
   }
 
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 sm:gap-3 lg:gap-4">
       {wards.map((ward) => {
         const urgency = getUrgencyLevel(ward);
         return (
@@ -90,7 +90,7 @@ export default function WardCards({ wards, loading }: WardCardsProps) {
             <Card className={`hover:shadow-lg transition-all duration-200 cursor-pointer border-l-4 ${urgency.color} group`}>
               <CardHeader className="pb-2 sm:pb-3">
                 <div className="flex items-center justify-between">
-                  <CardTitle className="text-base sm:text-lg font-bold text-gray-900">
+                  <CardTitle className="text-sm sm:text-base lg:text-lg font-bold text-gray-900">
                     Ward {ward.wardNumber}
                   </CardTitle>
                   <Badge variant="outline" className="text-xs">
@@ -98,15 +98,15 @@ export default function WardCards({ wards, loading }: WardCardsProps) {
                   </Badge>
                 </div>
               </CardHeader>
-              <CardContent className="space-y-3 sm:space-y-4">
+              <CardContent className="space-y-2 sm:space-y-3 lg:space-y-4">
                 
-                <div className="grid grid-cols-2 gap-2 sm:gap-3">
+                <div className="grid grid-cols-2 gap-1 sm:gap-2 lg:gap-3">
                   <div className="text-center p-2 sm:p-3 bg-gray-50 rounded-lg group-hover:bg-gray-100 transition-colors">
                     <div className="flex items-center justify-center gap-1 mb-1">
                       <AlertTriangle className="w-3 h-3 text-gray-500" />
                       <p className="text-xs text-gray-500">Total</p>
                     </div>
-                    <p className="font-bold text-sm sm:text-base text-gray-900">
+                    <p className="font-bold text-xs sm:text-sm lg:text-base text-gray-900">
                       {ward.totalIssues || 0}
                     </p>
                   </div>
@@ -114,11 +114,11 @@ export default function WardCards({ wards, loading }: WardCardsProps) {
                     getStatusColor("open", ward.open)
                   }`}>
                     <p className="text-xs font-medium">Open</p>
-                    <p className="font-bold text-sm sm:text-base">{ward.open || 0}</p>
+                    <p className="font-bold text-xs sm:text-sm lg:text-base">{ward.open || 0}</p>
                   </div>
                 </div>
                 
-                <div className="grid grid-cols-2 gap-2 sm:gap-3">
+                <div className="grid grid-cols-2 gap-1 sm:gap-2 lg:gap-3">
                   <div className={`text-center p-2 sm:p-3 rounded-lg transition-colors ${
                     getStatusColor("inProgress", ward.inProgress)
                   }`}>
@@ -126,7 +126,7 @@ export default function WardCards({ wards, loading }: WardCardsProps) {
                       <TrendingUp className="w-3 h-3" />
                     </div>
                     <p className="text-xs font-medium">In Progress</p>
-                    <p className="font-bold text-sm sm:text-base">{ward.inProgress || 0}</p>
+                    <p className="font-bold text-xs sm:text-sm lg:text-base">{ward.inProgress || 0}</p>
                   </div>
                   <div className={`text-center p-2 sm:p-3 rounded-lg transition-colors ${
                     getStatusColor("slaBreached", ward.slaBreached)
@@ -135,7 +135,7 @@ export default function WardCards({ wards, loading }: WardCardsProps) {
                       <Clock className="w-3 h-3" />
                     </div>
                     <p className="text-xs font-medium">SLA Breach</p>
-                    <p className="font-bold text-sm sm:text-base">{ward.slaBreached || 0}</p>
+                    <p className="font-bold text-xs sm:text-sm lg:text-base">{ward.slaBreached || 0}</p>
                   </div>
                 </div>
 

@@ -72,7 +72,7 @@ export default function ResolvedIssuesPage() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-64">
+      <div className="flex items-center justify-center h-48 sm:h-64">
         <VMCLoader size={48} />
       </div>
     );
@@ -80,36 +80,100 @@ export default function ResolvedIssuesPage() {
 
   if (error) {
     return (
-      <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-        <p className="text-red-800">Error loading resolved issues: {error}</p>
+      <div className="bg-red-50 border border-red-200 rounded-lg p-3 sm:p-4">
+        <p className="text-red-800 text-sm sm:text-base">Error loading resolved issues: {error}</p>
       </div>
     );
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6">
       {/* Header */}
-      <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-200">
-        <div className="flex items-center gap-4">
-          <div className="bg-green-100 p-4 rounded-full">
-            <CheckCircle className="w-8 h-8 text-green-600" />
+      <div className="bg-white rounded-xl shadow-sm p-4 sm:p-6 border border-gray-200">
+        <div className="flex items-center gap-3 sm:gap-4">
+          <div className="bg-green-100 p-3 sm:p-4 rounded-full">
+            <CheckCircle className="w-5 h-5 sm:w-6 sm:h-6 lg:w-8 lg:h-8 text-green-600" />
           </div>
           <div>
-            <h1 className="text-3xl font-bold text-gray-800">Resolved Issues</h1>
-            <p className="text-gray-600">Add after images to completed work</p>
+            <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-gray-800">Resolved Issues</h1>
+            <p className="text-sm sm:text-base text-gray-600">Add after images to completed work</p>
           </div>
         </div>
       </div>
 
       {/* Issues Table */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-200">
-        <div className="p-6 border-b border-gray-200">
-          <h3 className="text-lg font-semibold text-gray-800">
+        <div className="p-4 sm:p-6 border-b border-gray-200">
+          <h3 className="text-base sm:text-lg font-semibold text-gray-800">
             Resolved Issues ({pagination.total})
           </h3>
         </div>
         
-        <div className="overflow-x-auto">
+        {/* Mobile Card View */}
+        <div className="block lg:hidden">
+          <div className="divide-y divide-gray-200">
+            {issues.map((issue) => {
+              const hasAfterImages = issue.media?.some(m => m.type === 'AFTER');
+              return (
+                <div key={issue.id} className="p-4 hover:bg-gray-50 transition-colors">
+                  <div className="flex flex-col gap-3">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                        issue.priority === 'CRITICAL' ? 'bg-red-100 text-red-800' :
+                        issue.priority === 'HIGH' ? 'bg-orange-100 text-orange-800' :
+                        issue.priority === 'MEDIUM' ? 'bg-yellow-100 text-yellow-800' :
+                        'bg-green-100 text-green-800'
+                      }`}>
+                        {issue.priority}
+                      </span>
+                      {hasAfterImages ? (
+                        <span className="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-800">
+                          Images Added
+                        </span>
+                      ) : (
+                        <span className="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-yellow-100 text-yellow-800">
+                          Images Pending
+                        </span>
+                      )}
+                    </div>
+                    <div>
+                      <p className="font-medium text-gray-900 text-sm">#{issue.ticketNumber}</p>
+                      <p className="text-sm text-gray-600">{issue.category?.name || 'N/A'}</p>
+                      <p className="text-xs text-gray-500">
+                        Resolved: {issue.resolvedAt ? new Date(issue.resolvedAt).toLocaleDateString() : 'N/A'}
+                      </p>
+                    </div>
+                    <div className="flex flex-col sm:flex-row gap-2">
+                      <Button 
+                        variant="ghost" 
+                        size="sm" 
+                        className="flex items-center gap-2 w-full sm:w-auto"
+                        onClick={() => handleViewIssue(issue.id)}
+                      >
+                        <Eye className="w-4 h-4" />
+                        View
+                      </Button>
+                      {!hasAfterImages && (
+                        <Button 
+                          variant="outline" 
+                          size="sm" 
+                          className="flex items-center gap-2 w-full sm:w-auto"
+                          onClick={() => handleAddImages(issue.id)}
+                        >
+                          <Camera className="w-4 h-4" />
+                          Add Images
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+        
+        {/* Desktop Table View */}
+        <div className="hidden lg:block overflow-x-auto">
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
               <tr>
@@ -201,8 +265,8 @@ export default function ResolvedIssuesPage() {
 
         {/* Pagination */}
         {pagination.totalPages > 1 && (
-          <div className="px-6 py-4 border-t border-gray-200 flex items-center justify-between">
-            <div className="text-sm text-gray-700">
+          <div className="px-4 sm:px-6 py-4 border-t border-gray-200 flex flex-col sm:flex-row items-center justify-between gap-3">
+            <div className="text-xs sm:text-sm text-gray-700 text-center sm:text-left">
               Showing {((pagination.page - 1) * pagination.pageSize) + 1} to{' '}
               {Math.min(pagination.page * pagination.pageSize, pagination.total)} of{' '}
               {pagination.total} results
@@ -213,6 +277,7 @@ export default function ResolvedIssuesPage() {
                 size="sm"
                 onClick={() => handlePageChange(pagination.page - 1)}
                 disabled={pagination.page === 1}
+                className="text-xs sm:text-sm"
               >
                 Previous
               </Button>
@@ -221,6 +286,7 @@ export default function ResolvedIssuesPage() {
                 size="sm"
                 onClick={() => handlePageChange(pagination.page + 1)}
                 disabled={pagination.page === pagination.totalPages}
+                className="text-xs sm:text-sm"
               >
                 Next
               </Button>
@@ -229,10 +295,10 @@ export default function ResolvedIssuesPage() {
         )}
 
         {issues.length === 0 && (
-          <div className="px-6 py-12 text-center">
-            <CheckCircle className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-            <p className="text-gray-500">No resolved issues found</p>
-            <p className="text-sm text-gray-400 mt-2">Issues will appear here once they are resolved by ward engineers</p>
+          <div className="px-4 sm:px-6 py-8 sm:py-12 text-center">
+            <CheckCircle className="w-10 h-10 sm:w-12 sm:h-12 text-gray-400 mx-auto mb-4" />
+            <p className="text-gray-500 text-sm sm:text-base">No resolved issues found</p>
+            <p className="text-xs sm:text-sm text-gray-400 mt-2">Issues will appear here once they are resolved by ward engineers</p>
           </div>
         )}
       </div>

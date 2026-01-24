@@ -92,17 +92,17 @@ export default function UserManagementPage() {
   };
 
   return (
-    <div className="space-y-4 sm:space-y-6 p-4 sm:p-0">
+    <div className="space-y-4 sm:space-y-6 p-3 sm:p-4 lg:p-0">
       {/* Header */}
       <Card>
         <CardContent className="p-4 sm:p-6">
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-            <div className="flex items-center gap-3">
-              <div className="bg-blue-100 p-2 sm:p-3 rounded-lg">
+            <div className="flex items-center gap-3 min-w-0 flex-1">
+              <div className="bg-blue-100 p-2 sm:p-3 rounded-lg flex-shrink-0">
                 <Users className="w-5 h-5 sm:w-6 sm:h-6 text-blue-600" />
               </div>
-              <div>
-                <CardTitle className="text-2xl sm:text-3xl font-bold text-gray-900">User Management</CardTitle>
+              <div className="min-w-0">
+                <CardTitle className="text-xl sm:text-2xl lg:text-3xl font-bold text-gray-900">User Management</CardTitle>
                 <p className="text-sm sm:text-base text-gray-600">
                   Manage system users and their permissions
                   {usersPagination && (
@@ -113,7 +113,7 @@ export default function UserManagementPage() {
                 </p>
               </div>
             </div>
-            <Button onClick={() => setShowAddDialog(true)} className="bg-blue-600 hover:bg-blue-700 w-full sm:w-auto">
+            <Button onClick={() => setShowAddDialog(true)} className="bg-blue-600 hover:bg-blue-700 w-full sm:w-auto min-h-[44px]">
               <Plus className="w-4 h-4 mr-2" /> Add User
             </Button>
           </div>
@@ -135,8 +135,8 @@ export default function UserManagementPage() {
       {/* Pagination */}
       {usersPagination && usersPagination.totalPages > 1 && (
         <Card>
-          <CardContent className="p-4">
-            <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+          <CardContent className="p-3 sm:p-4">
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-3 sm:gap-4">
               <div className="text-xs sm:text-sm text-gray-600 text-center sm:text-left">
                 Showing {((currentPage - 1) * 18) + 1} to {Math.min(currentPage * 18, usersPagination.totalUsers)} of {usersPagination.totalUsers} users
               </div>
@@ -146,7 +146,7 @@ export default function UserManagementPage() {
                   size="sm"
                   onClick={() => handlePageChange(currentPage - 1)}
                   disabled={!usersPagination.hasPreviousPage || loading}
-                  className="px-2 sm:px-3"
+                  className="px-2 sm:px-3 min-h-[44px]"
                 >
                   <ChevronLeft className="w-4 h-4" />
                   <span className="hidden sm:inline ml-1">Previous</span>
@@ -173,7 +173,7 @@ export default function UserManagementPage() {
                           size="sm"
                           onClick={() => handlePageChange(pageNum)}
                           disabled={loading}
-                          className="w-7 h-7 sm:w-8 sm:h-8 p-0 text-xs sm:text-sm"
+                          className="w-8 h-8 sm:w-9 sm:h-9 p-0 text-xs sm:text-sm min-h-[44px] min-w-[44px]"
                         >
                           {pageNum}
                         </Button>
@@ -186,7 +186,7 @@ export default function UserManagementPage() {
                   size="sm"
                   onClick={() => handlePageChange(currentPage + 1)}
                   disabled={!usersPagination.hasNextPage || loading}
-                  className="px-2 sm:px-3"
+                  className="px-2 sm:px-3 min-h-[44px]"
                 >
                   <span className="hidden sm:inline mr-1">Next</span>
                   <ChevronRight className="w-4 h-4" />

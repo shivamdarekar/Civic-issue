@@ -4,9 +4,7 @@ import cookieParser from "cookie-parser";
 import morgan from "morgan";
 import { errorHandler, notFoundHandler } from "./middlewares/error.middleware";
 
-
 const app = express();
-
 
 // CORS configuration
 app.use(cors({
@@ -32,8 +30,21 @@ app.get("/", (req, res) => {
 });
 
 // API Routes
-app.get("/api/health", (req, res) => {
-    res.json({ status: "OK", timestamp: new Date().toISOString() });
+app.get("/api/health", async (req, res) => {
+    try {
+        res.json({ 
+            status: "OK", 
+            timestamp: new Date().toISOString(),
+            redis: 'available'
+        });
+    } catch (error) {
+        res.status(503).json({ 
+            status: "ERROR", 
+            timestamp: new Date().toISOString(),
+            redis: 'unavailable',
+            error: 'Service unavailable'
+        });
+    }
 });
 
 // Import routes

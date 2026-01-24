@@ -45,12 +45,12 @@ export default function WardOverview({ wardDashboard, user }: WardOverviewProps)
   // Show loading state if user data or ward dashboard is not available
   if (!wardDashboard || !user || !user.ward) {
     return (
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 sm:p-6">
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-3 sm:p-4 lg:p-6">
         <div className="animate-pulse space-y-4">
           <div className="h-6 bg-gray-200 rounded w-1/3"></div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3 lg:gap-4">
             {[1, 2, 3, 4].map((i) => (
-              <div key={i} className="h-20 bg-gray-100 rounded-lg"></div>
+              <div key={i} className="h-16 sm:h-20 bg-gray-100 rounded-lg"></div>
             ))}
           </div>
         </div>
@@ -69,19 +69,19 @@ export default function WardOverview({ wardDashboard, user }: WardOverviewProps)
   const slaCompliance = totalSlaIssues > 0 ? (wardDashboard.sla.withinSla / totalSlaIssues) * 100 : 100;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6">
       {/* Header */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 sm:p-6">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
-          <div className="flex items-center gap-3">
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-3 sm:p-4 lg:p-6">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4 mb-4 sm:mb-6">
+          <div className="flex items-center gap-2 sm:gap-3">
             <div className="bg-blue-100 p-2 sm:p-3 rounded-lg">
-              <Building className="w-5 h-5 sm:w-6 sm:h-6 text-blue-600" />
+              <Building className="w-4 h-4 sm:w-5 sm:h-5 lg:w-6 lg:h-6 text-blue-600" />
             </div>
             <div>
-              <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-gray-900">
+              <h1 className="text-lg sm:text-xl lg:text-2xl xl:text-3xl font-bold text-gray-900">
                 Ward {user.ward.wardNumber} - {user.ward.name}
               </h1>
-              <p className="text-sm sm:text-base text-gray-600">
+              <p className="text-xs sm:text-sm lg:text-base text-gray-600">
                 {wardDashboard.department.replace('_', ' ')} Department
               </p>
             </div>
@@ -93,14 +93,14 @@ export default function WardOverview({ wardDashboard, user }: WardOverviewProps)
       </div>
 
       {/* Key Metrics */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3 lg:gap-4">
         <Card className="hover:shadow-md transition-shadow">
-          <CardContent className="p-3 sm:p-4">
-            <div className="flex items-center gap-3">
-              <AlertTriangle className="w-6 h-6 sm:w-8 sm:h-8 text-blue-600 flex-shrink-0" />
-              <div>
-                <p className="text-xs sm:text-sm text-gray-600">Total Issues</p>
-                <p className="font-bold text-lg sm:text-xl text-gray-900">
+          <CardContent className="p-2 sm:p-3 lg:p-4">
+            <div className="flex items-center gap-2 sm:gap-3">
+              <AlertTriangle className="w-5 h-5 sm:w-6 sm:h-6 lg:w-8 lg:h-8 text-blue-600 flex-shrink-0" />
+              <div className="min-w-0">
+                <p className="text-xs sm:text-sm text-gray-600 truncate">Total Issues</p>
+                <p className="font-bold text-sm sm:text-lg lg:text-xl text-gray-900">
                   {wardDashboard.totalIssues}
                 </p>
               </div>
@@ -109,12 +109,12 @@ export default function WardOverview({ wardDashboard, user }: WardOverviewProps)
         </Card>
 
         <Card className="hover:shadow-md transition-shadow">
-          <CardContent className="p-3 sm:p-4">
-            <div className="flex items-center gap-3">
-              <Clock className="w-6 h-6 sm:w-8 sm:h-8 text-orange-600 flex-shrink-0" />
-              <div>
-                <p className="text-xs sm:text-sm text-gray-600">SLA Breached</p>
-                <p className="font-bold text-lg sm:text-xl text-gray-900">
+          <CardContent className="p-2 sm:p-3 lg:p-4">
+            <div className="flex items-center gap-2 sm:gap-3">
+              <Clock className="w-5 h-5 sm:w-6 sm:h-6 lg:w-8 lg:h-8 text-orange-600 flex-shrink-0" />
+              <div className="min-w-0">
+                <p className="text-xs sm:text-sm text-gray-600 truncate">SLA Breached</p>
+                <p className="font-bold text-sm sm:text-lg lg:text-xl text-gray-900">
                   {wardDashboard.sla.breachedSla}
                 </p>
               </div>
@@ -123,12 +123,12 @@ export default function WardOverview({ wardDashboard, user }: WardOverviewProps)
         </Card>
 
         <Card className="hover:shadow-md transition-shadow">
-          <CardContent className="p-3 sm:p-4">
-            <div className={`flex items-center gap-3 p-2 rounded-lg ${getSlaColor(wardDashboard.sla.breachedSla, totalSlaIssues)}`}>
-              <TrendingUp className="w-6 h-6 sm:w-8 sm:h-8 flex-shrink-0" />
-              <div>
-                <p className="text-xs sm:text-sm">SLA Compliance</p>
-                <p className="font-bold text-lg sm:text-xl">
+          <CardContent className="p-2 sm:p-3 lg:p-4">
+            <div className={`flex items-center gap-2 sm:gap-3 p-2 rounded-lg ${getSlaColor(wardDashboard.sla.breachedSla, totalSlaIssues)}`}>
+              <TrendingUp className="w-5 h-5 sm:w-6 sm:h-6 lg:w-8 lg:h-8 flex-shrink-0" />
+              <div className="min-w-0">
+                <p className="text-xs sm:text-sm truncate">SLA Compliance</p>
+                <p className="font-bold text-sm sm:text-lg lg:text-xl">
                   {slaCompliance.toFixed(1)}%
                 </p>
               </div>
@@ -137,12 +137,12 @@ export default function WardOverview({ wardDashboard, user }: WardOverviewProps)
         </Card>
 
         <Card className="hover:shadow-md transition-shadow">
-          <CardContent className="p-3 sm:p-4">
-            <div className="flex items-center gap-3">
-              <Clock className="w-6 h-6 sm:w-8 sm:h-8 text-purple-600 flex-shrink-0" />
-              <div>
-                <p className="text-xs sm:text-sm text-gray-600">Avg Resolution</p>
-                <p className="font-bold text-lg sm:text-xl text-gray-900">
+          <CardContent className="p-2 sm:p-3 lg:p-4">
+            <div className="flex items-center gap-2 sm:gap-3">
+              <Clock className="w-5 h-5 sm:w-6 sm:h-6 lg:w-8 lg:h-8 text-purple-600 flex-shrink-0" />
+              <div className="min-w-0">
+                <p className="text-xs sm:text-sm text-gray-600 truncate">Avg Resolution</p>
+                <p className="font-bold text-sm sm:text-lg lg:text-xl text-gray-900">
                   {wardDashboard.averageResolutionTimeHours 
                     ? `${wardDashboard.averageResolutionTimeHours.toFixed(1)}h`
                     : 'N/A'
@@ -155,14 +155,14 @@ export default function WardOverview({ wardDashboard, user }: WardOverviewProps)
       </div>
 
       {/* Status and Priority Distribution */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
         {/* Status Distribution */}
         <Card>
-          <CardHeader>
-            <CardTitle className="text-base sm:text-lg">Issues by Status</CardTitle>
+          <CardHeader className="pb-3 sm:pb-4">
+            <CardTitle className="text-sm sm:text-base lg:text-lg">Issues by Status</CardTitle>
           </CardHeader>
-          <CardContent>
-            <div className="space-y-3">
+          <CardContent className="pt-0">
+            <div className="space-y-2 sm:space-y-3">
               {Object.entries(wardDashboard.issuesByStatus).map(([status, count]) => {
                 const getStatusColor = (status: string) => {
                   switch (status.toUpperCase()) {
@@ -176,9 +176,9 @@ export default function WardOverview({ wardDashboard, user }: WardOverviewProps)
                 };
                 
                 return (
-                  <div key={status} className={`flex items-center justify-between p-3 rounded-lg ${getStatusColor(status)}`}>
-                    <span className="font-medium capitalize">{status.replace('_', ' ')}</span>
-                    <span className="text-lg font-bold">{count}</span>
+                  <div key={status} className={`flex items-center justify-between p-2 sm:p-3 rounded-lg ${getStatusColor(status)}`}>
+                    <span className="font-medium capitalize text-xs sm:text-sm">{status.replace('_', ' ')}</span>
+                    <span className="text-sm sm:text-lg font-bold">{count}</span>
                   </div>
                 );
               })}
@@ -188,11 +188,11 @@ export default function WardOverview({ wardDashboard, user }: WardOverviewProps)
 
         {/* Priority Distribution */}
         <Card>
-          <CardHeader>
-            <CardTitle className="text-base sm:text-lg">Issues by Priority</CardTitle>
+          <CardHeader className="pb-3 sm:pb-4">
+            <CardTitle className="text-sm sm:text-base lg:text-lg">Issues by Priority</CardTitle>
           </CardHeader>
-          <CardContent>
-            <div className="space-y-3">
+          <CardContent className="pt-0">
+            <div className="space-y-2 sm:space-y-3">
               {Object.entries(wardDashboard.issuesByPriority).map(([priority, count]) => {
                 const getPriorityColor = (priority: string) => {
                   switch (priority.toUpperCase()) {
@@ -205,9 +205,9 @@ export default function WardOverview({ wardDashboard, user }: WardOverviewProps)
                 };
                 
                 return (
-                  <div key={priority} className={`flex items-center justify-between p-3 rounded-lg ${getPriorityColor(priority)}`}>
-                    <span className="font-medium capitalize">{priority}</span>
-                    <span className="text-lg font-bold">{count}</span>
+                  <div key={priority} className={`flex items-center justify-between p-2 sm:p-3 rounded-lg ${getPriorityColor(priority)}`}>
+                    <span className="font-medium capitalize text-xs sm:text-sm">{priority}</span>
+                    <span className="text-sm sm:text-lg font-bold">{count}</span>
                   </div>
                 );
               })}

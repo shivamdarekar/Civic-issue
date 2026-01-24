@@ -30,18 +30,18 @@ export default function FieldWorkerPage() {
       
       {/* Header */}
       <Card>
-        <CardContent className="p-6">
-          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-4">
-            <div className="flex items-center gap-3">
-              <div className="bg-purple-100 p-3 rounded-lg">
-                <Users className="w-6 h-6 text-purple-600" />
+        <CardContent className="p-3 sm:p-4 lg:p-6">
+          <div className="flex flex-col gap-3 sm:gap-4 mb-3 sm:mb-4">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 sm:gap-4">
+              <div className="bg-purple-100 p-2 sm:p-3 rounded-lg">
+                <Users className="w-5 h-5 sm:w-6 sm:h-6 text-purple-600" />
               </div>
-              <div>
-                <h1 className="text-2xl sm:text-3xl font-bold text-gray-800">Field Worker Dashboard</h1>
-                <p className="text-gray-600">Issue reporting and tracking</p>
+              <div className="flex-1">
+                <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-gray-800">Field Worker Dashboard</h1>
+                <p className="text-sm sm:text-base text-gray-600">Issue reporting and tracking</p>
               </div>
             </div>
-            <div className="w-full sm:w-auto">
+            <div className="w-full">
               <ReportIssueForm />
             </div>
           </div>
@@ -57,11 +57,42 @@ export default function FieldWorkerPage() {
       {/* Recent Issues Table */}
       {fieldWorkerDashboard?.recentIssues && (
         <Card>
-          <CardHeader>
-            <CardTitle>Recent Issues</CardTitle>
+          <CardHeader className="pb-3 sm:pb-4">
+            <CardTitle className="text-base sm:text-lg">Recent Issues</CardTitle>
           </CardHeader>
-          <CardContent>
-            <div className="overflow-x-auto">
+          <CardContent className="pt-0">
+            {/* Mobile Card View */}
+            <div className="block sm:hidden space-y-3">
+              {fieldWorkerDashboard.recentIssues.map((issue) => (
+                <div key={issue.id} className="p-3 border border-gray-200 rounded-lg">
+                  <div className="flex flex-wrap items-center gap-2 mb-2">
+                    <Badge className={`text-xs ${
+                      issue.status === 'RESOLVED' ? 'bg-green-100 text-green-800' :
+                      issue.status === 'IN_PROGRESS' ? 'bg-yellow-100 text-yellow-800' :
+                      'bg-red-100 text-red-800'
+                    }`}>
+                      {issue.status.replace('_', ' ')}
+                    </Badge>
+                    {issue.priority && (
+                      <Badge className={`text-xs ${
+                        issue.priority === 'HIGH' ? 'bg-red-100 text-red-800' :
+                        issue.priority === 'MEDIUM' ? 'bg-yellow-100 text-yellow-800' :
+                        'bg-green-100 text-green-800'
+                      }`}>
+                        {issue.priority}
+                      </Badge>
+                    )}
+                  </div>
+                  <p className="font-medium text-gray-900 text-sm">#{issue.ticketNumber}</p>
+                  <p className="text-xs text-gray-500">
+                    Created: {new Date(issue.createdAt).toLocaleDateString()}
+                  </p>
+                </div>
+              ))}
+            </div>
+            
+            {/* Desktop Table View */}
+            <div className="hidden sm:block overflow-x-auto">
               <table className="min-w-full divide-y divide-gray-200">
                 <thead className="bg-gray-50">
                   <tr>

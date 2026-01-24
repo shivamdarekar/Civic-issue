@@ -193,37 +193,37 @@ export default function WardDetail({ wardDetail, wardId }: WardDetailProps) {
   return (
     <div className="p-4 sm:p-6 space-y-4 sm:space-y-6">
       {/* Header */}
-      <div className="bg-white rounded-xl shadow-sm p-4 sm:p-6 border border-gray-200">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4">
+      <div className="bg-white rounded-xl shadow-sm p-3 sm:p-4 lg:p-6 border border-gray-200">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4 mb-3 sm:mb-4">
           <Link href="/zone-officer">
-            <Button variant="ghost" size="sm" className="text-gray-600 hover:text-gray-900">
-              <ArrowLeft className="w-4 h-4 mr-2" />
+            <Button variant="ghost" size="sm" className="text-gray-600 hover:text-gray-900 text-xs sm:text-sm">
+              <ArrowLeft className="w-3 h-3 sm:w-4 sm:h-4 mr-2" />
               Back to Zone Overview
             </Button>
           </Link>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2 sm:gap-3">
           <div className="bg-blue-100 p-2 sm:p-3 rounded-lg">
-            <MapPin className="w-5 h-5 sm:w-6 sm:h-6 text-blue-600" />
+            <MapPin className="w-4 h-4 sm:w-5 sm:h-5 lg:w-6 lg:h-6 text-blue-600" />
           </div>
           <div>
-            <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-gray-800">
+            <h1 className="text-lg sm:text-xl lg:text-2xl xl:text-3xl font-bold text-gray-800">
               Ward {wardDetail.wardNumber} - {wardDetail.wardName}
             </h1>
-            <p className="text-sm sm:text-base text-gray-600">{wardDetail.zoneName}</p>
+            <p className="text-xs sm:text-sm lg:text-base text-gray-600">{wardDetail.zoneName}</p>
           </div>
         </div>
       </div>
 
       {/* Key Metrics */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-6">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3 lg:gap-6">
         <Card className="hover:shadow-md transition-shadow">
-          <CardContent className="p-3 sm:p-6">
-            <div className="flex items-center gap-2 sm:gap-3">
-              <AlertTriangle className="w-6 h-6 sm:w-8 sm:h-8 text-blue-600 flex-shrink-0" />
+          <CardContent className="p-2 sm:p-3 lg:p-6">
+            <div className="flex items-center gap-1 sm:gap-2 lg:gap-3">
+              <AlertTriangle className="w-5 h-5 sm:w-6 sm:h-6 lg:w-8 lg:h-8 text-blue-600 flex-shrink-0" />
               <div className="min-w-0">
                 <p className="text-xs sm:text-sm text-gray-600">Total Issues</p>
-                <p className="text-lg sm:text-2xl font-bold text-gray-900">
+                <p className="text-sm sm:text-lg lg:text-2xl font-bold text-gray-900">
                   {wardDetail.totalIssues || 0}
                 </p>
               </div>
@@ -232,12 +232,12 @@ export default function WardDetail({ wardDetail, wardId }: WardDetailProps) {
         </Card>
 
         <Card className="hover:shadow-md transition-shadow">
-          <CardContent className="p-3 sm:p-6">
-            <div className="flex items-center gap-2 sm:gap-3">
-              <Clock className="w-6 h-6 sm:w-8 sm:h-8 text-orange-600 flex-shrink-0" />
+          <CardContent className="p-2 sm:p-3 lg:p-6">
+            <div className="flex items-center gap-1 sm:gap-2 lg:gap-3">
+              <Clock className="w-5 h-5 sm:w-6 sm:h-6 lg:w-8 lg:h-8 text-orange-600 flex-shrink-0" />
               <div className="min-w-0">
                 <p className="text-xs sm:text-sm text-gray-600">SLA Breached</p>
-                <p className="text-lg sm:text-2xl font-bold text-gray-900">
+                <p className="text-sm sm:text-lg lg:text-2xl font-bold text-gray-900">
                   {wardDetail.slaBreached || 0}
                 </p>
               </div>
@@ -246,14 +246,14 @@ export default function WardDetail({ wardDetail, wardId }: WardDetailProps) {
         </Card>
 
         <Card className="hover:shadow-md transition-shadow">
-          <CardContent className="p-3 sm:p-6">
-            <div className="flex items-center gap-2 sm:gap-3">
-              <TrendingUp className={`w-6 h-6 sm:w-8 sm:h-8 flex-shrink-0 ${
+          <CardContent className="p-2 sm:p-3 lg:p-6">
+            <div className="flex items-center gap-1 sm:gap-2 lg:gap-3">
+              <TrendingUp className={`w-5 h-5 sm:w-6 sm:h-6 lg:w-8 lg:h-8 flex-shrink-0 ${
                 getSlaColor(wardDetail.slaCompliance || 0)
               }`} />
               <div className="min-w-0">
                 <p className="text-xs sm:text-sm text-gray-600">SLA Compliance</p>
-                <p className={`text-lg sm:text-2xl font-bold ${
+                <p className={`text-sm sm:text-lg lg:text-2xl font-bold ${
                   getSlaColor(wardDetail.slaCompliance || 0)
                 }`}>
                   {wardDetail.slaCompliance ? `${wardDetail.slaCompliance.toFixed(1)}%` : '0%'}
@@ -264,12 +264,12 @@ export default function WardDetail({ wardDetail, wardId }: WardDetailProps) {
         </Card>
 
         <Card className="hover:shadow-md transition-shadow">
-          <CardContent className="p-3 sm:p-6">
-            <div className="flex items-center gap-2 sm:gap-3">
-              <Users className="w-6 h-6 sm:w-8 sm:h-8 text-purple-600 flex-shrink-0" />
+          <CardContent className="p-2 sm:p-3 lg:p-6">
+            <div className="flex items-center gap-1 sm:gap-2 lg:gap-3">
+              <Users className="w-5 h-5 sm:w-6 sm:h-6 lg:w-8 lg:h-8 text-purple-600 flex-shrink-0" />
               <div className="min-w-0">
                 <p className="text-xs sm:text-sm text-gray-600">Engineers</p>
-                <p className="text-lg sm:text-2xl font-bold text-gray-900">
+                <p className="text-sm sm:text-lg lg:text-2xl font-bold text-gray-900">
                   {wardDetail.totalEngineers || 0}
                 </p>
               </div>
@@ -280,11 +280,11 @@ export default function WardDetail({ wardDetail, wardId }: WardDetailProps) {
 
       {/* Status Distribution */}
       <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="text-base sm:text-lg">Issue Status Distribution</CardTitle>
+        <CardHeader className="pb-2 sm:pb-3">
+          <CardTitle className="text-sm sm:text-base lg:text-lg">Issue Status Distribution</CardTitle>
         </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-7 gap-2 sm:gap-4">
+        <CardContent className="pt-0">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-7 gap-1 sm:gap-2 lg:gap-4">
             {[
               { label: 'Open', value: wardDetail.open, color: 'bg-red-50 text-red-700' },
               { label: 'Assigned', value: wardDetail.assigned, color: 'bg-blue-50 text-blue-700' },
@@ -296,7 +296,7 @@ export default function WardDetail({ wardDetail, wardId }: WardDetailProps) {
             ].map((status) => (
               <div key={status.label} className={`text-center p-2 sm:p-3 rounded-lg ${status.color}`}>
                 <p className="text-xs sm:text-sm font-medium">{status.label}</p>
-                <p className="text-sm sm:text-xl font-bold">{status.value || 0}</p>
+                <p className="text-xs sm:text-sm lg:text-xl font-bold">{status.value || 0}</p>
               </div>
             ))}
           </div>
@@ -406,51 +406,52 @@ export default function WardDetail({ wardDetail, wardId }: WardDetailProps) {
 
       {/* Ward Issues with Filters and Pagination */}
       <Card>
-        <CardHeader className="pb-3">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-            <CardTitle className="text-base sm:text-lg">Ward Issues</CardTitle>
-            <div className="flex flex-col sm:flex-row gap-2 sm:gap-4">
+        <CardHeader className="pb-2 sm:pb-3">
+          <div className="flex flex-col gap-3 sm:gap-4">
+            <CardTitle className="text-sm sm:text-base lg:text-lg">Ward Issues</CardTitle>
+            <div className="flex flex-col gap-2 sm:gap-4">
               {/* Search */}
               <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-3 h-3 sm:w-4 sm:h-4" />
                 <Input
                   placeholder="Search by ticket number..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-10 w-full sm:w-48"
+                  className="pl-8 sm:pl-10 text-sm"
                 />
               </div>
               
-              {/* Status Filter */}
-              <Select value={statusFilter} onValueChange={setStatusFilter}>
-                <SelectTrigger className="w-full sm:w-32">
-                  <SelectValue placeholder="Status" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Status</SelectItem>
-                  <SelectItem value="OPEN">Open</SelectItem>
-                  <SelectItem value="ASSIGNED">Assigned</SelectItem>
-                  <SelectItem value="IN_PROGRESS">In Progress</SelectItem>
-                  <SelectItem value="RESOLVED">Resolved</SelectItem>
-                  <SelectItem value="VERIFIED">Verified</SelectItem>
-                  <SelectItem value="REOPENED">Reopened</SelectItem>
-                  <SelectItem value="REJECTED">Rejected</SelectItem>
-                </SelectContent>
-              </Select>
-              
-              {/* Priority Filter */}
-              <Select value={priorityFilter} onValueChange={setPriorityFilter}>
-                <SelectTrigger className="w-full sm:w-32">
-                  <SelectValue placeholder="Priority" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Priority</SelectItem>
-                  <SelectItem value="CRITICAL">Critical</SelectItem>
-                  <SelectItem value="HIGH">High</SelectItem>
-                  <SelectItem value="MEDIUM">Medium</SelectItem>
-                  <SelectItem value="LOW">Low</SelectItem>
-                </SelectContent>
-              </Select>
+              {/* Filters */}
+              <div className="grid grid-cols-2 gap-2 sm:gap-4">
+                <Select value={statusFilter} onValueChange={setStatusFilter}>
+                  <SelectTrigger className="text-xs sm:text-sm">
+                    <SelectValue placeholder="Status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Status</SelectItem>
+                    <SelectItem value="OPEN">Open</SelectItem>
+                    <SelectItem value="ASSIGNED">Assigned</SelectItem>
+                    <SelectItem value="IN_PROGRESS">In Progress</SelectItem>
+                    <SelectItem value="RESOLVED">Resolved</SelectItem>
+                    <SelectItem value="VERIFIED">Verified</SelectItem>
+                    <SelectItem value="REOPENED">Reopened</SelectItem>
+                    <SelectItem value="REJECTED">Rejected</SelectItem>
+                  </SelectContent>
+                </Select>
+                
+                <Select value={priorityFilter} onValueChange={setPriorityFilter}>
+                  <SelectTrigger className="text-xs sm:text-sm">
+                    <SelectValue placeholder="Priority" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Priority</SelectItem>
+                    <SelectItem value="CRITICAL">Critical</SelectItem>
+                    <SelectItem value="HIGH">High</SelectItem>
+                    <SelectItem value="MEDIUM">Medium</SelectItem>
+                    <SelectItem value="LOW">Low</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
           </div>
         </CardHeader>

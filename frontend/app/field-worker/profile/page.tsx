@@ -28,48 +28,48 @@ export default function FieldWorkerProfilePage() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6 p-4 sm:p-0">
       {/* Header */}
-      <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-200">
-        <div className="flex items-center gap-4">
-          <div className="bg-blue-100 p-4 rounded-full">
-            <User className="w-8 h-8 text-blue-600" />
+      <div className="bg-white rounded-xl shadow-sm p-4 sm:p-6 border border-gray-200">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
+          <div className="bg-blue-100 p-3 sm:p-4 rounded-full">
+            <User className="w-6 h-6 sm:w-8 sm:h-8 text-blue-600" />
           </div>
           <div>
-            <h1 className="text-3xl font-bold text-gray-800">My Profile</h1>
-            <p className="text-gray-600">View your account information</p>
+            <h1 className="text-2xl sm:text-3xl font-bold text-gray-800">My Profile</h1>
+            <p className="text-sm sm:text-base text-gray-600">View your account information</p>
           </div>
         </div>
       </div>
 
       {/* Profile Information */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
         {/* Personal Information */}
         <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <User className="w-5 h-5" />
+          <CardHeader className="p-4 sm:p-6">
+            <CardTitle className="flex items-center gap-2 text-lg sm:text-xl">
+              <User className="w-4 h-4 sm:w-5 sm:h-5" />
               Personal Information
             </CardTitle>
           </CardHeader>
-          <CardContent className="space-y-4">
+          <CardContent className="space-y-4 p-4 sm:p-6 pt-0">
             <div>
               <label className="text-sm font-medium text-gray-500">Full Name</label>
-              <p className="text-lg font-semibold text-gray-900">{user.fullName}</p>
+              <p className="text-base sm:text-lg font-semibold text-gray-900 break-words">{user.fullName}</p>
             </div>
             
             <div>
               <label className="text-sm font-medium text-gray-500">Email Address</label>
-              <div className="flex items-center gap-2">
-                <Mail className="w-4 h-4 text-gray-400" />
-                <p className="text-gray-900">{user.email}</p>
+              <div className="flex items-start gap-2">
+                <Mail className="w-4 h-4 text-gray-400 mt-0.5 flex-shrink-0" />
+                <p className="text-gray-900 break-all text-sm sm:text-base">{user.email}</p>
               </div>
             </div>
             
             <div>
               <label className="text-sm font-medium text-gray-500">Phone Number</label>
               <div className="flex items-center gap-2">
-                <Phone className="w-4 h-4 text-gray-400" />
+                <Phone className="w-4 h-4 text-gray-400 flex-shrink-0" />
                 <p className="text-gray-900">{user.phoneNumber || 'Not provided'}</p>
               </div>
             </div>
@@ -88,19 +88,19 @@ export default function FieldWorkerProfilePage() {
 
         {/* Work Information */}
         <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Building className="w-5 h-5" />
+          <CardHeader className="p-4 sm:p-6">
+            <CardTitle className="flex items-center gap-2 text-lg sm:text-xl">
+              <Building className="w-4 h-4 sm:w-5 sm:h-5" />
               Work Information
             </CardTitle>
           </CardHeader>
-          <CardContent className="space-y-4">
+          <CardContent className="space-y-4 p-4 sm:p-6 pt-0">
             {user.zone && (
               <div>
                 <label className="text-sm font-medium text-gray-500">Zone</label>
-                <div className="flex items-center gap-2">
-                  <MapPin className="w-4 h-4 text-gray-400" />
-                  <p className="text-gray-900">{user.zone.name}</p>
+                <div className="flex items-start gap-2">
+                  <MapPin className="w-4 h-4 text-gray-400 mt-0.5 flex-shrink-0" />
+                  <p className="text-gray-900 break-words">{user.zone.name}</p>
                 </div>
               </div>
             )}
@@ -108,9 +108,9 @@ export default function FieldWorkerProfilePage() {
             {user.ward && (
               <div>
                 <label className="text-sm font-medium text-gray-500">Ward</label>
-                <div className="flex items-center gap-2">
-                  <MapPin className="w-4 h-4 text-gray-400" />
-                  <p className="text-gray-900">Ward {user.ward.wardNumber} - {user.ward.name}</p>
+                <div className="flex items-start gap-2">
+                  <MapPin className="w-4 h-4 text-gray-400 mt-0.5 flex-shrink-0" />
+                  <p className="text-gray-900 break-words">Ward {user.ward.wardNumber} - {user.ward.name}</p>
                 </div>
               </div>
             )}

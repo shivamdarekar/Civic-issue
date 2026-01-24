@@ -31,8 +31,7 @@ export default function ProtectWrapper({ children }: ProtectWrapperProps) {
       if (!token) {
         dispatch(clearAuth());
         dispatch(clearUserState());
-        router.push('/login');
-        setIsLoading(false);
+        window.location.replace('/login');
         return;
       }
 
@@ -45,8 +44,7 @@ export default function ProtectWrapper({ children }: ProtectWrapperProps) {
           localStorage.removeItem('authToken');
           dispatch(clearAuth());
           dispatch(clearUserState());
-          router.push('/login');
-          setIsLoading(false);
+          window.location.replace('/login');
           return;
         }
       }

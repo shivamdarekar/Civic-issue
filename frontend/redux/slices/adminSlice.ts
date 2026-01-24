@@ -237,12 +237,14 @@ export const updateUser = createAsyncThunk(
   }
 );
 
-// Deactivate user
-export const deactivateUser = createAsyncThunk(
-  "admin/deactivateUser",
-  async (userId: string, { rejectWithValue }) => {
+// Deactivate user with reassignment
+export const deactivateUserWithReassignment = createAsyncThunk(
+  "admin/deactivateUserWithReassignment",
+  async ({ userId, reassignToUserId }: { userId: string; reassignToUserId?: string }, { rejectWithValue }) => {
     try {
-      const response = await axiosInstance.patch(`/admin/users/${userId}/deactivate`);
+      const response = await axiosInstance.patch(`/admin/users/${userId}/deactivate`, {
+        reassignToUserId
+      });
       return response.data.data;
     } catch (error: unknown) {
       return rejectWithValue(handleAxiosError(error, "Failed to deactivate user"));
@@ -474,16 +476,16 @@ const adminSlice = createSlice({
         state.error = action.payload as string;
       });
 
-    // Deactivate user
+    // Deactivate user with reassignment
     builder
-      .addCase(deactivateUser.fulfilled, (state, action) => {
+      .addCase(deactivateUserWithReassignment.fulfilled, (state, action) => {
         const updatedUser = action.payload;
         const index = state.users.findIndex(user => user.id === updatedUser.id);
         if (index !== -1) {
           state.users[index] = updatedUser;
         }
       })
-      .addCase(deactivateUser.rejected, (state, action) => {
+      .addCase(deactivateUserWithReassignment.rejected, (state, action) => {
         state.error = action.payload as string;
       });
 

@@ -25,18 +25,18 @@ const colorClasses = {
 export default function StatCard({ title, value, icon, color, trend }: StatCardProps) {
   return (
     <Card className="shadow-sm">
-      <CardContent className="p-6">
+      <CardContent className="p-3 sm:p-4 lg:p-6">
         <div className="flex items-center justify-between">
-          <div>
-            <p className="text-sm font-medium text-gray-600">{title}</p>
-            <p className="text-2xl font-bold text-gray-900 mt-1">{value}</p>
+          <div className="min-w-0 flex-1">
+            <p className="text-xs sm:text-sm font-medium text-gray-600 truncate">{title}</p>
+            <p className="text-lg sm:text-xl lg:text-2xl font-bold text-gray-900 mt-1 truncate">{value}</p>
             {trend && (
-              <Badge variant={trend.isPositive ? 'default' : 'destructive'} className="mt-1">
+              <Badge variant={trend.isPositive ? 'default' : 'destructive'} className="mt-1 text-xs">
                 {trend.isPositive ? '+' : ''}{trend.value}% from last month
               </Badge>
             )}
           </div>
-          <div className={`p-3 rounded-lg border ${colorClasses[color]}`}>
+          <div className={`p-2 sm:p-3 rounded-lg border flex-shrink-0 ${colorClasses[color]}`}>
             {icon}
           </div>
         </div>

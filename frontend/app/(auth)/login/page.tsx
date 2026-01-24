@@ -50,6 +50,12 @@ export default function LoginPage() {
 
   async function handleFormLogin(e: React.FormEvent) {
     e.preventDefault();
+    e.stopPropagation();
+    
+    // Don't submit if already loading
+    if (authLoading) {
+      return;
+    }
     
     try {
       const result = await dispatch(loginUser(credentials)).unwrap();
@@ -62,6 +68,7 @@ export default function LoginPage() {
     } catch (error) {
       // Keep form data on error - don't clear credentials
       console.error('Login failed:', error);
+      // Form data will remain in state, no need to reset
     }
   }
 
@@ -139,7 +146,7 @@ export default function LoginPage() {
                   </div>
                 )}
 
-                <form onSubmit={handleFormLogin} className="space-y-6">
+                <form onSubmit={handleFormLogin} noValidate className="space-y-6">
                   <div className="space-y-2">
                     <label htmlFor="email" className="text-sm font-semibold text-gray-700 flex items-center gap-2">
                       <User className="w-4 h-4 text-blue-600" />
@@ -197,8 +204,8 @@ export default function LoginPage() {
 
                   <Button
                     type="submit"
-                    disabled={authLoading}
-                    className="w-full h-12 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-semibold rounded-xl transition-all duration-200 shadow-lg hover:shadow-xl disabled:opacity-50"
+                    disabled={authLoading || !credentials.email || !credentials.password}
+                    className="w-full h-12 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-semibold rounded-xl transition-all duration-200 shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     {authLoading ? (
                       <div className="flex items-center gap-2">

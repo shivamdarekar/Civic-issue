@@ -310,10 +310,11 @@ export default function ReportIssueForm() {
       
       // Check if error is about location being outside VMC jurisdiction
       if (error?.message?.includes("outside VMC jurisdiction") || 
-          error?.message?.includes("ward boundaries")) {
-        toast.error("You are not in any VMC ward. Please report issues only within VMC boundaries.");
+          error?.message?.includes("ward boundaries") ||
+          error?.message?.includes("not in any VMC ward")) {
+        toast.error("❌ Outside VMC area! Please report issues only within VMC boundaries.");
       } else {
-        toast.error(error?.message || "Failed to submit issue. Please try again.");
+        toast.error(error?.message || "❌ Issue creation failed. Please try again.");
       }
     } finally {
       setLoading(false);

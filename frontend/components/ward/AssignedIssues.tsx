@@ -60,17 +60,17 @@ export default function AssignedIssues({ limit = 10 }: AssignedIssuesProps) {
   if (loading) {
     return (
       <Card>
-        <CardHeader>
+        <CardHeader className="pb-3 sm:pb-4">
           <CardTitle className="flex items-center gap-2">
-            <User className="w-5 h-5" />
-            Assigned Issues
+            <User className="w-4 h-4 sm:w-5 sm:h-5" />
+            <span className="text-sm sm:text-base">Assigned Issues</span>
           </CardTitle>
         </CardHeader>
-        <CardContent>
-          <div className="space-y-3">
+        <CardContent className="pt-0">
+          <div className="space-y-2 sm:space-y-3">
             {[...Array(5)].map((_, i) => (
               <div key={i} className="animate-pulse">
-                <div className="h-16 bg-gray-100 rounded-lg"></div>
+                <div className="h-12 sm:h-16 bg-gray-100 rounded-lg"></div>
               </div>
             ))}
           </div>
@@ -82,20 +82,21 @@ export default function AssignedIssues({ limit = 10 }: AssignedIssuesProps) {
   if (error) {
     return (
       <Card>
-        <CardHeader>
+        <CardHeader className="pb-3 sm:pb-4">
           <CardTitle className="flex items-center gap-2">
-            <User className="w-5 h-5" />
-            Assigned Issues
+            <User className="w-4 h-4 sm:w-5 sm:h-5" />
+            <span className="text-sm sm:text-base">Assigned Issues</span>
           </CardTitle>
         </CardHeader>
-        <CardContent>
-          <div className="text-center py-8">
-            <AlertTriangle className="w-12 h-12 text-red-400 mx-auto mb-3" />
-            <p className="text-red-600 mb-4">{error}</p>
+        <CardContent className="pt-0">
+          <div className="text-center py-6 sm:py-8">
+            <AlertTriangle className="w-10 h-10 sm:w-12 sm:h-12 text-red-400 mx-auto mb-3" />
+            <p className="text-red-600 mb-4 text-sm sm:text-base">{error}</p>
             <Button 
               onClick={() => dispatch(fetchAssignedIssuesDashboard(limit))}
               variant="outline"
               size="sm"
+              className="text-xs sm:text-sm"
             >
               Retry
             </Button>
@@ -111,27 +112,27 @@ export default function AssignedIssues({ limit = 10 }: AssignedIssuesProps) {
 
   return (
     <Card>
-      <CardHeader>
+      <CardHeader className="pb-3 sm:pb-4">
         <CardTitle className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <User className="w-5 h-5" />
-            Assigned Issues ({assignedIssuesDashboard.totalAssigned})
+            <User className="w-4 h-4 sm:w-5 sm:h-5" />
+            <span className="text-sm sm:text-base">Assigned Issues ({assignedIssuesDashboard.totalAssigned})</span>
           </div>
         </CardTitle>
       </CardHeader>
-      <CardContent>
+      <CardContent className="pt-0">
         {assignedIssuesDashboard.assignedIssues.length === 0 ? (
-          <div className="text-center py-8">
-            <User className="w-12 h-12 text-gray-400 mx-auto mb-3" />
-            <p className="text-gray-500">No issues assigned</p>
+          <div className="text-center py-6 sm:py-8">
+            <User className="w-10 h-10 sm:w-12 sm:h-12 text-gray-400 mx-auto mb-3" />
+            <p className="text-gray-500 text-sm sm:text-base">No issues assigned</p>
           </div>
         ) : (
-          <div className="space-y-3">
+          <div className="space-y-2 sm:space-y-3">
             {assignedIssuesDashboard.assignedIssues.map((issue) => (
-              <div key={issue.id} className="p-3 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div key={issue.id} className="p-2 sm:p-3 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
+                <div className="flex flex-col gap-2 sm:gap-3">
                   <div className="flex-1 min-w-0">
-                    <div className="flex flex-wrap items-center gap-2 mb-2">
+                    <div className="flex flex-wrap items-center gap-1 sm:gap-2 mb-2">
                       <Badge className={`text-xs ${getStatusColor(issue.status)}`}>
                         {issue.status.replace('_', ' ')}
                       </Badge>
@@ -139,7 +140,7 @@ export default function AssignedIssues({ limit = 10 }: AssignedIssuesProps) {
                         {issue.priority}
                       </Badge>
                     </div>
-                    <p className="font-medium text-gray-900 text-sm">#{issue.ticketNumber}</p>
+                    <p className="font-medium text-gray-900 text-xs sm:text-sm">#{issue.ticketNumber}</p>
                     <p className="text-xs text-gray-500">
                       {issue.category?.name || 'N/A'} • Ward {issue.ward?.wardNumber} - {issue.ward?.name}
                     </p>
@@ -147,7 +148,7 @@ export default function AssignedIssues({ limit = 10 }: AssignedIssuesProps) {
                       Created: {formatDate(issue.createdAt)}
                     </p>
                   </div>
-                  <div className="flex items-center gap-2">
+                  <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-1 sm:gap-2">
                     <StatusUpdateButton 
                       issueId={issue.id}
                       currentStatus={issue.status}

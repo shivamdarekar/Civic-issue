@@ -23,11 +23,12 @@ export default function Header({ onMenuClick }: HeaderProps) {
   const handleLogout = async () => {
     try {
       await dispatch(logoutUser()).unwrap();
-      router.push('/login');
+      // Force immediate redirect
+      window.location.replace('/login');
     } catch (error) {
       // Even if logout fails, clear local state and redirect
       localStorage.removeItem('authToken');
-      router.push('/login');
+      window.location.replace('/login');
     }
   };
 

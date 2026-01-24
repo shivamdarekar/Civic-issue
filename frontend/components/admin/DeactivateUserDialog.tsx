@@ -10,7 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { UserX, AlertTriangle, Users, ArrowRight } from "lucide-react";
 import { useAppDispatch, useAppSelector } from "@/redux/hooks";
-import { fetchUserStatistics, fetchUsersByFilter, reassignUserWork, deactivateUser } from "@/redux";
+import { fetchUserStatistics, fetchUsersByFilter, reassignUserWork, deactivateUserWithReassignment } from "@/redux";
 import { toast } from "sonner";
 
 interface DeactivateUserDialogProps {
@@ -60,22 +60,30 @@ export default function DeactivateUserDialog({ open, onClose, onUserDeactivated,
     if (!user) return;
     
     const filters: any = {
-      role: user.role,
       isActive: true
     };
     
-    if (user.role === 'WARD_ENGINEER' || user.role === 'FIELD_WORKER') {
+    // Role-based filtering logic
+    if (user.role === 'WARD_ENGINEER') {
+      // For ward engineers, show only other ward engineers from the same ward
+      filters.role = 'WARD_ENGINEER';
       filters.wardId = user.wardId;
+    } else if (user.role === 'FIELD_WORKER') {
+      // For field workers, show all field workers (no ward/zone restriction)
+      filters.role = 'FIELD_WORKER';
     } else if (user.role === 'ZONE_OFFICER') {
-      filters.zoneId = user.zoneId;
+      // For zone officers, show all zone officers (no zone restriction)
+      filters.role = 'ZONE_OFFICER';
     }
     
     try {
       const result = await dispatch(fetchUsersByFilter(filters)).unwrap();
+      // Exclude the user being deactivated
       const filtered = result.filter((u: any) => u.id !== user.id);
       setAvailableUsers(filtered);
     } catch (error) {
       console.error('Error fetching available users:', error);
+      setAvailableUsers([]);
     }
   };
 
@@ -84,11 +92,17 @@ export default function DeactivateUserDialog({ open, onClose, onUserDeactivated,
     
     setReassigning(true);
     try {
-      await dispatch(reassignUserWork({ fromUserId: user.id, toUserId: selectedUserId })).unwrap();
-      setStep('confirm');
-      toast.success('Tasks reassigned successfully!');
+      // Use the new deactivation method that handles reassignment internally
+      await dispatch(deactivateUserWithReassignment({ 
+        userId: user.id, 
+        reassignToUserId: selectedUserId 
+      })).unwrap();
+      
+      onUserDeactivated();
+      handleClose();
+      toast.success('User deactivated and tasks reassigned successfully!');
     } catch (error: any) {
-      toast.error(error || 'Failed to reassign tasks');
+      toast.error(error || 'Failed to reassign tasks and deactivate user');
     } finally {
       setReassigning(false);
     }
@@ -99,9 +113,13 @@ export default function DeactivateUserDialog({ open, onClose, onUserDeactivated,
     
     setDeactivating(true);
     try {
-      await dispatch(deactivateUser(user.id)).unwrap();
+      // Use the new deactivation method without reassignment for users with no active issues
+      await dispatch(deactivateUserWithReassignment({ 
+        userId: user.id
+      })).unwrap();
       onUserDeactivated();
       handleClose();
+      toast.success('User deactivated successfully!');
     } catch (error: any) {
       toast.error(error || 'Failed to deactivate user');
     } finally {
@@ -173,7 +191,14 @@ export default function DeactivateUserDialog({ open, onClose, onUserDeactivated,
                     <Alert className="mt-2">
                       <Users className="h-4 w-4" />
                       <AlertDescription>
-                        No available users found in the same {user.role === 'ZONE_OFFICER' ? 'zone' : 'ward'} with the same role.
+                        {user.role === 'WARD_ENGINEER' 
+                          ? `No other ward engineers found in ${user.ward || 'this ward'}. Please add an engineer to this ward first.`
+                          : user.role === 'FIELD_WORKER'
+                          ? 'No other field workers found in the system.'
+                          : user.role === 'ZONE_OFFICER'
+                          ? 'No other zone officers found in the system.'
+                          : `No other users found with the same role (${user.role.replace('_', ' ')}).`
+                        }
                       </AlertDescription>
                     </Alert>
                   ) : (
@@ -184,7 +209,14 @@ export default function DeactivateUserDialog({ open, onClose, onUserDeactivated,
                       <SelectContent>
                         {availableUsers.map((availableUser) => (
                           <SelectItem key={availableUser.id} value={availableUser.id}>
-                            {availableUser.fullName} - {availableUser.role.replace('_', ' ')}
+                            <div className="flex flex-col">
+                              <span>{availableUser.fullName}</span>
+                              <span className="text-xs text-gray-500">
+                                {availableUser.role.replace('_', ' ')}
+                                {availableUser.ward && ` • Ward ${availableUser.ward.wardNumber} - ${availableUser.ward.name}`}
+                                {availableUser.zone && ` • ${availableUser.zone.name}`}
+                              </span>
+                            </div>
                           </SelectItem>
                         ))}
                       </SelectContent>
@@ -230,9 +262,9 @@ export default function DeactivateUserDialog({ open, onClose, onUserDeactivated,
               <Button 
                 onClick={handleReassign} 
                 disabled={!selectedUserId || reassigning || availableUsers.length === 0}
-                className="bg-blue-600 hover:bg-blue-700"
+                className="bg-red-600 hover:bg-red-700"
               >
-                {reassigning ? 'Reassigning...' : 'Reassign Tasks'}
+                {reassigning ? 'Processing...' : 'Reassign & Deactivate'}
               </Button>
             )}
             

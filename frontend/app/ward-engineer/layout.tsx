@@ -86,39 +86,39 @@ export default function WardEngineerLayout({
             </div>
           </div>
 
-          <div className={`lg:hidden fixed top-16 left-0 bottom-0 w-64 bg-white shadow-lg transform transition-transform duration-300 ease-in-out z-30 ${
+          <div className={`lg:hidden fixed top-16 left-0 bottom-0 w-72 sm:w-80 bg-white shadow-lg transform transition-transform duration-300 ease-in-out z-30 ${
             sidebarOpen ? 'translate-x-0' : '-translate-x-full'
           }`}>
-            <div className="flex items-center justify-between h-20 px-4 border-b border-gray-200 mt-4">
+            <div className="flex items-center justify-between h-16 px-4 border-b border-gray-200">
               <div className="flex items-center gap-2">
-                <Shield className="w-6 h-6 text-blue-600" />
-                <span className="font-semibold text-gray-800">Ward Engineer</span>
+                <Shield className="w-5 h-5 sm:w-6 sm:h-6 text-blue-600" />
+                <span className="font-semibold text-gray-800 text-sm sm:text-base">Ward Engineer</span>
               </div>
               <button
                 onClick={() => setSidebarOpen(false)}
-                className="p-2 rounded-md text-gray-400 hover:text-gray-600"
+                className="p-2 rounded-md text-gray-400 hover:text-gray-600 hover:bg-gray-100"
               >
-                <X className="w-5 h-5" />
+                <X className="w-4 h-4 sm:w-5 sm:h-5" />
               </button>
             </div>
             
-            <nav className="mt-8 px-4">
-              <div className="space-y-2">
+            <nav className="mt-4 px-3 sm:px-4">
+              <div className="space-y-1">
                 {navigation.map((item) => {
                   const Icon = item.icon;
                   return (
                     <Link
                       key={item.name}
                       href={item.href}
-                      className={`flex items-center gap-3 px-4 py-3 text-sm font-medium rounded-lg transition-colors ${
+                      className={`flex items-center gap-3 px-3 sm:px-4 py-3 text-sm font-medium rounded-lg transition-colors ${
                         item.current
                           ? "bg-blue-50 text-blue-700 border-r-2 border-blue-600"
                           : "text-gray-600 hover:text-gray-900 hover:bg-gray-50"
                       }`}
                       onClick={() => setSidebarOpen(false)}
                     >
-                      <Icon className="w-5 h-5" />
-                      {item.name}
+                      <Icon className="w-4 h-4 sm:w-5 sm:h-5" />
+                      <span className="text-sm sm:text-base">{item.name}</span>
                     </Link>
                   );
                 })}
@@ -128,13 +128,13 @@ export default function WardEngineerLayout({
 
           {sidebarOpen && (
             <div
-              className="lg:hidden fixed top-16 left-0 right-0 bottom-0 backdrop-blur-lg z-20"
+              className="lg:hidden fixed inset-0 top-16  backdrop-blur-sm z-20"
               onClick={() => setSidebarOpen(false)}
             />
           )}
 
           <div className="flex-1 flex flex-col min-w-0 lg:ml-64">
-            <main className="flex-1 p-6 overflow-auto">
+            <main className="flex-1 p-3 sm:p-4 lg:p-6 overflow-auto">
               {children}
             </main>
           </div>

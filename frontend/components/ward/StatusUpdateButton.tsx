@@ -58,7 +58,7 @@ export default function StatusUpdateButton({
       <Button 
         onClick={handleStartWork}
         disabled={loading}
-        className="bg-blue-600 hover:bg-blue-700 flex items-center gap-1"
+        className="bg-blue-600 hover:bg-blue-700 flex items-center gap-1 text-xs sm:text-sm"
         size="sm"
       >
         <Play className="w-3 h-3" />
@@ -73,7 +73,7 @@ export default function StatusUpdateButton({
       <Button 
         onClick={handleFinishWork}
         disabled={loading}
-        className="bg-green-600 hover:bg-green-700 flex items-center gap-1"
+        className="bg-green-600 hover:bg-green-700 flex items-center gap-1 text-xs sm:text-sm"
         size="sm"
       >
         <CheckCircle className="w-3 h-3" />

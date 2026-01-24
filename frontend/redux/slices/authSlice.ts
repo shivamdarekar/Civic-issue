@@ -93,17 +93,16 @@ export const logoutUser = createAsyncThunk(
   async (_, { rejectWithValue, dispatch }) => {
     try {
       await axiosInstance.post("/auth/logout");
+    } catch (error: unknown) {
+      console.error('Logout API error:', error);
+      // Continue with cleanup even if API call fails
+    } finally {
+      // Always clear local state regardless of API response
       if (typeof window !== 'undefined') {
         localStorage.removeItem('authToken');
       }
       dispatch(clearUserState());
       return true;
-    } catch (error: unknown) {
-      if (typeof window !== 'undefined') {
-        localStorage.removeItem('authToken');
-      }
-      dispatch(clearUserState());
-      return rejectWithValue(handleAxiosError(error, "Logout failed"));
     }
   }
 );
@@ -209,13 +208,18 @@ const authSlice = createSlice({
 
     // Logout user
     builder
+      .addCase(logoutUser.pending, (state) => {
+        state.loading = true;
+      })
       .addCase(logoutUser.fulfilled, (state) => {
+        state.loading = false;
         state.isAuthenticated = false;
         state.error = null;
       })
-      .addCase(logoutUser.rejected, (state, action) => {
+      .addCase(logoutUser.rejected, (state) => {
+        state.loading = false;
         state.isAuthenticated = false;
-        state.error = action.payload as string;
+        state.error = null; // Don't show error for logout failures
       });
 
     // Forgot password
