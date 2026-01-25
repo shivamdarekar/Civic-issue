@@ -12,7 +12,7 @@ import IssueDetailModal from "@/components/admin/IssueDetailModal";
 
 export default function MyIssuesPage() {
   const dispatch = useAppDispatch();
-  const { issues, loading, error, pagination } = useAppSelector((state) => state.issues);
+  const { issues, error, pagination } = useAppSelector((state) => state.issues);
   const { user } = useAppSelector((state) => state.userState);
   
   const [filters, setFilters] = useState({
@@ -24,8 +24,11 @@ export default function MyIssuesPage() {
   
   const [selectedIssueId, setSelectedIssueId] = useState<string | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [pageLoading, setPageLoading] = useState(false);
+  const [modalLoading, setModalLoading] = useState(false);
 
   const handleViewIssue = (issueId: string) => {
+    setModalLoading(true);
     setSelectedIssueId(issueId);
     setIsModalOpen(true);
   };
@@ -33,17 +36,19 @@ export default function MyIssuesPage() {
   const handleCloseModal = () => {
     setIsModalOpen(false);
     setSelectedIssueId(null);
+    setModalLoading(false);
   };
 
   useEffect(() => {
     if (user?.id) {
+      setPageLoading(true);
       dispatch(fetchIssues({
         reporterId: user.id,
         page: filters.page,
         pageSize: 20,
         ...(filters.status !== "all" && { status: filters.status }),
         ...(filters.priority !== "all" && { priority: filters.priority })
-      }));
+      })).finally(() => setPageLoading(false));
     }
   }, [dispatch, user?.id, filters]);
 
@@ -55,7 +60,7 @@ export default function MyIssuesPage() {
     setFilters(prev => ({ ...prev, page: newPage }));
   };
 
-  if (loading) {
+  if (pageLoading) {
     return (
       <div className="flex items-center justify-center h-48 sm:h-64">
         <VMCLoader size={48} />

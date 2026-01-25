@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import dynamic from "next/dynamic";
 import {
   ClipboardList,
   Users,
@@ -13,8 +14,12 @@ import { useLanguage } from "@/lib/language-context";
 import { SpeakableText } from "@/components/ui/SpeakableText";
 import Header from "@/components/Home/Header";
 import Footer from "@/components/Home/Footer";
-import ImageCarousel from "@/components/Home/ImageCarousel";
 import GovernmentCompliance from "@/components/Home/GovernmentCompliance";
+
+const ImageCarousel = dynamic(() => import("@/components/Home/ImageCarousel"), {
+  ssr: false,
+  loading: () => <div className="w-full h-64 bg-gray-100 animate-pulse" />
+});
 
 function VadodaraInfo() {
   const { t } = useLanguage();
@@ -108,9 +113,9 @@ export default function HomePage() {
       <ImageCarousel />
       
       <main className="flex-1">
-        <div className="max-w-6xl mx-auto px-6 py-16">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 py-8 sm:py-16">
           {/* Hero Section */}
-          <div className="text-center mb-20">
+          <div className="text-center mb-12 sm:mb-20">
             <div className="flex justify-center mb-8">
               <div className="bg-gradient-to-br from-blue-100 to-blue-200 p-6 rounded-2xl border-2 border-blue-300 shadow-lg">
                 <Image 
@@ -122,15 +127,15 @@ export default function HomePage() {
                 />
               </div>
             </div>
-            <h1 className="text-5xl md:text-6xl font-bold mb-6 text-gray-900 leading-tight">
+            <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-bold mb-4 sm:mb-6 text-gray-900 leading-tight px-2">
               <span className="bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
                 {t('home.title')}
               </span>
             </h1>
-            <h2 className="text-2xl md:text-3xl font-semibold text-blue-700 mb-6">
+            <h2 className="text-lg sm:text-xl md:text-2xl lg:text-3xl font-semibold text-blue-700 mb-4 sm:mb-6 px-2">
               <SpeakableText>{t('home.subtitle')}</SpeakableText>
             </h2>
-            <p className="text-gray-600 max-w-3xl mx-auto text-xl leading-relaxed">
+            <p className="text-gray-600 max-w-3xl mx-auto text-base sm:text-lg lg:text-xl leading-relaxed px-4">
               <SpeakableText>{t('home.description')}</SpeakableText>
             </p>
           </div>
@@ -140,7 +145,7 @@ export default function HomePage() {
             <h2 className="text-3xl font-bold text-center mb-12 text-gray-900">
               Platform Features
             </h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8">
               <FeatureTile
                 icon={<Image src="/VMC.webp" alt="VMC" width={32} height={32} className="w-8 h-8 object-contain" />}
                 title={t('feature.geofencing')}
@@ -181,14 +186,14 @@ export default function HomePage() {
           </div>
 
           {/* Use Cases */}
-          <div className="bg-gradient-to-br from-white to-blue-50 border border-blue-200 rounded-2xl p-10 mb-20 shadow-lg">
+          <div className="bg-gradient-to-br from-white to-blue-50 border border-blue-200 rounded-2xl p-6 sm:p-10 mb-12 sm:mb-20 shadow-lg">
             <h3 className="text-3xl font-bold text-center mb-4 text-blue-700">
               <SpeakableText>{t('home.use.cases.title')}</SpeakableText>
             </h3>
             <p className="text-center text-gray-600 mb-10 text-lg">
               Real-world applications of our civic platform
             </p>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
               <UseCaseItem 
                 emoji="🕳️" 
                 text={t('home.use.case.pothole')}

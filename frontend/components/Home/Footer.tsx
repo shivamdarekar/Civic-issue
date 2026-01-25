@@ -6,19 +6,19 @@ export default function Footer() {
   const { t } = useLanguage();
   
   return (
-    <footer className="bg-gray-800 text-white py-8">
-      <div className="max-w-4xl mx-auto px-6">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-          <div className="text-center md:text-left">
-            <div className="flex items-center justify-center md:justify-start gap-3 mb-4">
+    <footer className="bg-gray-800 text-white py-6 sm:py-8">
+      <div className="max-w-4xl mx-auto px-4 sm:px-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6 sm:gap-8">
+          <div className="text-center sm:text-left">
+            <div className="flex items-center justify-center sm:justify-start gap-3 mb-4">
               <Image 
                 src="/VMC.webp" 
                 alt="VMC Logo" 
                 width={32} 
                 height={32} 
-                className="w-8 h-8 object-contain"
+                className="w-6 h-6 sm:w-8 sm:h-8 object-contain"
               />
-              <h3 className="text-lg font-semibold">VMC CiviSense</h3>
+              <h3 className="text-base sm:text-lg font-semibold">VMC CiviSense</h3>
             </div>
             <p className="text-gray-300 text-sm mb-2">
               <SpeakableText>{t('footer.description.line1')}</SpeakableText>
@@ -28,7 +28,7 @@ export default function Footer() {
             </p>
           </div>
           
-          <div className="text-center">
+          <div className="text-center sm:col-span-2 md:col-span-1">
             <h4 className="font-semibold mb-4">
               <SpeakableText>{t('footer.contact.title')}</SpeakableText>
             </h4>
@@ -39,8 +39,8 @@ export default function Footer() {
             </div>
           </div>
           
-          <div className="text-center md:text-right">
-            <h3 className="text-lg font-semibold mb-2">Vadodara Municipal Corporation</h3>
+          <div className="text-center sm:text-right md:text-right sm:col-span-2 md:col-span-1">
+            <h3 className="text-base sm:text-lg font-semibold mb-2">Vadodara Municipal Corporation</h3>
             <div className="text-xs text-gray-400">
               <SpeakableText>{t('footer.q')}</SpeakableText>
             </div>

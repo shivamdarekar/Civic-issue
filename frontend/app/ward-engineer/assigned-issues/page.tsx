@@ -14,16 +14,19 @@ import IssueDetailModal from "@/components/admin/IssueDetailModal";
 
 export default function AssignedIssuesPage() {
   const dispatch = useAppDispatch();
-  const { assignedIssuesPaginated, loading, error } = useAppSelector((state) => state.user);
+  const { assignedIssuesPaginated, error } = useAppSelector((state) => state.user);
   const [selectedIssueId, setSelectedIssueId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [priorityFilter, setPriorityFilter] = useState("all");
   const [currentPage, setCurrentPage] = useState(1);
+  const [pageLoading, setPageLoading] = useState(false);
+  const [modalLoading, setModalLoading] = useState(false);
   const pageSize = 20;
 
   useEffect(() => {
-    dispatch(fetchAssignedIssuesPaginated({ page: currentPage, pageSize }));
+    setPageLoading(true);
+    dispatch(fetchAssignedIssuesPaginated({ page: currentPage, pageSize })).finally(() => setPageLoading(false));
   }, [dispatch, currentPage]);
 
   const getPriorityColor = (priority: string) => {
@@ -65,7 +68,7 @@ export default function AssignedIssuesPage() {
     return matchesSearch && matchesStatus && matchesPriority;
   }) || [];
 
-  if (loading) {
+  if (pageLoading) {
     return (
       <div className="p-3 sm:p-4 lg:p-6 space-y-4 sm:space-y-6">
         <div className="flex items-center gap-2 sm:gap-3 mb-4 sm:mb-6">
@@ -219,16 +222,23 @@ export default function AssignedIssuesPage() {
                       <StatusUpdateButton 
                         issueId={issue.id}
                         currentStatus={issue.status}
-                        onStatusUpdate={() => dispatch(fetchAssignedIssuesPaginated({ page: currentPage, pageSize }))}
+                        onStatusUpdate={() => {
+                          setPageLoading(true);
+                          dispatch(fetchAssignedIssuesPaginated({ page: currentPage, pageSize })).finally(() => setPageLoading(false));
+                        }}
                       />
                       <Button 
                         variant="ghost" 
                         size="sm"
-                        onClick={() => setSelectedIssueId(issue.id)}
+                        onClick={() => {
+                          setModalLoading(true);
+                          setSelectedIssueId(issue.id);
+                        }}
                         className="flex items-center gap-1 text-xs sm:text-sm"
+                        disabled={modalLoading}
                       >
                         <ExternalLink className="w-3 h-3 sm:w-4 sm:h-4" />
-                        View
+                        {modalLoading && selectedIssueId === issue.id ? 'Loading...' : 'View'}
                       </Button>
                     </div>
                   </div>
@@ -279,7 +289,10 @@ export default function AssignedIssuesPage() {
       {selectedIssueId && (
         <IssueDetailModal 
           isOpen={!!selectedIssueId}
-          onClose={() => setSelectedIssueId(null)}
+          onClose={() => {
+            setSelectedIssueId(null);
+            setModalLoading(false);
+          }}
           issueId={selectedIssueId}
         />
       )}

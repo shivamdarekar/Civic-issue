@@ -24,10 +24,20 @@ export default function FieldWorkerPage() {
     }
   }, [dispatch, isOnline]);
 
+  // Callback to refresh dashboard and stats after reporting an issue
+  const handleIssueReported = () => {
+    dispatch(fetchFieldWorkerDashboard(10));
+    if (user?.id) {
+      dispatch(
+        // @ts-ignore
+        require("@/redux/slices/issuesSlice").fetchIssueStats({ reporterId: user.id })
+      );
+    }
+  };
+
   return (
     <div className="space-y-6">
       <OfflineStatus />
-      
       {/* Header */}
       <Card>
         <CardContent className="p-3 sm:p-4 lg:p-6">
@@ -42,7 +52,7 @@ export default function FieldWorkerPage() {
               </div>
             </div>
             <div className="w-full lg:w-auto lg:flex-shrink-0">
-              <ReportIssueForm />
+              <ReportIssueForm onIssueReported={handleIssueReported} />
             </div>
           </div>
         </CardContent>

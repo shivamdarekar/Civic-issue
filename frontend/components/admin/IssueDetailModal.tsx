@@ -10,6 +10,7 @@ import { fetchIssueById, clearIssuesError } from "@/redux";
 import StatusUpdateButton from "@/components/ward/StatusUpdateButton";
 import VerificationButton from "@/components/zone/VerificationButton";
 import ReopenButton from "@/components/zone/ReopenButton";
+import MapThumbnail from "@/components/shared/MapButton";
 
 interface IssueDetailModalProps {
   isOpen: boolean;
@@ -22,13 +23,14 @@ export default function IssueDetailModal({ isOpen, onClose, issueId }: IssueDeta
   const { currentIssue, loading } = useAppSelector(state => state.issues);
   const { user } = useAppSelector(state => state.userState);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
+  const [imageLoading, setImageLoading] = useState(false);
 
   useEffect(() => {
     if (isOpen && issueId && (!currentIssue || currentIssue.id !== issueId)) {
       dispatch(clearIssuesError());
       dispatch(fetchIssueById(issueId));
     }
-  }, [dispatch, issueId, isOpen ]);
+  }, [dispatch, issueId, isOpen]);
 
 
 
@@ -149,9 +151,16 @@ export default function IssueDetailModal({ isOpen, onClose, issueId }: IssueDeta
                     <div className="space-y-4">
                       <div className="flex items-start gap-3 py-2">
                         <MapPin className="w-5 h-5 text-blue-500 mt-0.5" />
-                        <div>
-                          <p className="font-semibold text-gray-900">{currentIssue.ward ? `Ward ${currentIssue.ward.wardNumber} - ${currentIssue.ward.name}` : 'N/A'}</p>
-                          <p className="text-sm text-gray-600">{currentIssue.ward?.zone?.name || 'N/A'}</p>
+                        <div className="flex-1">
+                          <p className="text-md text-gray-700 mb-2 font-semibold">
+                            Ward {currentIssue.ward?.wardNumber} - {currentIssue.ward?.name}
+                          </p>
+                          {currentIssue.latitude && currentIssue.longitude && (
+                            <MapThumbnail 
+                              latitude={currentIssue.latitude} 
+                              longitude={currentIssue.longitude}
+                            />
+                          )}
                         </div>
                       </div>
                       <div className="flex items-start gap-3 py-2">
@@ -208,7 +217,11 @@ export default function IssueDetailModal({ isOpen, onClose, issueId }: IssueDeta
                                   src={image.url}
                                   alt={`Before ${index + 1}`}
                                   className="w-full h-28 object-cover rounded-lg cursor-pointer border border-gray-200"
-                                  onClick={() => setSelectedImage(image.url)}
+                                  onClick={() => {
+                                    setImageLoading(true);
+                                    setSelectedImage(image.url);
+                                    setTimeout(() => setImageLoading(false), 100);
+                                  }}
                                   crossOrigin="anonymous"
                                 />
                               </div>
@@ -229,7 +242,11 @@ export default function IssueDetailModal({ isOpen, onClose, issueId }: IssueDeta
                                   src={image.url}
                                   alt={`After ${index + 1}`}
                                   className="w-full h-28 object-cover rounded-lg cursor-pointer border border-gray-200"
-                                  onClick={() => setSelectedImage(image.url)}
+                                  onClick={() => {
+                                    setImageLoading(true);
+                                    setSelectedImage(image.url);
+                                    setTimeout(() => setImageLoading(false), 100);
+                                  }}
                                   crossOrigin="anonymous"
                                 />
                               </div>
@@ -292,23 +309,36 @@ export default function IssueDetailModal({ isOpen, onClose, issueId }: IssueDeta
 
       {/* Image Preview Modal */}
       {selectedImage && (
-        <div className="fixed inset-0 bg-black/20 backdrop-blur-md flex items-center justify-center z-60 p-4" onClick={() => setSelectedImage(null)}>
+        <div className="fixed inset-0 bg-black/20 backdrop-blur-md flex items-center justify-center z-60 p-4" onClick={() => {
+          setSelectedImage(null);
+          setImageLoading(false);
+        }}>
           <div className="relative max-w-6xl max-h-full" onClick={(e) => e.stopPropagation()}>
             <div className="absolute top-4 right-4 z-10">
               <Button
                 variant="ghost"
                 size="sm"
                 className="bg-white/90 hover:bg-white text-gray-700 shadow-lg rounded-full w-10 h-10 p-0"
-                onClick={() => setSelectedImage(null)}
+                onClick={() => {
+                  setSelectedImage(null);
+                  setImageLoading(false);
+                }}
               >
                 <X className="w-5 h-5" />
               </Button>
             </div>
-            <img
-              src={selectedImage}
-              alt="Full size"
-              className="max-w-full max-h-[90vh] object-contain rounded-lg shadow-2xl"
-            />
+            {imageLoading ? (
+              <div className="flex items-center justify-center w-96 h-96 bg-gray-100 rounded-lg">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+              </div>
+            ) : (
+              <img
+                src={selectedImage}
+                alt="Full size"
+                className="max-w-full max-h-[90vh] object-contain rounded-lg shadow-2xl"
+                onLoad={() => setImageLoading(false)}
+              />
+            )}
           </div>
         </div>
       )}

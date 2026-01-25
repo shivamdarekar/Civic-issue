@@ -86,10 +86,14 @@ export default function OfflineReportDialog({
   onOpenChange,
   currentLocation
 }: OfflineReportDialogProps) {
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<{
+    description: string;
+    category: string;
+    priority: "LOW" | "MEDIUM" | "HIGH" | "CRITICAL";
+  }>({
     description: "",
     category: "",
-    priority: "MEDIUM" as const
+    priority: "MEDIUM"
   });
   const [images, setImages] = useState<string[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -136,13 +140,23 @@ export default function OfflineReportDialog({
 
     setLoading(true);
     navigator.geolocation.getCurrentPosition(
-      (position) => {
-        const newLocation = {
+      async (position) => {
+        const coords = {
           latitude: position.coords.latitude,
           longitude: position.coords.longitude,
-          address: `${position.coords.latitude.toFixed(6)}, ${position.coords.longitude.toFixed(6)}`
         };
-        setLocation(newLocation);
+        
+        // Get address from coordinates using reverse geocoding
+        try {
+          const address = await reverseGeocode(coords.latitude, coords.longitude);
+          const newLocation = { ...coords, address };
+          setLocation(newLocation);
+        } catch (error) {
+          // Fallback to coordinates if reverse geocoding fails
+          const newLocation = { ...coords, address: `${coords.latitude.toFixed(6)}, ${coords.longitude.toFixed(6)}` };
+          setLocation(newLocation);
+        }
+        
         setGpsPermission("granted");
         setLoading(false);
       },
@@ -154,6 +168,28 @@ export default function OfflineReportDialog({
       },
       { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 }
     );
+  };
+
+  const reverseGeocode = async (lat: number, lng: number): Promise<string> => {
+    try {
+      // Use backend API to avoid CORS issues
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/geo/reverse-geocode?lat=${lat}&lng=${lng}`
+      );
+      
+      if (!response.ok) throw new Error('Geocoding failed');
+      
+      const data = await response.json();
+      
+      if (data && data.data && data.data.address) {
+        return data.data.address;
+      }
+      
+      throw new Error('No address found');
+    } catch (error) {
+      // Fallback to coordinates
+      return `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
+    }
   };
 
   const requestCameraPermission = async () => {
@@ -231,7 +267,7 @@ export default function OfflineReportDialog({
         tempId: `offline_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
         title: formData.description || `${OFFLINE_CATEGORIES.find(c => c.id === formData.category)?.name} Issue`,
         description: formData.description,
-        category: formData.category,
+        categoryId: formData.category,
         location: location,
         images,
         priority: formData.priority,
@@ -303,7 +339,13 @@ export default function OfflineReportDialog({
           {/* GPS Status */}
           {gpsPermission === "granted" && location && (
             <div className="p-3 bg-green-50 border border-green-200 rounded-lg text-green-800">
-              ✓ Location captured: {location.latitude.toFixed(6)}, {location.longitude.toFixed(6)}
+              <div className="flex items-start gap-2">
+                <MapPin className="w-4 h-4 mt-0.5 flex-shrink-0" />
+                <div className="flex-1">
+                  <p className="font-medium">✓ Location captured:</p>
+                  <p className="text-sm mt-1">{location.address}</p>
+                </div>
+              </div>
             </div>
           )}
           {gpsPermission === "denied" && (

@@ -100,6 +100,7 @@ export default function WardDetail({ wardDetail, wardId }: WardDetailProps) {
   const [searchQuery, setSearchQuery] = useState<string>("");
   const [debouncedSearchQuery, setDebouncedSearchQuery] = useState<string>("");
   const [currentPage, setCurrentPage] = useState(1);
+  const [modalLoading, setModalLoading] = useState(false);
   const pageSize = 10;
 
   // Debounce search query
@@ -147,6 +148,7 @@ export default function WardDetail({ wardDetail, wardId }: WardDetailProps) {
   };
 
   const handleIssueClick = (issueId: string) => {
+    setModalLoading(true);
     setSelectedIssueId(issueId);
   };
 
@@ -507,9 +509,10 @@ export default function WardDetail({ wardDetail, wardId }: WardDetailProps) {
                           size="sm"
                           onClick={() => handleIssueClick(issue.id)}
                           className="flex items-center gap-1 text-xs"
+                          disabled={modalLoading && selectedIssueId === issue.id}
                         >
                           <ExternalLink className="w-3 h-3" />
-                          View
+                          {modalLoading && selectedIssueId === issue.id ? 'Loading...' : 'View'}
                         </Button>
                       </div>
                     </div>
@@ -593,7 +596,10 @@ export default function WardDetail({ wardDetail, wardId }: WardDetailProps) {
       {selectedIssueId && (
         <IssueDetailModal 
           isOpen={!!selectedIssueId}
-          onClose={() => setSelectedIssueId(null)}
+          onClose={() => {
+            setSelectedIssueId(null);
+            setModalLoading(false);
+          }}
           issueId={selectedIssueId}
         />
       )}

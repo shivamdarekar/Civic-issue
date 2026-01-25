@@ -134,7 +134,7 @@ export default function FieldWorkerLayout({
 
           {sidebarOpen && (
             <div
-              className="lg:hidden fixed inset-0 top-16 bg-black bg-opacity-50 backdrop-blur-sm z-20"
+              className="lg:hidden fixed inset-0 top-16 bg-black/30 backdrop-blur-sm z-20"
               onClick={() => setSidebarOpen(false)}
             />
           )}

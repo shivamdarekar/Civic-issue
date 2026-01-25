@@ -5,6 +5,7 @@ import { MapPin, Camera, Upload, Send, Plus, WifiOff } from "lucide-react";
 import { useAppDispatch, useAppSelector } from "@/redux/hooks";
 import { fetchCategories, uploadBeforeImages, createIssue, deleteImage } from "@/redux/slices/issuesSlice";
 import { fetchFieldWorkerDashboard } from "@/redux/slices/userSlice";
+import { fetchIssueStats } from "@/redux/slices/issuesSlice";
 import { Button } from "@/components/ui/button";
 import VMCLoader from "@/components/ui/VMCLoader";
 import AIImageScanner from "./AIImageScanner";
@@ -31,11 +32,17 @@ interface Category {
 interface Location {
   latitude: number;
   longitude: number;
+  address?: string;
 }
 
-export default function ReportIssueForm() {
+interface ReportIssueFormProps {
+  onIssueReported?: () => void;
+}
+
+export default function ReportIssueForm({ onIssueReported }: ReportIssueFormProps) {
   const dispatch = useAppDispatch();
   const { categories, loading: issuesLoading } = useAppSelector((state) => state.issues);
+  const { user } = useAppSelector((state) => state.userState);
   const isOnline = useOnlineStatus();
   const [selectedCategory, setSelectedCategory] = useState("");
   const [priority, setPriority] = useState<"LOW" | "MEDIUM" | "HIGH" | "CRITICAL">("MEDIUM");
@@ -57,6 +64,8 @@ export default function ReportIssueForm() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [showCamera, setShowCamera] = useState(false);
   const [stream, setStream] = useState<MediaStream | null>(null);
+  const [facingMode, setFacingMode] = useState<'user' | 'environment'>('environment');
+  const [availableCameras, setAvailableCameras] = useState<MediaDeviceInfo[]>([]);
 
   useEffect(() => {
     dispatch(fetchCategories());
@@ -70,16 +79,25 @@ export default function ReportIssueForm() {
 
     setLoading(true);
     navigator.geolocation.getCurrentPosition(
-      (position) => {
-        setLocation({
+      async (position) => {
+        const coords = {
           latitude: position.coords.latitude,
           longitude: position.coords.longitude,
-        });
+        };
+        
+        // Get address from coordinates using reverse geocoding
+        try {
+          const address = await reverseGeocode(coords.latitude, coords.longitude);
+          setLocation({ ...coords, address });
+        } catch (error) {
+          // Fallback to coordinates if reverse geocoding fails
+          setLocation({ ...coords, address: `${coords.latitude.toFixed(6)}, ${coords.longitude.toFixed(6)}` });
+        }
+        
         setGpsPermission("granted");
         setLoading(false);
       },
       (error) => {
-        console.error("GPS error:", error);
         setGpsPermission("denied");
         setLoading(false);
         toast.error("GPS permission denied or location unavailable");
@@ -88,9 +106,26 @@ export default function ReportIssueForm() {
     );
   };
 
+  const reverseGeocode = async (lat: number, lng: number): Promise<string> => {
+    // Simple coordinate validation - no address lookup
+    return `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
+  };
+
   const requestCameraPermission = async () => {
     try {
-      const mediaStream = await navigator.mediaDevices.getUserMedia({ video: true });
+      const devices = await navigator.mediaDevices.enumerateDevices();
+      const cameras = devices.filter(device => device.kind === 'videoinput');
+      setAvailableCameras(cameras);
+
+      const constraints = {
+        video: {
+          facingMode: facingMode,
+          width: { ideal: 1920 },
+          height: { ideal: 1080 }
+        }
+      };
+
+      const mediaStream = await navigator.mediaDevices.getUserMedia(constraints);
       setStream(mediaStream);
       setShowCamera(true);
       
@@ -98,8 +133,45 @@ export default function ReportIssueForm() {
         videoRef.current.srcObject = mediaStream;
       }
     } catch (error) {
-      console.error("Camera error:", error);
-      toast.error("Camera permission denied");
+      if (facingMode === 'environment') {
+        try {
+          const fallbackConstraints = { video: { facingMode: 'user' } };
+          const mediaStream = await navigator.mediaDevices.getUserMedia(fallbackConstraints);
+          setStream(mediaStream);
+          setShowCamera(true);
+          setFacingMode('user');
+          
+          if (videoRef.current) {
+            videoRef.current.srcObject = mediaStream;
+          }
+        } catch (fallbackError) {
+          toast.error("Camera not available");
+        }
+      } else {
+        toast.error("Camera permission denied");
+      }
+    }
+  };
+
+  const switchCamera = async () => {
+    if (stream) {
+      stream.getTracks().forEach(track => track.stop());
+    }
+    
+    const newFacingMode = facingMode === 'user' ? 'environment' : 'user';
+    setFacingMode(newFacingMode);
+    
+    try {
+      const constraints = { video: { facingMode: newFacingMode } };
+      const mediaStream = await navigator.mediaDevices.getUserMedia(constraints);
+      setStream(mediaStream);
+      
+      if (videoRef.current) {
+        videoRef.current.srcObject = mediaStream;
+      }
+    } catch (error) {
+      toast.error("Failed to switch camera");
+      setFacingMode(facingMode);
     }
   };
 
@@ -118,7 +190,6 @@ export default function ReportIssueForm() {
           if (blob) {
             const file = new File([blob], `captured-photo-${Date.now()}.jpg`, { type: "image/jpeg" });
             
-            // Clear existing images if replacing
             if (uploadedImages.length > 0) {
               setImages([]);
               setUploadedImages([]);
@@ -149,7 +220,6 @@ export default function ReportIssueForm() {
       setIsUploading(true);
       const fileArray = Array.from(files);
       
-      // Clear existing images if replacing
       if (uploadedImages.length > 0) {
         setImages([]);
         setUploadedImages([]);
@@ -177,9 +247,7 @@ export default function ReportIssueForm() {
         setUploadedImages(prev => [...prev, result[0]]);
       }
     } catch (error) {
-      console.error("Failed to upload image:", error);
       toast.error("Failed to upload image. Please try again.");
-      // Remove failed file from images array
       setImages(prev => prev.filter((_, i) => i !== tempIndex));
     } finally {
       setUploadingImages(prev => {
@@ -240,7 +308,6 @@ export default function ReportIssueForm() {
         setImages(prev => prev.filter((_, i) => i !== index));
         setUploadedImages(prev => prev.filter((_, i) => i !== index));
       } catch (error) {
-        console.error("Failed to delete image:", error);
         toast.error("Failed to delete image. Please try again.");
       } finally {
         setDeletingImages(prev => {
@@ -279,6 +346,7 @@ export default function ReportIssueForm() {
         priority: priority,
         latitude: location.latitude,
         longitude: location.longitude,
+        address: location.address,
         media: uploadedImages.map(img => ({
           url: img.url,
           mimeType: img.mimeType,
@@ -290,7 +358,6 @@ export default function ReportIssueForm() {
       await dispatch(createIssue(issueData)).unwrap();
       toast.success("Issue reported successfully!");
       
-      // Reset form
       setSelectedCategory("");
       setPriority("MEDIUM");
       setDescription("");
@@ -302,13 +369,17 @@ export default function ReportIssueForm() {
       setAiConfidence(0);
       setOpen(false);
       
-      // Fetch updated dashboard data
+      // Refresh dashboard and statistics
       dispatch(fetchFieldWorkerDashboard(10));
       
-    } catch (error: any) {
-      console.error("Failed to submit issue:", error);
+      // Refresh issue statistics for the field worker
+      if (user?.id) {
+        dispatch(fetchIssueStats({ reporterId: user.id }));
+      }
       
-      // Check if error is about location being outside VMC jurisdiction
+      onIssueReported?.(); // Call the callback to trigger refresh
+      
+    } catch (error: any) {
       if (error?.message?.includes("outside VMC jurisdiction") || 
           error?.message?.includes("ward boundaries") ||
           error?.message?.includes("not in any VMC ward")) {
@@ -354,14 +425,17 @@ export default function ReportIssueForm() {
       <OfflineReportDialog
         open={offlineOpen}
         onOpenChange={setOfflineOpen}
-        currentLocation={location}
+        currentLocation={location ? {
+          latitude: location.latitude,
+          longitude: location.longitude,
+          address: `${location.latitude.toFixed(6)}, ${location.longitude.toFixed(6)}`
+        } : undefined}
       />
 
       {isOnline && (
         <Dialog open={open} onOpenChange={(isOpen) => {
           setOpen(isOpen);
           if (!isOpen) {
-            // Reset all form data when dialog closes
             setSelectedCategory("");
             setPriority("MEDIUM");
             setDescription("");
@@ -387,7 +461,6 @@ export default function ReportIssueForm() {
         </DialogHeader>
         
         <form onSubmit={handleSubmit} className="space-y-6">
-          {/* Step 1: GPS Permission */}
           {gpsPermission === "prompt" && (
             <div className="space-y-2">
               <label className="text-sm font-medium text-gray-700 flex items-center gap-2">
@@ -406,7 +479,6 @@ export default function ReportIssueForm() {
             </div>
           )}
 
-          {/* GPS Status */}
           {gpsPermission === "granted" && location && (
             <div className="p-3 bg-green-50 border border-green-200 rounded-lg text-green-800">
               ✓ Location captured: {location.latitude.toFixed(6)}, {location.longitude.toFixed(6)}
@@ -418,7 +490,6 @@ export default function ReportIssueForm() {
             </div>
           )}
 
-          {/* Step 2: Photo Upload - Only show if GPS is granted */}
           {gpsPermission === "granted" && (
             <div className="space-y-2">
               <label className="text-sm font-medium text-gray-700">
@@ -458,35 +529,49 @@ export default function ReportIssueForm() {
             </div>
           )}
 
-          {/* Camera View */}
           {showCamera && (
             <div className="space-y-4">
-              <video
-                ref={videoRef}
-                autoPlay
-                playsInline
-                className="w-full max-w-md mx-auto rounded-lg"
-              />
+              <div className="relative">
+                <video
+                  ref={videoRef}
+                  autoPlay
+                  playsInline
+                  muted
+                  className="w-full max-w-md mx-auto rounded-lg"
+                />
+                {availableCameras.length > 1 && (
+                  <button
+                    type="button"
+                    onClick={switchCamera}
+                    className="absolute top-2 right-2 p-2 bg-black/50 text-white rounded-full hover:bg-black/70"
+                  >
+                    🔄
+                  </button>
+                )}
+              </div>
               <div className="flex justify-center gap-4">
                 <button
                   type="button"
                   onClick={capturePhoto}
-                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                  className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium"
                 >
-                  Capture
+                  📸 Capture Photo
                 </button>
                 <button
                   type="button"
                   onClick={stopCamera}
-                  className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700"
+                  className="px-6 py-3 bg-gray-600 text-white rounded-lg hover:bg-gray-700 font-medium"
                 >
-                  Cancel
+                  ❌ Cancel
                 </button>
               </div>
+              <p className="text-xs text-gray-500 text-center">
+                Using {facingMode === 'environment' ? 'Back' : 'Front'} Camera
+                {availableCameras.length > 1 && ' • Tap 🔄 to switch'}
+              </p>
             </div>
           )}
 
-          {/* Image Previews */}
           {uploadedImages.length > 0 && (
             <div className="space-y-2">
               <label className="text-sm font-medium text-gray-700">Images ({uploadedImages.length})</label>
@@ -516,7 +601,6 @@ export default function ReportIssueForm() {
                 ))}
               </div>
               
-              {/* AI Scanner for the first uploaded image */}
               {uploadedImages.length > 0 && (
                 <AIImageScanner
                   imageUrl={uploadedImages[0].url}
@@ -527,10 +611,8 @@ export default function ReportIssueForm() {
             </div>
           )}
 
-          {/* Step 3: Category and Description - Only show if photos are uploaded */}
           {uploadedImages.length > 0 && (
             <>
-              {/* Category Dropdown */}
               <div className="space-y-2">
                 <label className="text-sm font-medium text-gray-700">
                   Category <span className="text-red-500">*</span> - Step 3
@@ -567,7 +649,6 @@ export default function ReportIssueForm() {
                 </select>
               </div>
 
-              {/* Priority Selection */}
               <div className="space-y-2">
                 <label className="text-sm font-medium text-gray-700">
                   Priority <span className="text-red-500">*</span>
@@ -585,7 +666,6 @@ export default function ReportIssueForm() {
                 </select>
               </div>
 
-              {/* Description */}
               <div className="space-y-2">
                 <label className="text-sm font-medium text-gray-700">
                   Description
@@ -599,7 +679,6 @@ export default function ReportIssueForm() {
                 />
               </div>
 
-              {/* Submit Button */}
               <Button
                 type="submit"
                 disabled={loading || issuesLoading || !selectedCategory || !uploadedImages.length || !location}

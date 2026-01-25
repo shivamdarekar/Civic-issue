@@ -23,6 +23,7 @@ export default function WardIssuesList({ wardId }: WardIssuesListProps) {
   
   const [selectedIssueId, setSelectedIssueId] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
+  const [modalLoading, setModalLoading] = useState(false);
   const [filters, setFilters] = useState({
     status: "ALL_STATUS",
     priority: "ALL_PRIORITY",
@@ -210,9 +211,14 @@ export default function WardIssuesList({ wardId }: WardIssuesListProps) {
                       <Button
                         variant="ghost"
                         size="sm"
-                        onClick={() => setSelectedIssueId(issue.id)}
+                        onClick={() => {
+                          setModalLoading(true);
+                          setSelectedIssueId(issue.id);
+                        }}
+                        disabled={modalLoading && selectedIssueId === issue.id}
                       >
                         <Eye className="w-4 h-4" />
+                        {modalLoading && selectedIssueId === issue.id ? 'Loading...' : ''}
                       </Button>
                     </TableCell>
                   </TableRow>
@@ -262,7 +268,10 @@ export default function WardIssuesList({ wardId }: WardIssuesListProps) {
       {selectedIssueId && (
         <IssueDetailModal
           isOpen={!!selectedIssueId}
-          onClose={() => setSelectedIssueId(null)}
+          onClose={() => {
+            setSelectedIssueId(null);
+            setModalLoading(false);
+          }}
           issueId={selectedIssueId}
         />
       )}

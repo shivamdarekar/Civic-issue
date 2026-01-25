@@ -13,7 +13,7 @@ import IssueDetailModal from "@/components/admin/IssueDetailModal";
 
 export default function ActivityPage() {
   const dispatch = useAppDispatch();
-  const { issues, loading, error, pagination } = useAppSelector((state) => state.issues);
+  const { issues, error, pagination } = useAppSelector((state) => state.issues);
   const { user } = useAppSelector((state) => state.userState);
   
   const [filters, setFilters] = useState({
@@ -25,16 +25,18 @@ export default function ActivityPage() {
 
   const [selectedIssueId, setSelectedIssueId] = useState<string | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [pageLoading, setPageLoading] = useState(false);
 
   useEffect(() => {
     if (user?.id) {
+      setPageLoading(true);
       dispatch(fetchIssues({
-        assigneeId: user.id, // Show issues assigned to this ward engineer
+        assigneeId: user.id,
         page: filters.page,
         pageSize: 20,
         ...(filters.status !== "all" && { status: filters.status }),
         ...(filters.priority !== "all" && { priority: filters.priority })
-      }));
+      })).finally(() => setPageLoading(false));
     }
   }, [dispatch, user?.id, filters]);
 
@@ -86,7 +88,7 @@ export default function ActivityPage() {
     });
   };
 
-  if (loading) {
+  if (pageLoading) {
     return (
       <div className="flex items-center justify-center h-48 sm:h-64">
         <VMCLoader size={48} />

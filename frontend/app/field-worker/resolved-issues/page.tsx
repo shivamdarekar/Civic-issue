@@ -11,7 +11,7 @@ import AfterImageUploadDialog from "@/components/field-worker/AfterImageUploadDi
 
 export default function ResolvedIssuesPage() {
   const dispatch = useAppDispatch();
-  const { issues, loading, error, pagination } = useAppSelector((state) => state.issues);
+  const { issues, error, pagination } = useAppSelector((state) => state.issues);
   const { user } = useAppSelector((state) => state.userState);
   
   const [filters, setFilters] = useState({
@@ -21,6 +21,7 @@ export default function ResolvedIssuesPage() {
   const [selectedIssueId, setSelectedIssueId] = useState<string | null>(null);
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
   const [isUploadDialogOpen, setIsUploadDialogOpen] = useState(false);
+  const [pageLoading, setPageLoading] = useState(false);
 
   const handleViewIssue = (issueId: string) => {
     setSelectedIssueId(issueId);
@@ -45,24 +46,26 @@ export default function ResolvedIssuesPage() {
   const handleImageUploadSuccess = () => {
     // Refresh the issues list after successful upload
     if (user?.id) {
+      setPageLoading(true);
       dispatch(fetchIssues({
         reporterId: user.id,
         status: "RESOLVED",
         page: filters.page,
         pageSize: 20
-      }));
+      })).finally(() => setPageLoading(false));
     }
     handleCloseUploadDialog();
   };
 
   useEffect(() => {
     if (user?.id) {
+      setPageLoading(true);
       dispatch(fetchIssues({
         reporterId: user.id,
         status: "RESOLVED",
         page: filters.page,
         pageSize: 20
-      }));
+      })).finally(() => setPageLoading(false));
     }
   }, [dispatch, user?.id, filters]);
 
@@ -70,7 +73,7 @@ export default function ResolvedIssuesPage() {
     setFilters(prev => ({ ...prev, page: newPage }));
   };
 
-  if (loading) {
+  if (pageLoading) {
     return (
       <div className="flex items-center justify-center h-48 sm:h-64">
         <VMCLoader size={48} />
