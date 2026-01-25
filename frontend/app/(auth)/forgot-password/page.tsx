@@ -15,7 +15,7 @@ import Footer from "@/components/auth/Footer";
 
 export default function ForgotPasswordPage() {
   const router = useRouter();
-  const { } = useLanguage();
+  const { t } = useLanguage();
   const {
     step,
     email,
