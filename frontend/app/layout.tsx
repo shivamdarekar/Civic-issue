@@ -44,6 +44,11 @@ export default function RootLayout({
       <head>
         <link rel="manifest" href="/manifest.json" />
         <link rel="apple-touch-icon" href="/VMC.webp" />
+        {/* Preload main CSS for faster FCP/LCP */}
+        <link rel="preload" as="style" href="/globals.css" />
+        {/* Preconnect to Google Fonts for font performance */}
+        <link rel="preconnect" href="https://fonts.googleapis.com" crossOrigin="anonymous" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
       </head>
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
