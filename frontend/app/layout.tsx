@@ -44,8 +44,7 @@ export default function RootLayout({
       <head>
         <link rel="manifest" href="/manifest.json" />
         <link rel="apple-touch-icon" href="/VMC.webp" />
-        {/* Preload main CSS for faster FCP/LCP */}
-        <link rel="preload" as="style" href="/globals.css" />
+        {/* Globals CSS is imported by Next; don't preload /globals.css manually */}
         {/* Preconnect to Google Fonts for font performance */}
         <link rel="preconnect" href="https://fonts.googleapis.com" crossOrigin="anonymous" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
