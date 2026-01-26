@@ -552,19 +552,33 @@ const adminSlice = createSlice({
 
     // Fetch zone detail
     builder
+      .addCase(fetchZoneDetail.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+        state.currentZoneDetail = null;
+      })
       .addCase(fetchZoneDetail.fulfilled, (state, action) => {
+        state.loading = false;
         state.currentZoneDetail = action.payload;
       })
       .addCase(fetchZoneDetail.rejected, (state, action) => {
+        state.loading = false;
         state.error = action.payload as string;
       });
 
     // Fetch ward detail
     builder
+      .addCase(fetchWardDetail.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+        state.currentWardDetail = null;
+      })
       .addCase(fetchWardDetail.fulfilled, (state, action) => {
+        state.loading = false;
         state.currentWardDetail = action.payload;
       })
       .addCase(fetchWardDetail.rejected, (state, action) => {
+        state.loading = false;
         state.error = action.payload as string;
       });
 

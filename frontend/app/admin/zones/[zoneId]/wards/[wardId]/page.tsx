@@ -16,6 +16,7 @@ import {
 import { useAppDispatch, useAppSelector } from "@/redux/hooks";
 import { fetchWardDetail, clearAdminError } from "@/redux";
 import { ErrorState, EmptyState } from "@/components/admin/ErrorBoundary";
+import VMCLoader from "@/components/ui/VMCLoader";
 import IssueDetailModal from "@/components/admin/IssueDetailModal";
 import ViewUserDialog from "@/components/admin/ViewUserDialog";
 import UserStatsDialog from "@/components/admin/UserStatsDialog";
@@ -135,6 +136,15 @@ export default function WardDetailPage() {
   }
 
   if (!currentWardDetail) {
+    if (loading) {
+      return (
+        <div className="flex items-center justify-center h-48">
+          <VMCLoader size={48} />
+          <span className="ml-3 text-gray-600 text-sm sm:text-base">Loading ward...</span>
+        </div>
+      );
+    }
+
     return (
       <div className="space-y-6">
         <div className="flex items-center gap-4">

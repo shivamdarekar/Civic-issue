@@ -10,6 +10,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useAppDispatch, useAppSelector } from "@/redux/hooks";
 import { fetchZoneDetail, fetchWardsForZone, clearAdminError } from "@/redux";
 import { ErrorState, EmptyState } from "@/components/admin/ErrorBoundary";
+import VMCLoader from "@/components/ui/VMCLoader";
 
 export default function ZoneDetailPage() {
   const params = useParams();
@@ -78,6 +79,15 @@ export default function ZoneDetailPage() {
   }
 
   if (!currentZoneDetail) {
+    if (loading) {
+      return (
+        <div className="flex items-center justify-center h-48">
+          <VMCLoader size={48} />
+          <span className="ml-3 text-gray-600 text-sm sm:text-base">Loading zone...</span>
+        </div>
+      );
+    }
+
     return (
       <div className="space-y-6">
         <div className="flex items-center gap-4">
