@@ -8,19 +8,34 @@ export const redis = createClient({
     host: process.env.REDIS_HOST || 'localhost',
     port: parseInt(process.env.REDIS_PORT || '6379'),
     tls: true,
+    connectTimeout: 5000,
   } : {
     host: process.env.REDIS_HOST || 'localhost',
     port: parseInt(process.env.REDIS_PORT || '6379'),
+    connectTimeout: 5000,
   },
 });
 
-redis.on('error', (err) => console.error('Redis Client Error', err));
+redis.on('error', (err: any) => {
+  console.warn('⚠️  Redis connection failed:', err.message);
+  console.log('📝 Application will continue without Redis caching');
+});
+
+redis.on('connect', () => console.log('✅ Redis connected'));
+redis.on('disconnect', () => console.log('🔌 Redis disconnected'));
 
 let initialized = false;
 export const connectRedis = async (): Promise<void> => {
   if (!initialized) {
-    await redis.connect();
-    initialized = true;
+    try {
+      await redis.connect();
+      initialized = true;
+      console.log('✅ Redis connected successfully');
+    } catch (error: any) {
+      console.warn('⚠️  Redis connection failed:', error.message);
+      console.log('📝 Application will continue without Redis caching');
+      // Don't throw error - let app continue without Redis
+    }
   }
 };
 

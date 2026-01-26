@@ -1,7 +1,11 @@
 import { redis, connectRedis } from './redis';
 
 const ensureRedis = async (): Promise<void> => {
-  if (!redis.isOpen) await connectRedis();
+  try {
+    if (!redis.isOpen) await connectRedis();
+  } catch (error) {
+    // Silently fail - app continues without Redis
+  }
 };
 
 export const getCache = async <T = any>(key: string): Promise<T | null> => {
@@ -66,13 +70,15 @@ export interface CacheConfig {
 
 export const CACHE_CONFIGS = {
   USER_PROFILE: { ttl: 1800, prefix: 'user:profile' },
-  USER_DASHBOARD: { ttl: 1200, prefix: 'user:dashboard' },
-  ISSUES_LIST: { ttl: 600, prefix: 'issues:list' },
-  ISSUE_DETAIL: { ttl: 1200, prefix: 'issue:detail' },
-  ADMIN_STATS: { ttl: 900, prefix: 'admin:stats' },
+  USER_DASHBOARD: { ttl: 300, prefix: 'user:dashboard' }, // Reduced for real-time data
+  ISSUES_LIST: { ttl: 180, prefix: 'issues:list' }, // Reduced for frequent updates
+  ISSUE_DETAIL: { ttl: 600, prefix: 'issue:detail' },
+  ADMIN_STATS: { ttl: 300, prefix: 'admin:stats' }, // Reduced for real-time stats
   WARD_DATA: { ttl: 1800, prefix: 'ward:data' },
   ZONE_DATA: { ttl: 1800, prefix: 'zone:data' },
   GEO_DATA: { ttl: 3600, prefix: 'geo:data' },
+  QUERY_CACHE: { ttl: 300, prefix: 'query:cache' }, // New: Query-level cache
+  SPATIAL_CACHE: { ttl: 1800, prefix: 'spatial:cache' }, // New: Spatial queries cache
 } as const;
 
 class CacheManager {
@@ -145,37 +151,73 @@ class CacheManager {
     ]);
   }
 
-  // Geographic data cache
-  async getGeoData(key: string): Promise<any> {
-    return this.get(CACHE_CONFIGS.GEO_DATA, key);
+  // Query-level caching for expensive operations
+  async cacheQuery<T>(queryKey: string, queryFn: () => Promise<T>, ttl: number = 300): Promise<T> {
+    const fullKey = `${CACHE_CONFIGS.QUERY_CACHE.prefix}:${queryKey}`;
+    
+    // Check cache first
+    const cached = await getCache<T>(fullKey);
+    if (cached !== null) return cached;
+
+    // Execute query and cache result - SINGLE SAVE
+    const result = await queryFn();
+    await setCache(fullKey, result, ttl);
+    return result;
   }
 
-  async setGeoData(key: string, data: any): Promise<void> {
-    await this.set(CACHE_CONFIGS.GEO_DATA, key, data);
+  // Spatial query caching
+  async cacheSpatialQuery<T>(coordinates: string, queryFn: () => Promise<T>): Promise<T> {
+    const spatialKey = `coords:${coordinates}`;
+    return this.cacheQuery(spatialKey, queryFn, CACHE_CONFIGS.SPATIAL_CACHE.ttl);
   }
 
-  // Bulk invalidation for data changes
-  async invalidateRelatedCache(type: 'user' | 'issue' | 'ward' | 'zone', id?: string): Promise<void> {
-    switch (type) {
-      case 'user':
-        if (id) await this.invalidateUserCache(id);
-        break;
-      case 'issue':
-        await this.invalidateIssueCache(id);
-        break;
-      case 'ward':
-        await Promise.all([
-          this.deletePattern(CACHE_CONFIGS.WARD_DATA, id || '*'),
-          this.deletePattern(CACHE_CONFIGS.ADMIN_STATS),
-        ]);
-        break;
-      case 'zone':
-        await Promise.all([
-          this.deletePattern(CACHE_CONFIGS.ZONE_DATA, id || '*'),
-          this.deletePattern(CACHE_CONFIGS.ADMIN_STATS),
-        ]);
-        break;
+  // Bulk cache operations for better performance
+  async setBulk(items: Array<{ key: string; value: any; ttl: number }>): Promise<void> {
+    try {
+      await ensureRedis();
+      const pipeline = redis.multi();
+      
+      items.forEach(({ key, value, ttl }) => {
+        pipeline.setEx(key, ttl, JSON.stringify(value));
+      });
+      
+      await pipeline.exec();
+    } catch (error) {
+      console.error('Bulk cache set error:', error);
     }
+  }
+
+  // Ward-specific cache invalidation to prevent cross-contamination
+  async invalidateWardCache(wardId: string): Promise<void> {
+    await Promise.all([
+      deleteCachePattern(`issue:stats:ward:${wardId}:*`),
+      deleteCachePattern(`issues:list:ward:${wardId}:*`),
+      deleteCachePattern(`assignee:lookup:ward:${wardId}:*`),
+      deleteCachePattern(`user:dashboard:*:ward:${wardId}:*`),
+    ]);
+  }
+
+  // Zone-specific cache invalidation
+  async invalidateZoneCache(zoneId: string): Promise<void> {
+    await Promise.all([
+      deleteCachePattern(`issue:stats:zone:${zoneId}:*`),
+      deleteCachePattern(`issues:list:zone:${zoneId}:*`),
+      deleteCachePattern(`user:dashboard:*:zone:${zoneId}:*`),
+    ]);
+  }
+
+  // Generic related cache invalidation
+  async invalidateRelatedCache(type: 'ward' | 'zone', id: string): Promise<void> {
+    if (type === 'ward') {
+      await this.invalidateWardCache(id);
+    } else if (type === 'zone') {
+      await this.invalidateZoneCache(id);
+    }
+  }
+
+  // Direct cache deletion with pattern support
+  async deleteCache(pattern: string): Promise<void> {
+    await deleteCachePattern(pattern);
   }
 }
 

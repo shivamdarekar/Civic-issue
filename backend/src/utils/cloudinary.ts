@@ -58,14 +58,22 @@ export const uploadOnCloudinary = async (
       { quality: "auto:good" },
       { format: "auto" }
     ],
+    timeout: 30000, // 30 second timeout
     ...options
   };
 
   try {
     return await new Promise((resolve, reject) => {
+      // Set timeout for the entire operation
+      const timeoutId = setTimeout(() => {
+        reject(new ApiError(408, "Upload timeout - please try again"));
+      }, 35000); // 35 seconds total timeout
+      
       const stream = cloudinaryV2.uploader.upload_stream(
         defaultOptions,
         (error, result) => {
+          clearTimeout(timeoutId);
+          
           if (error) {
             console.error('❌ Cloudinary upload error:', error);
             return reject(new ApiError(500, `Upload failed: ${error.message}`));
@@ -76,6 +84,7 @@ export const uploadOnCloudinary = async (
           resolve(result as CloudinaryUploadResult);
         }
       );
+      
       streamifier.createReadStream(buffer).pipe(stream);
     });
   } catch (error) {

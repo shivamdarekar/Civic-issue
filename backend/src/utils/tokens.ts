@@ -2,6 +2,7 @@ import jwt from "jsonwebtoken";
 import { prisma } from "../lib/prisma";
 import { ApiError } from "./apiError";
 import { randomUUID } from "crypto";
+import { cache } from "../lib/cache";
 
 // Simple token generation with JTI
 export const generateToken = (userId: string, role: string) => {
@@ -17,26 +18,40 @@ export const generateToken = (userId: string, role: string) => {
     );
 };
 
-// Generate token with user data
+// Generate token with user data - optimized with caching
 export const generateTokenWithUser = async (userId: string) => {
     try {
-        const user = await prisma.user.findUnique({
-            where: { id: userId },
-            select: {
-                id: true,
-                fullName: true,
-                email: true,
-                phoneNumber: true,
-                role: true,
-                department: true,
-                isActive: true,
-                wardId: true,
-                zoneId: true,
-                ward: {
+        // Use cache for user data to avoid repeated DB queries
+        const user = await cache.getOrSet(
+            { ttl: 900, prefix: 'user:token' }, // 15 min cache for token generation
+            userId,
+            async () => {
+                return prisma.user.findUnique({
+                    where: { id: userId },
                     select: {
                         id: true,
-                        wardNumber: true,
-                        name: true,
+                        fullName: true,
+                        email: true,
+                        phoneNumber: true,
+                        role: true,
+                        department: true,
+                        isActive: true,
+                        wardId: true,
+                        zoneId: true,
+                        ward: {
+                            select: {
+                                id: true,
+                                wardNumber: true,
+                                name: true,
+                                zone: {
+                                    select: {
+                                        id: true,
+                                        name: true,
+                                        code: true
+                                    }
+                                }
+                            }
+                        },
                         zone: {
                             select: {
                                 id: true,
@@ -45,16 +60,9 @@ export const generateTokenWithUser = async (userId: string) => {
                             }
                         }
                     }
-                },
-                zone: {
-                    select: {
-                        id: true,
-                        name: true,
-                        code: true
-                    }
-                }
+                });
             }
-        });
+        );
 
         if (!user) {
             throw new ApiError(404, "User not found");

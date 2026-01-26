@@ -23,7 +23,7 @@ declare global {
   }
 }
 
-// JWT verification middleware with Redis session
+// JWT verification middleware with optimized caching
 export const verifyJWT = asyncHandler(
   async (req: Request, res: Response, next: NextFunction) => {
     const token =
@@ -40,17 +40,20 @@ export const verifyJWT = asyncHandler(
         process.env.JWT_SECRET as string
       ) as JwtPayload & { jti: string };
 
-      // Check if token is blacklisted
-      const blacklisted = await isBlacklisted(decoded.jti);
+      // Check blacklist and session in parallel
+      const [blacklisted, sessionData] = await Promise.all([
+        isBlacklisted(decoded.jti),
+        getSession(decoded.jti)
+      ]);
+      
       if (blacklisted) {
         throw new ApiError(401, "Unauthorized: Token has been revoked");
       }
 
-      // Get session from Redis first
-      let sessionData = await getSession(decoded.jti);
+      let userData = sessionData;
       
-      if (!sessionData) {
-        // Fallback to database if session not in Redis
+      if (!userData) {
+        // Database lookup only if no session exists
         const user = await prisma.user.findUnique({
           where: { id: decoded.id },
           select: { 
@@ -69,8 +72,7 @@ export const verifyJWT = asyncHandler(
           throw new ApiError(404, "Unauthorized: User not found or inactive");
         }
 
-        // Recreate session in Redis
-        sessionData = {
+        userData = {
           userId: user.id,
           role: user.role,
           email: user.email,
@@ -81,16 +83,17 @@ export const verifyJWT = asyncHandler(
           lastActivity: Date.now(),
         };
         
-        await setSession(decoded.jti, sessionData, 1800);
+        // Set session in Redis (fire and forget) - SINGLE SAVE
+        setSession(decoded.jti, userData, 1800).catch(console.error);
       }
 
       req.user = {
-        id: sessionData.userId,
-        email: sessionData.email,
-        role: sessionData.role,
-        wardId: sessionData.wardId || null,
-        zoneId: sessionData.zoneId || null,
-        department: sessionData.departmentId || null,
+        id: userData.userId,
+        email: userData.email,
+        role: userData.role,
+        wardId: userData.wardId || null,
+        zoneId: userData.zoneId || null,
+        department: userData.departmentId || null,
       };
       req.sessionId = decoded.jti;
       

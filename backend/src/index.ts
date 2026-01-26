@@ -8,24 +8,37 @@ dotenv.config();
 
 const PORT = process.env.PORT || 5000;
 
+// Enable keep-alive for better connection reuse
+process.env.UV_THREADPOOL_SIZE = '16'; // Increase thread pool for better I/O
+
 async function startServer() {
     try {
-        // Connect to database first
-        await connectDb();
-        console.log('✅ Database connected');
+        // Parallel initialization for faster startup
+        const [dbResult, redisResult, emailResult] = await Promise.allSettled([
+            connectDb(),
+            connectRedis(),
+            EmailService.initialize()
+        ]);
 
-        // Try to connect to Redis (non-blocking)
-        try {
-            await connectRedis();
+        // Database connection (required)
+        if (dbResult.status === 'fulfilled') {
+            console.log('✅ Database connected');
+        } else {
+            console.error('❌ Database connection failed:', dbResult.reason);
+            process.exit(1);
+        }
+
+        // Redis connection (optional)
+        if (redisResult.status === 'fulfilled') {
             console.log('✅ Redis connected - caching enabled');
-        } catch (error) {
+        } else {
             console.log('⚠️  Redis connection failed - running without cache');
         }
 
-        // Initialize email service (optional, won't block startup)
-        try {
-            await EmailService.initialize();
-        } catch (error) {
+        // Email service (optional)
+        if (emailResult.status === 'fulfilled') {
+            console.log('✅ Email service initialized');
+        } else {
             console.warn('⚠️  Email service not configured. Password reset emails will fail.');
         }
 

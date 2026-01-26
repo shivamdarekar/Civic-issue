@@ -7,7 +7,7 @@ import { VisionAIService, CONFIDENCE_THRESHOLDS } from "../../services/vision/vi
 
 export class IssueUploadService {
   /**
-   * Upload multiple images to Cloudinary
+   * Upload multiple images to Cloudinary with optimized parallel processing
    * Used for BEFORE images (issue creation) and AFTER images (issue resolution)
    */
   static async uploadMultipleImages(
@@ -25,26 +25,37 @@ export class IssueUploadService {
     const folder = mediaType === "BEFORE" ? "civic-issues/before" : "civic-issues/after";
 
     try {
-      const uploadPromises = files.map(async (file) => {
-        const result = await uploadOnCloudinary(file.buffer, {
-          resource_type: "image",
-          folder,
-          transformation: [
-            { width: 1200, height: 1200, crop: "limit" },
-            { quality: "auto:good" },
-            { format: "auto" }
-          ]
+      // Process uploads in batches of 3 for better performance
+      const batchSize = 3;
+      const results: UploadedMediaResult[] = [];
+      
+      for (let i = 0; i < files.length; i += batchSize) {
+        const batch = files.slice(i, i + batchSize);
+        
+        const batchPromises = batch.map(async (file) => {
+          const result = await uploadOnCloudinary(file.buffer, {
+            resource_type: "image",
+            folder,
+            transformation: [
+              { width: 1200, height: 1200, crop: "limit" },
+              { quality: "auto:good" },
+              { format: "auto" }
+            ]
+          });
+
+          return {
+            url: result.secure_url,
+            publicId: result.public_id,
+            mimeType: `image/${result.format}`,
+            fileSize: result.bytes
+          };
         });
 
-        return {
-          url: result.secure_url,
-          publicId: result.public_id,
-          mimeType: `image/${result.format}`,
-          fileSize: result.bytes
-        };
-      });
+        const batchResults = await Promise.all(batchPromises);
+        results.push(...batchResults);
+      }
 
-      return await Promise.all(uploadPromises);
+      return results;
     } catch (error) {
       console.error("❌ Failed to upload images:", error);
       throw new ApiError(500, "Failed to upload one or more images");

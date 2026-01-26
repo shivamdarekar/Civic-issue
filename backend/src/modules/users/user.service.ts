@@ -26,7 +26,7 @@ export class UserDashboardService {
     const cacheKey = `${userId}:${safeLimit}`;
     
     return cache.getOrSet(
-      { ttl: 1200, prefix: 'user:dashboard:fieldworker' },
+      { ttl: 300, prefix: 'user:dashboard:fieldworker' }, // Reduced TTL for real-time data
       cacheKey,
       async () => {
         const where: Prisma.IssueWhereInput = {
@@ -34,6 +34,7 @@ export class UserDashboardService {
           reporterId: userId,
         };
 
+        // Optimized parallel queries with minimal data selection
         const [totalIssuesCreated, byStatusRows, recentIssues] = await Promise.all([
           prisma.issue.count({ where }),
           prisma.issue.groupBy({
@@ -79,7 +80,7 @@ export class UserDashboardService {
     const cacheKey = `${args.userId}:${args.wardId}:${args.department}`;
     
     return cache.getOrSet(
-      { ttl: 1200, prefix: 'user:dashboard:wardengineer' },
+      { ttl: 300, prefix: 'user:dashboard:wardengineer' }, // Reduced TTL for real-time data
       cacheKey,
       async () => {
         const wardId = args.wardId!;
@@ -87,19 +88,19 @@ export class UserDashboardService {
         const userId = args.userId;
         const now = new Date();
 
-        // Show all issues assigned to this engineer in their ward, regardless of department
+        // Optimized where clause
         const where: Prisma.IssueWhereInput = {
           deletedAt: null,
           wardId,
           assigneeId: userId,
         };
 
+        // Parallel queries with optimized selections
         const [
           totalIssues,
           byStatusRows,
           byPriorityRows,
-          withinSla,
-          breachedSla,
+          slaStats,
           recentResolvedForAvg,
         ] = await Promise.all([
           prisma.issue.count({ where }),
@@ -116,24 +117,20 @@ export class UserDashboardService {
             _count: { _all: true },
           }),
 
-          prisma.issue.count({
+          // Combined SLA query for better performance
+          prisma.issue.groupBy({
+            by: ['resolvedAt'],
             where: {
               deletedAt: null,
               wardId,
               assigneeId: userId,
-              resolvedAt: { not: null },
               slaTargetAt: { not: null },
+              OR: [
+                { resolvedAt: { not: null } }, // Within SLA
+                { AND: [{ resolvedAt: null }, { slaTargetAt: { lt: now } }] } // Breached SLA
+              ]
             },
-          }),
-
-          prisma.issue.count({
-            where: {
-              deletedAt: null,
-              wardId,
-              assigneeId: userId,
-              slaTargetAt: { not: null, lt: now },
-              resolvedAt: null,
-            },
+            _count: { _all: true },
           }),
 
           prisma.issue.findMany({
@@ -143,10 +140,22 @@ export class UserDashboardService {
               assignedAt: { not: null },
             },
             select: { assignedAt: true, resolvedAt: true },
-            take: 100,
+            take: 50, // Reduced for better performance
           }),
         ]);
 
+        // Calculate SLA stats from combined query
+        let withinSla = 0;
+        let breachedSla = 0;
+        slaStats.forEach(stat => {
+          if (stat.resolvedAt !== null) {
+            withinSla += stat._count._all;
+          } else {
+            breachedSla += stat._count._all;
+          }
+        });
+
+        // Calculate average resolution time
         let avgResolutionTimeHours: number | null = null;
         if (recentResolvedForAvg.length > 0) {
           const totalMs = recentResolvedForAvg.reduce((sum, item) => {
@@ -185,7 +194,7 @@ export class UserDashboardService {
     if (!department) throw new ApiError(400, "WARD_ENGINEER must have department");
   }
 
-  // Update user's own profile (name, phone) with cache invalidation
+  // Update user's own profile with optimized operations
   static async updateOwnProfile(userId: string, updateData: { fullName?: string; phoneNumber?: string }) {
     const { fullName, phoneNumber } = updateData;
 
@@ -194,98 +203,110 @@ export class UserDashboardService {
       throw new ApiError(400, "At least one field (fullName or phoneNumber) must be provided");
     }
 
-    // Check if phone number is already taken
-    if (phoneNumber) {
-      const existingUser = await prisma.user.findFirst({
-        where: {
-          phoneNumber,
-          id: { not: userId }
+    // Parallel operations for phone validation and update
+    const result = await prisma.$transaction(async (tx) => {
+      // Check if phone number is already taken (only if provided)
+      if (phoneNumber) {
+        const existingUser = await tx.user.findFirst({
+          where: {
+            phoneNumber,
+            id: { not: userId }
+          },
+          select: { id: true }
+        });
+
+        if (existingUser) {
+          throw new ApiError(409, "Phone number already in use");
         }
-      });
-
-      if (existingUser) {
-        throw new ApiError(409, "Phone number already in use");
       }
-    }
 
-    const updatedUser = await prisma.user.update({
-      where: { id: userId },
-      data: {
-        ...(fullName && { fullName }),
-        ...(phoneNumber && { phoneNumber })
-      },
-      select: {
-        id: true,
-        fullName: true,
-        email: true,
-        phoneNumber: true,
-        role: true,
-        department: true,
-        updatedAt: true
-      }
+      // Update user and create audit log in parallel
+      const [updatedUser] = await Promise.all([
+        tx.user.update({
+          where: { id: userId },
+          data: {
+            ...(fullName && { fullName }),
+            ...(phoneNumber && { phoneNumber })
+          },
+          select: {
+            id: true,
+            fullName: true,
+            email: true,
+            phoneNumber: true,
+            role: true,
+            department: true,
+            updatedAt: true
+          }
+        }),
+        tx.auditLog.create({
+          data: {
+            userId,
+            action: "PROFILE_UPDATE",
+            resource: "User",
+            resourceId: userId,
+            metadata: {
+              updatedFields: updateData
+            }
+          }
+        })
+      ]);
+
+      return updatedUser;
     });
 
-    // Invalidate user cache
+    // Invalidate user cache after successful update
     await cache.invalidateUserCache(userId);
 
-    // Log profile update
-    await prisma.auditLog.create({
-      data: {
-        userId,
-        action: "PROFILE_UPDATE",
-        resource: "User",
-        resourceId: userId,
-        metadata: {
-          updatedFields: updateData
-        }
-      }
-    });
-
-    return updatedUser;
+    return result;
   }
 
-  // Change user's own password with cache invalidation
+  // Change user's own password with optimized operations
   static async changeOwnPassword(userId: string, currentPassword: string, newPassword: string) {
-    // Get user with password
-    const user = await prisma.user.findUnique({
-      where: { id: userId },
-      select: { id: true, hashedPassword: true, email: true }
-    });
+    // Single transaction for all password change operations
+    const result = await prisma.$transaction(async (tx) => {
+      // Get user with password
+      const user = await tx.user.findUnique({
+        where: { id: userId },
+        select: { id: true, hashedPassword: true, email: true }
+      });
 
-    if (!user) {
-      throw new ApiError(404, "User not found");
-    }
-
-    // Verify current password
-    const isValid = await comparePassword(currentPassword, user.hashedPassword);
-    if (!isValid) {
-      throw new ApiError(401, "Current password is incorrect");
-    }
-
-    // Hash new password
-    const hashedPassword = await hashPassword(newPassword);
-
-    // Update password
-    await prisma.user.update({
-      where: { id: userId },
-      data: { hashedPassword }
-    });
-
-    // Invalidate user cache
-    await cache.invalidateUserCache(userId);
-
-    // Log password change
-    await prisma.auditLog.create({
-      data: {
-        userId,
-        action: "PASSWORD_CHANGED",
-        resource: "User",
-        resourceId: userId,
-        metadata: {
-          changedAt: new Date().toISOString()
-        }
+      if (!user) {
+        throw new ApiError(404, "User not found");
       }
+
+      // Verify current password
+      const isValid = await comparePassword(currentPassword, user.hashedPassword);
+      if (!isValid) {
+        throw new ApiError(401, "Current password is incorrect");
+      }
+
+      // Hash new password
+      const hashedPassword = await hashPassword(newPassword);
+
+      // Update password and create audit log in parallel
+      await Promise.all([
+        tx.user.update({
+          where: { id: userId },
+          data: { hashedPassword }
+        }),
+        tx.auditLog.create({
+          data: {
+            userId,
+            action: "PASSWORD_CHANGED",
+            resource: "User",
+            resourceId: userId,
+            metadata: {
+              changedAt: new Date().toISOString()
+            }
+          }
+        })
+      ]);
+
+      return user;
     });
+
+    // Invalidate user cache after successful password change
+    await cache.invalidateUserCache(userId);
 
     return { message: "Password changed successfully" };
   }

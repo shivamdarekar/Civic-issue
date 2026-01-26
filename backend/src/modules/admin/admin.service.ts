@@ -21,114 +21,122 @@ import {
 } from "../../types";
 
 export class AdminService {
-  // Admin registers other users with cache invalidation
+  // Admin registers other users with optimized operations
   static async registerUser(userData: RegisterUserData, registeredBy: string) {
     const { fullName, email, phoneNumber, password, role, wardId, zoneId, department } = userData;
 
-    // Check if user already exists
-    const existingUser = await prisma.user.findFirst({
-      where: {
-        OR: [{ email }, { phoneNumber }]
+    // Single transaction for all validation and creation
+    const user = await prisma.$transaction(async (tx) => {
+      // Parallel validation checks
+      const [existingUser, ward, zone] = await Promise.all([
+        tx.user.findFirst({
+          where: {
+            OR: [{ email }, { phoneNumber }]
+          },
+          select: { id: true }
+        }),
+        wardId ? tx.ward.findUnique({ 
+          where: { id: wardId },
+          select: { id: true, zoneId: true }
+        }) : Promise.resolve(null),
+        zoneId ? tx.zone.findUnique({ 
+          where: { id: zoneId },
+          select: { id: true }
+        }) : Promise.resolve(null)
+      ]);
+
+      if (existingUser) {
+        throw new ApiError(400, "User with this email or phone already exists");
       }
-    });
 
-    if (existingUser) {
-      throw new ApiError(400, "User with this email or phone already exists");
-    }
-
-    // Validate ward/zone existence
-    if (wardId) {
-      const ward = await prisma.ward.findUnique({ where: { id: wardId } });
-      if (!ward) {
+      if (wardId && !ward) {
         throw new ApiError(400, "Invalid ward ID");
       }
-    }
 
-    if (zoneId) {
-      const zone = await prisma.zone.findUnique({ where: { id: zoneId } });
-      if (!zone) {
+      if (zoneId && !zone) {
         throw new ApiError(400, "Invalid zone ID");
       }
-    }
 
-    // Validate department for engineers only
-    if (role === 'WARD_ENGINEER' && !department) {
-      throw new ApiError(400, "Department is required for Ward Engineers");
-    }
-
-    // Ensure non-engineers don't have department assigned
-    if (role !== 'WARD_ENGINEER' && department) {
-      throw new ApiError(400, "Department can only be assigned to Ward Engineers");
-    }
-
-    // Hash password using utility
-    const hashedPassword = await hashPassword(password);
-
-    // Create user
-    const user = await prisma.user.create({
-      data: {
-        fullName,
-        email,
-        phoneNumber,
-        hashedPassword,
-        role,
-        wardId: wardId || null,
-        zoneId: zoneId || null,
-        department: department || null
-      },
-      select: {
-        id: true,
-        fullName: true,
-        email: true,
-        phoneNumber: true,
-        role: true,
-        department: true,
-        wardId: true,
-        zoneId: true,
-        ward: {
-          select: { wardNumber: true, name: true }
-        },
-        zone: {
-          select: { name: true }
-        }
+      // Validate department for engineers only
+      if (role === 'WARD_ENGINEER' && !department) {
+        throw new ApiError(400, "Department is required for Ward Engineers");
       }
-    });
 
-    // Invalidate related caches
-    await Promise.all([
-      cache.invalidateAdminCache(),
-      wardId ? cache.invalidateRelatedCache('ward', wardId) : Promise.resolve(),
-      zoneId ? cache.invalidateRelatedCache('zone', zoneId) : Promise.resolve(),
-    ]);
+      if (role !== 'WARD_ENGINEER' && department) {
+        throw new ApiError(400, "Department can only be assigned to Ward Engineers");
+      }
 
-    // Log the registration
-    await prisma.auditLog.create({
-      data: {
-        userId: registeredBy,
-        action: "USER_REGISTRATION",
-        resource: "User",
-        resourceId: user.id,
-        metadata: {
-          registeredUser: {
-            email: user.email,
-            role: user.role,
-            department: user.department
+      // Hash password
+      const hashedPassword = await hashPassword(password);
+
+      // Create user first
+      const newUser = await tx.user.create({
+        data: {
+          fullName,
+          email,
+          phoneNumber,
+          hashedPassword,
+          role,
+          wardId: wardId || null,
+          zoneId: zoneId || null,
+          department: department || null
+        },
+        select: {
+          id: true,
+          fullName: true,
+          email: true,
+          phoneNumber: true,
+          role: true,
+          department: true,
+          wardId: true,
+          zoneId: true,
+          ward: {
+            select: { wardNumber: true, name: true }
+          },
+          zone: {
+            select: { name: true }
           }
         }
-      }
+      });
+
+      // Create audit log with actual user ID
+      await tx.auditLog.create({
+        data: {
+          userId: registeredBy,
+          action: "USER_REGISTRATION",
+          resource: "User",
+          resourceId: newUser.id,
+          metadata: {
+            registeredUser: {
+              email,
+              role,
+              department
+            }
+          }
+        }
+      });
+
+      return newUser;
     });
 
-    // Send welcome email with credentials
-    try {
-      await EmailService.sendWelcomeEmail(
+    // Parallel cache invalidation and email sending
+    const [, emailResult] = await Promise.allSettled([
+      Promise.all([
+        cache.invalidateAdminCache(),
+        wardId ? cache.invalidateRelatedCache('ward', wardId) : Promise.resolve(),
+        zoneId ? cache.invalidateRelatedCache('zone', zoneId) : Promise.resolve(),
+      ]),
+      EmailService.sendWelcomeEmail(
         user.email,
         user.fullName,
         user.role,
-        password // Send original password (before hashing)
-      );
-    } catch (error) {
-      console.error('Failed to send welcome email:', error);
-      // Don't throw - user is created, email failure shouldn't block
+        password
+      )
+    ]);
+
+    // Log email result but don't fail the request
+    if (emailResult.status === 'rejected') {
+      console.error('Failed to send welcome email:', emailResult.reason);
     }
 
     return user;
@@ -167,187 +175,219 @@ export class AdminService {
   }
 
 
-  // Update user details with cache invalidation
+  // Update user details with optimized operations
   static async updateUser(userId: string, updateData: UserUpdateData, updatedBy: string): Promise<any> {
     const { fullName, email, phoneNumber, role, wardId, zoneId, department } = updateData;
 
-    // Check if user exists
-    const existingUser = await prisma.user.findUnique({ where: { id: userId } });
-    if (!existingUser) {
-      throw new ApiError(404, "User not found");
-    }
-
-    // Prevent super admin from updating themselves
-    if (existingUser.role === 'SUPER_ADMIN') {
-      throw new ApiError(403, "Cannot update Super Admin account");
-    }
-
-    // Check for email/phone conflicts (excluding current user)
-    if (email || phoneNumber) {
-      const conflictUser = await prisma.user.findFirst({
-        where: {
-          AND: [
-            { id: { not: userId } },
-            {
-              OR: [
-                email ? { email } : {},
-                phoneNumber ? { phoneNumber } : {}
-              ]
-            }
-          ]
+    // Single transaction for all operations
+    const result = await prisma.$transaction(async (tx) => {
+      // Get existing user
+      const existingUser = await tx.user.findUnique({ 
+        where: { id: userId },
+        select: {
+          id: true,
+          fullName: true,
+          email: true,
+          role: true,
+          wardId: true,
+          zoneId: true,
+          department: true
         }
       });
+      
+      if (!existingUser) {
+        throw new ApiError(404, "User not found");
+      }
+
+      if (existingUser.role === 'SUPER_ADMIN') {
+        throw new ApiError(403, "Cannot update Super Admin account");
+      }
+
+      // Parallel validation checks
+      const validationPromises = [];
+      
+      // Check for email/phone conflicts
+      if (email || phoneNumber) {
+        validationPromises.push(
+          tx.user.findFirst({
+            where: {
+              AND: [
+                { id: { not: userId } },
+                {
+                  OR: [
+                    email ? { email } : {},
+                    phoneNumber ? { phoneNumber } : {}
+                  ]
+                }
+              ]
+            },
+            select: { id: true }
+          })
+        );
+      } else {
+        validationPromises.push(Promise.resolve(null));
+      }
+
+      // Validate ward if provided
+      if (wardId) {
+        validationPromises.push(
+          tx.ward.findUnique({
+            where: { id: wardId },
+            select: { id: true, zoneId: true }
+          })
+        );
+      } else {
+        validationPromises.push(Promise.resolve(null));
+      }
+
+      // Validate zone if provided
+      if (zoneId) {
+        validationPromises.push(
+          tx.zone.findUnique({ 
+            where: { id: zoneId },
+            select: { id: true }
+          })
+        );
+      } else {
+        validationPromises.push(Promise.resolve(null));
+      }
+
+      const [conflictUser, ward, zone] = await Promise.all(validationPromises);
 
       if (conflictUser) {
         throw new ApiError(400, "Email or phone number already exists");
       }
-    }
 
-    // Validate ward/zone if provided
-    if (wardId) {
-      const ward = await prisma.ward.findUnique({
-        where: { id: wardId },
-        select: { id: true, zoneId: true }
-      });
-      if (!ward) {
+      if (wardId && !ward) {
         throw new ApiError(400, "Invalid ward ID");
       }
-    }
 
-    if (zoneId) {
-      const zone = await prisma.zone.findUnique({ where: { id: zoneId } });
-      if (!zone) {
+      if (zoneId && !zone) {
         throw new ApiError(400, "Invalid zone ID");
       }
-    }
 
-    // CRITICAL: Validate ward belongs to zone
-    if (wardId && zoneId) {
-      const ward = await prisma.ward.findUnique({
-        where: { id: wardId },
-        select: { zoneId: true }
-      });
-
-      if (!ward || ward.zoneId !== zoneId) {
+      // Validate ward belongs to zone
+      if (wardId && zoneId && ward && 'zoneId' in ward && ward.zoneId !== zoneId) {
         throw new ApiError(400, "Ward does not belong to selected zone");
       }
-    }
 
-    // Role-based validation (CRITICAL for data integrity)
-    const finalRole = role || existingUser.role;
-    const finalWardId = wardId !== undefined ? wardId : existingUser.wardId;
-    const finalZoneId = zoneId !== undefined ? zoneId : existingUser.zoneId;
-    const finalDepartment = department !== undefined ? department : existingUser.department;
+      // Role-based validation
+      const finalRole = role || existingUser.role;
+      const finalWardId = wardId !== undefined ? wardId : existingUser.wardId;
+      const finalZoneId = zoneId !== undefined ? zoneId : existingUser.zoneId;
+      const finalDepartment = department !== undefined ? department : existingUser.department;
 
-    if (finalRole === 'ZONE_OFFICER') {
-      if (!finalZoneId) {
-        throw new ApiError(400, "Zone Officer must have a zone");
-      }
-      if (finalWardId) {
-        throw new ApiError(400, "Zone Officer cannot be assigned to a ward");
-      }
-    }
-
-    if (finalRole === 'WARD_ENGINEER' || finalRole === 'FIELD_WORKER') {
-      if (!finalZoneId || !finalWardId) {
-        throw new ApiError(400, "Ward-based roles must have both zone and ward");
-      }
-    }
-
-    // Validate department for engineers
-    if (finalRole === 'WARD_ENGINEER' && !finalDepartment) {
-      throw new ApiError(400, "Department is required for Ward Engineers");
-    }
-
-    if (finalRole !== 'WARD_ENGINEER' && finalDepartment) {
-      throw new ApiError(400, "Department can only be assigned to Ward Engineers");
-    }
-
-    const data: any = {
-      ...(fullName && { fullName }),
-      ...(email && { email }),
-      ...(phoneNumber && { phoneNumber }),
-      ...(role && { role }),
-      ...(department !== undefined && { department: department === null ? null : department }),
-      ...(zoneId !== undefined && {
-        zone: zoneId === null ? { disconnect: true } : { connect: { id: zoneId } },
-      }),
-      ...(wardId !== undefined && {
-        ward: wardId === null ? { disconnect: true } : { connect: { id: wardId } },
-      }),
-    };
-
-    // Update user
-    const updatedUser = await prisma.user.update({
-      where: { id: userId },
-      data,
-      select: {
-        id: true,
-        fullName: true,
-        email: true,
-        phoneNumber: true,
-        role: true,
-        department: true,
-        wardId: true,
-        zoneId: true,
-        ward: {
-          select: { wardNumber: true, name: true }
-        },
-        zone: {
-          select: { name: true }
+      if (finalRole === 'ZONE_OFFICER') {
+        if (!finalZoneId) {
+          throw new ApiError(400, "Zone Officer must have a zone");
+        }
+        if (finalWardId) {
+          throw new ApiError(400, "Zone Officer cannot be assigned to a ward");
         }
       }
+
+      if (finalRole === 'WARD_ENGINEER' || finalRole === 'FIELD_WORKER') {
+        if (!finalZoneId || !finalWardId) {
+          throw new ApiError(400, "Ward-based roles must have both zone and ward");
+        }
+      }
+
+      if (finalRole === 'WARD_ENGINEER' && !finalDepartment) {
+        throw new ApiError(400, "Department is required for Ward Engineers");
+      }
+
+      if (finalRole !== 'WARD_ENGINEER' && finalDepartment) {
+        throw new ApiError(400, "Department can only be assigned to Ward Engineers");
+      }
+
+      const data: any = {
+        ...(fullName && { fullName }),
+        ...(email && { email }),
+        ...(phoneNumber && { phoneNumber }),
+        ...(role && { role }),
+        ...(department !== undefined && { department: department === null ? null : department }),
+        ...(zoneId !== undefined && {
+          zone: zoneId === null ? { disconnect: true } : { connect: { id: zoneId } },
+        }),
+        ...(wardId !== undefined && {
+          ward: wardId === null ? { disconnect: true } : { connect: { id: wardId } },
+        }),
+      };
+
+      // Track assignment changes
+      const assignmentChanged =
+        (role && role !== existingUser.role) ||
+        (wardId !== undefined && wardId !== existingUser.wardId) ||
+        (zoneId !== undefined && zoneId !== existingUser.zoneId) ||
+        (department !== undefined && department !== existingUser.department);
+
+      // Update user and create audit log in parallel
+      const [updatedUser] = await Promise.all([
+        tx.user.update({
+          where: { id: userId },
+          data,
+          select: {
+            id: true,
+            fullName: true,
+            email: true,
+            phoneNumber: true,
+            role: true,
+            department: true,
+            wardId: true,
+            zoneId: true,
+            ward: {
+              select: { wardNumber: true, name: true }
+            },
+            zone: {
+              select: { name: true }
+            }
+          }
+        }),
+        tx.auditLog.create({
+          data: {
+            userId: updatedBy,
+            action: assignmentChanged ? "USER_ASSIGNMENT_CHANGED" : "USER_UPDATE",
+            resource: "User",
+            resourceId: userId,
+            metadata: {
+              updatedFields: updateData as any,
+              previousData: {
+                fullName: existingUser.fullName,
+                email: existingUser.email,
+                role: existingUser.role,
+                wardId: existingUser.wardId,
+                zoneId: existingUser.zoneId,
+                department: existingUser.department
+              },
+              assignmentHistory: assignmentChanged ? {
+                changedAt: new Date().toISOString(),
+                changedBy: updatedBy,
+                changes: {
+                  role: role !== existingUser.role ? { from: existingUser.role, to: role } : null,
+                  ward: wardId !== existingUser.wardId ? { from: existingUser.wardId, to: wardId } : null,
+                  zone: zoneId !== existingUser.zoneId ? { from: existingUser.zoneId, to: zoneId } : null,
+                  department: department !== existingUser.department ? { from: existingUser.department, to: department } : null
+                }
+              } : null
+            } as any
+          }
+        })
+      ]);
+
+      return { updatedUser, existingUser, finalWardId, finalZoneId };
     });
 
-    // Invalidate related caches
+    // Parallel cache invalidation after successful transaction
     await Promise.all([
       cache.invalidateUserCache(userId),
       cache.invalidateAdminCache(),
-      existingUser.wardId ? cache.invalidateRelatedCache('ward', existingUser.wardId) : Promise.resolve(),
-      existingUser.zoneId ? cache.invalidateRelatedCache('zone', existingUser.zoneId) : Promise.resolve(),
-      finalWardId && finalWardId !== existingUser.wardId ? cache.invalidateRelatedCache('ward', finalWardId) : Promise.resolve(),
-      finalZoneId && finalZoneId !== existingUser.zoneId ? cache.invalidateRelatedCache('zone', finalZoneId) : Promise.resolve(),
+      result.existingUser.wardId ? cache.invalidateRelatedCache('ward', result.existingUser.wardId) : Promise.resolve(),
+      result.existingUser.zoneId ? cache.invalidateRelatedCache('zone', result.existingUser.zoneId) : Promise.resolve(),
+      result.finalWardId && result.finalWardId !== result.existingUser.wardId ? cache.invalidateRelatedCache('ward', result.finalWardId) : Promise.resolve(),
+      result.finalZoneId && result.finalZoneId !== result.existingUser.zoneId ? cache.invalidateRelatedCache('zone', result.finalZoneId) : Promise.resolve(),
     ]);
 
-    // Track significant assignment changes (for judges/auditors)
-    const assignmentChanged =
-      (role && role !== existingUser.role) ||
-      (wardId !== undefined && wardId !== existingUser.wardId) ||
-      (zoneId !== undefined && zoneId !== existingUser.zoneId) ||
-      (department !== undefined && department !== existingUser.department);
-
-    // Log the update
-    await prisma.auditLog.create({
-      data: {
-        userId: updatedBy,
-        action: assignmentChanged ? "USER_ASSIGNMENT_CHANGED" : "USER_UPDATE",
-        resource: "User",
-        resourceId: userId,
-        metadata: {
-          updatedFields: updateData as any,
-          previousData: {
-            fullName: existingUser.fullName,
-            email: existingUser.email,
-            role: existingUser.role,
-            wardId: existingUser.wardId,
-            zoneId: existingUser.zoneId,
-            department: existingUser.department
-          },
-          assignmentHistory: assignmentChanged ? {
-            changedAt: new Date().toISOString(),
-            changedBy: updatedBy,
-            changes: {
-              role: role !== existingUser.role ? { from: existingUser.role, to: role } : null,
-              ward: wardId !== existingUser.wardId ? { from: existingUser.wardId, to: wardId } : null,
-              zone: zoneId !== existingUser.zoneId ? { from: existingUser.zoneId, to: zoneId } : null,
-              department: department !== existingUser.department ? { from: existingUser.department, to: department } : null
-            }
-          } : null
-        } as any
-      }
-    });
-
-    return updatedUser;
+    return result.updatedUser;
   }
 
 
@@ -516,181 +556,203 @@ export class AdminService {
   }
 
 
-  // Deactivate user with issue reassignment and cache invalidation
+  // Deactivate user with optimized operations
   static async deactivateUser(userId: string, deactivatedBy: string, reassignToUserId?: string): Promise<UserStatusChange> {
-    const user = await prisma.user.findUnique({ 
-      where: { id: userId },
-      include: { ward: true, zone: true }
-    });
-    
-    if (!user) {
-      throw new ApiError(404, "User not found");
-    }
-
-    if (user.role === 'SUPER_ADMIN') {
-      throw new ApiError(403, "Cannot deactivate Super Admin account");
-    }
-
-    if (!user.isActive) {
-      throw new ApiError(400, "User is already deactivated");
-    }
-
-    // Check for active assignments
-    const activeIssues = await prisma.issue.findMany({
-      where: {
-        assigneeId: userId,
-        status: { in: ['OPEN', 'ASSIGNED', 'IN_PROGRESS', 'RESOLVED'] },
-        deletedAt: null
-      },
-      select: { id: true, ticketNumber: true, status: true }
-    });
-
-    // If there are active issues and no reassignment user provided, throw error
-    if (activeIssues.length > 0 && !reassignToUserId) {
-      throw new ApiError(400, `Cannot deactivate user with ${activeIssues.length} active issue(s). Please reassign them first.`);
-    }
-
-    // If reassignment is needed, reassign all active issues
-    if (activeIssues.length > 0 && reassignToUserId) {
-      const reassignToUser = await prisma.user.findUnique({
-        where: { id: reassignToUserId },
-        select: { id: true, fullName: true, role: true, isActive: true }
-      });
-
-      if (!reassignToUser || !reassignToUser.isActive) {
-        throw new ApiError(400, "Invalid reassignment target user");
+    // Single transaction for all operations
+    const result = await prisma.$transaction(async (tx) => {
+      const [user, activeIssues] = await Promise.all([
+        tx.user.findUnique({ 
+          where: { id: userId },
+          include: { ward: true, zone: true }
+        }),
+        tx.issue.findMany({
+          where: {
+            assigneeId: userId,
+            status: { in: ['OPEN', 'ASSIGNED', 'IN_PROGRESS', 'RESOLVED'] },
+            deletedAt: null
+          },
+          select: { id: true, ticketNumber: true, status: true }
+        })
+      ]);
+      
+      if (!user) {
+        throw new ApiError(404, "User not found");
       }
 
-      // Reassign all active issues
-      await prisma.issue.updateMany({
-        where: {
-          assigneeId: userId,
-          status: { in: ['OPEN', 'ASSIGNED', 'IN_PROGRESS', 'RESOLVED'] },
-          deletedAt: null
-        },
-        data: {
-          assigneeId: reassignToUserId,
-          assignedAt: new Date()
-        }
-      });
+      if (user.role === 'SUPER_ADMIN') {
+        throw new ApiError(403, "Cannot deactivate Super Admin account");
+      }
 
-      // Log reassignment
-      await prisma.auditLog.create({
-        data: {
-          userId: deactivatedBy,
-          action: "ISSUE_REASSIGNMENT",
-          resource: "Issue",
-          resourceId: userId,
-          metadata: {
-            fromUser: { fullName: user.fullName, role: user.role },
-            toUser: { fullName: reassignToUser.fullName, role: reassignToUser.role },
-            issueCount: activeIssues.length,
-            reason: "User deactivation"
+      if (!user.isActive) {
+        throw new ApiError(400, "User is already deactivated");
+      }
+
+      // If there are active issues and no reassignment user provided, throw error
+      if (activeIssues.length > 0 && !reassignToUserId) {
+        throw new ApiError(400, `Cannot deactivate user with ${activeIssues.length} active issue(s). Please reassign them first.`);
+      }
+
+      let reassignToUser = null;
+      if (activeIssues.length > 0 && reassignToUserId) {
+        reassignToUser = await tx.user.findUnique({
+          where: { id: reassignToUserId },
+          select: { id: true, fullName: true, role: true, isActive: true }
+        });
+
+        if (!reassignToUser || !reassignToUser.isActive) {
+          throw new ApiError(400, "Invalid reassignment target user");
+        }
+
+        // Reassign issues and create audit logs in parallel
+        await Promise.all([
+          tx.issue.updateMany({
+            where: {
+              assigneeId: userId,
+              status: { in: ['OPEN', 'ASSIGNED', 'IN_PROGRESS', 'RESOLVED'] },
+              deletedAt: null
+            },
+            data: {
+              assigneeId: reassignToUserId,
+              assignedAt: new Date()
+            }
+          }),
+          tx.auditLog.create({
+            data: {
+              userId: deactivatedBy,
+              action: "ISSUE_REASSIGNMENT",
+              resource: "Issue",
+              resourceId: userId,
+              metadata: {
+                fromUser: { fullName: user.fullName, role: user.role },
+                toUser: { fullName: reassignToUser.fullName, role: reassignToUser.role },
+                issueCount: activeIssues.length,
+                reason: "User deactivation"
+              }
+            }
+          })
+        ]);
+      }
+
+      // Deactivate user and create audit log in parallel
+      const [deactivatedUser] = await Promise.all([
+        tx.user.update({
+          where: { id: userId },
+          data: { isActive: false },
+          select: {
+            id: true,
+            fullName: true,
+            email: true,
+            role: true,
+            isActive: true
           }
-        }
-      });
-    }
+        }),
+        tx.auditLog.create({
+          data: {
+            userId: deactivatedBy,
+            action: "USER_DEACTIVATION",
+            resource: "User",
+            resourceId: userId,
+            metadata: {
+              deactivatedUser: {
+                fullName: user.fullName,
+                email: user.email,
+                role: user.role
+              },
+              reassignedIssues: activeIssues.length,
+              reassignedTo: reassignToUserId ? reassignToUserId : null
+            }
+          }
+        })
+      ]);
 
-    // Deactivate user
-    const deactivatedUser = await prisma.user.update({
-      where: { id: userId },
-      data: { isActive: false },
-      select: {
-        id: true,
-        fullName: true,
-        email: true,
-        role: true,
-        isActive: true
-      }
+      return { deactivatedUser, user, reassignToUserId, activeIssues };
     });
 
-    // Invalidate related caches
+    // Parallel cache invalidation after successful transaction
     await Promise.all([
       cache.invalidateUserCache(userId),
       cache.invalidateAdminCache(),
       cache.invalidateIssueCache(),
-      reassignToUserId ? cache.invalidateUserCache(reassignToUserId) : Promise.resolve(),
-      user.wardId ? cache.invalidateRelatedCache('ward', user.wardId) : Promise.resolve(),
-      user.zoneId ? cache.invalidateRelatedCache('zone', user.zoneId) : Promise.resolve(),
+      result.reassignToUserId ? cache.invalidateUserCache(result.reassignToUserId) : Promise.resolve(),
+      result.user.wardId ? cache.invalidateRelatedCache('ward', result.user.wardId) : Promise.resolve(),
+      result.user.zoneId ? cache.invalidateRelatedCache('zone', result.user.zoneId) : Promise.resolve(),
     ]);
 
-    // Log deactivation
-    await prisma.auditLog.create({
-      data: {
-        userId: deactivatedBy,
-        action: "USER_DEACTIVATION",
-        resource: "User",
-        resourceId: userId,
-        metadata: {
-          deactivatedUser: {
-            fullName: user.fullName,
-            email: user.email,
-            role: user.role
-          },
-          reassignedIssues: activeIssues.length,
-          reassignedTo: reassignToUserId ? reassignToUserId : null
-        }
-      }
-    });
-
-    return deactivatedUser;
+    return result.deactivatedUser;
   }
 
 
-  // Reactivate user with cache invalidation
+  // Reactivate user with optimized operations
   static async reactivateUser(userId: string, reactivatedBy: string): Promise<UserStatusChange> {
-    const user = await prisma.user.findUnique({ where: { id: userId } });
-    if (!user) {
-      throw new ApiError(404, "User not found");
-    }
-
-    if (user.role === 'SUPER_ADMIN') {
-      throw new ApiError(403, "Cannot reactivate Super Admin account");
-    }
-
-    if (user.isActive) {
-      throw new ApiError(400, "User is already active");
-    }
-
-    // Reactivate user
-    const reactivatedUser = await prisma.user.update({
-      where: { id: userId },
-      data: { isActive: true },
-      select: {
-        id: true,
-        fullName: true,
-        email: true,
-        role: true,
-        isActive: true
+    // Single transaction for validation and reactivation
+    const result = await prisma.$transaction(async (tx) => {
+      const user = await tx.user.findUnique({ 
+        where: { id: userId },
+        select: {
+          id: true,
+          fullName: true,
+          email: true,
+          role: true,
+          isActive: true,
+          wardId: true,
+          zoneId: true
+        }
+      });
+      
+      if (!user) {
+        throw new ApiError(404, "User not found");
       }
+
+      if (user.role === 'SUPER_ADMIN') {
+        throw new ApiError(403, "Cannot reactivate Super Admin account");
+      }
+
+      if (user.isActive) {
+        throw new ApiError(400, "User is already active");
+      }
+
+      // Reactivate user and create audit log in parallel
+      const [reactivatedUser] = await Promise.all([
+        tx.user.update({
+          where: { id: userId },
+          data: { isActive: true },
+          select: {
+            id: true,
+            fullName: true,
+            email: true,
+            role: true,
+            isActive: true
+          }
+        }),
+        tx.auditLog.create({
+          data: {
+            userId: reactivatedBy,
+            action: "USER_REACTIVATION",
+            resource: "User",
+            resourceId: userId,
+            metadata: {
+              reactivatedUser: {
+                fullName: user.fullName,
+                email: user.email,
+                role: user.role
+              }
+            }
+          }
+        })
+      ]);
+
+      return { reactivatedUser, user };
     });
 
-    // Invalidate related caches
+    // Parallel cache invalidation after successful transaction
     await Promise.all([
       cache.invalidateUserCache(userId),
       cache.invalidateAdminCache(),
-      user.wardId ? cache.invalidateRelatedCache('ward', user.wardId) : Promise.resolve(),
-      user.zoneId ? cache.invalidateRelatedCache('zone', user.zoneId) : Promise.resolve(),
+      result.user.wardId ? cache.invalidateRelatedCache('ward', result.user.wardId) : Promise.resolve(),
+      result.user.zoneId ? cache.invalidateRelatedCache('zone', result.user.zoneId) : Promise.resolve(),
     ]);
 
-    // Log reactivation
-    await prisma.auditLog.create({
-      data: {
-        userId: reactivatedBy,
-        action: "USER_REACTIVATION",
-        resource: "User",
-        resourceId: userId,
-        metadata: {
-          reactivatedUser: {
-            fullName: user.fullName,
-            email: user.email,
-            role: user.role
-          }
-        }
-      }
-    });
-
-    return reactivatedUser;
+    return result.reactivatedUser;
   }
 
 
@@ -907,10 +969,10 @@ export class AdminService {
   }
 
 
-  // Fetch dashboard overview statistics with caching
+  // Fetch dashboard overview statistics with optimized caching
   static async getDashboard() {
     return cache.getOrSet(
-      { ttl: 900, prefix: 'admin:dashboard' },
+      { ttl: 300, prefix: 'admin:dashboard' }, // Reduced TTL for real-time data
       'overview',
       async () => {
         const rows = await prisma.$queryRaw<DashboardPayload[]>`

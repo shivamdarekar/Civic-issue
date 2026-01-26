@@ -94,6 +94,7 @@ model User {
   @@index([wardId])
   @@index([zoneId])
   @@index([department])
+  @@index([isActive]) // Index for active user queries
   // Speeds assignment lookups by ward + role + department + activity
   @@index([wardId, role, department, isActive])
   @@map("users")
@@ -160,6 +161,7 @@ model Ward {
   updatedAt DateTime @updatedAt @map("updated_at")
 
   @@index([zoneId])
+  @@index([boundary], type: Gist) // Spatial index for boundary queries
   @@map("wards")
 }
 
@@ -260,6 +262,12 @@ model Issue {
   @@index([updatedAt]) // Critical for sync queries
   @@index([deletedAt])
   @@index([slaTargetAt])
+  // Composite indexes for common query patterns
+  @@index([status, wardId])
+  @@index([assigneeId, status])
+  @@index([reporterId, status])
+  @@index([wardId, status, updatedAt])
+  @@index([ticketNumber]) // For ticket searches
   @@map("issues")
 }
 
@@ -274,6 +282,7 @@ model IssueMedia {
   createdAt DateTime  @default(now()) @map("created_at")
 
   @@index([issueId])
+  @@index([type]) // Index for media type queries
   @@map("issue_media")
 }
 

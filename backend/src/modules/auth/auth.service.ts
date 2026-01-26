@@ -9,32 +9,30 @@ import { cache } from "../../lib/cache";
 import jwt from "jsonwebtoken";
 
 export class AuthService {
-  // Login functionality with Redis session
+  // Login functionality with Redis session and database retry
   static async login(loginData: LoginData): Promise<AuthResponse> {
     const { email, password } = loginData;
 
-    // Find user
-    const user = await prisma.user.findUnique({
-      where: { email },
-      select: {
-        id: true,
-        fullName: true,
-        email: true,
-        hashedPassword: true,
-        role: true,
-        department: true,
-        isActive: true,
-        wardId: true,
-        zoneId: true
-      }
+    // Optimized user query with retry logic
+    const user = await this.retryDatabaseOperation(async () => {
+      return prisma.user.findUnique({
+        where: { email },
+        select: {
+          id: true,
+          fullName: true,
+          email: true,
+          hashedPassword: true,
+          role: true,
+          department: true,
+          isActive: true,
+          wardId: true,
+          zoneId: true
+        }
+      });
     });
 
-    if (!user) {
-      throw new ApiError(401, "Invalid credentials");
-    }
-
-    if (!user.isActive) {
-      throw new ApiError(401, "Account is deactivated");
+    if (!user || !user.isActive) {
+      throw new ApiError(401, user ? "Account is deactivated" : "Invalid credentials");
     }
 
     // Verify password using utility
@@ -50,7 +48,7 @@ export class AuthService {
     const decoded = jwt.decode(token) as any;
     const jti = decoded.jti;
 
-    // Store session in Redis
+    // Safe parallel operations - no data dependencies
     const sessionData = {
       userId: user.id,
       role: user.role,
@@ -62,23 +60,42 @@ export class AuthService {
       lastActivity: Date.now(),
     };
     
-    await setSession(jti, sessionData, 1800); // 30 min session
-
-    // Log login
-    await prisma.auditLog.create({
-      data: {
-        userId: user.id,
-        action: "LOGIN",
-        metadata: { loginTime: new Date(), sessionId: jti }
-      }
-    });
+    // These operations are independent - safe to run in parallel
+    await Promise.allSettled([
+      setSession(jti, sessionData, 1800), // Redis operation
+      this.retryDatabaseOperation(async () => {
+        return prisma.auditLog.create({              // Database operation
+          data: {
+            userId: user.id,
+            action: "LOGIN",
+            metadata: { loginTime: new Date(), sessionId: jti }
+          }
+        });
+      })
+    ]);
 
     return { token, user: userInfo };
   }
 
-  // Forgot password - send OTP
+  // Database retry helper
+  private static async retryDatabaseOperation<T>(operation: () => Promise<T>, maxRetries = 2): Promise<T> {
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        return await operation();
+      } catch (error: any) {
+        if (attempt === maxRetries || !error.message?.includes('timeout')) {
+          throw error;
+        }
+        console.warn(`Database operation failed (attempt ${attempt}/${maxRetries}), retrying...`);
+        await new Promise(resolve => setTimeout(resolve, 1000 * attempt)); // Exponential backoff
+      }
+    }
+    throw new Error('Max retries exceeded');
+  }
+
+  // Forgot password - send OTP with proper sequencing
   static async forgotPassword(email: string): Promise<ForgotPasswordResponse> {
-    // Find user by email
+    // Find user by email with minimal fields
     const user = await prisma.user.findUnique({
       where: { email },
       select: { id: true, fullName: true, email: true, role: true }
@@ -93,37 +110,36 @@ export class AuthService {
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
     const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
 
-    // Invalidate any existing OTPs for this user
+    // Sequential operations to avoid race condition
+    // First invalidate existing OTPs
     await prisma.passwordReset.updateMany({
       where: { userId: user.id, isUsed: false },
       data: { isUsed: true }
     });
 
-    // Create new OTP record
-    await prisma.passwordReset.create({
-      data: {
-        userId: user.id,
-        otp,
-        expiresAt
-      }
-    });
+    // Then create new OTP and log in parallel (safe operations)
+    await Promise.all([
+      prisma.passwordReset.create({
+        data: {
+          userId: user.id,
+          otp,
+          expiresAt
+        }
+      }),
+      prisma.auditLog.create({
+        data: {
+          userId: user.id,
+          action: "PASSWORD_RESET_OTP_REQUEST",
+          metadata: { requestTime: new Date() }
+        }
+      })
+    ]);
 
-    // Log password reset request
-    await prisma.auditLog.create({
-      data: {
-        userId: user.id,
-        action: "PASSWORD_RESET_OTP_REQUEST",
-        metadata: { requestTime: new Date() }
-      }
-    });
-
-    // Send OTP email
-    try {
-      await EmailService.sendPasswordResetOTP(user.email, user.fullName, otp);
-    } catch (emailError) {
-      console.error('Failed to send OTP email:', emailError);
-      // Continue execution - don't fail the request if email fails
-    }
+    // Send OTP email (non-blocking)
+    EmailService.sendPasswordResetOTP(user.email, user.fullName, otp)
+      .catch(emailError => {
+        console.error('Failed to send OTP email:', emailError);
+      });
 
     return {
       message: "If email exists, OTP has been sent",
@@ -194,71 +210,78 @@ export class AuthService {
     };
   }
 
-  // Reset password with OTP
+  // Reset password with OTP - optimized transaction
   static async resetPassword(email: string, otp: string, newPassword: string): Promise<ResetPasswordResponse> {
-    // Find user by email
-    const user = await prisma.user.findUnique({
-      where: { email },
-      select: { id: true, email: true, fullName: true }
-    });
+    // Single transaction for all operations
+    const result = await prisma.$transaction(async (tx) => {
+      // Find user by email
+      const user = await tx.user.findUnique({
+        where: { email },
+        select: { id: true, email: true, fullName: true }
+      });
 
-    if (!user) {
-      throw new ApiError(400, "Invalid email or OTP");
-    }
-
-    // Find valid OTP
-    const otpRecord = await prisma.passwordReset.findFirst({
-      where: {
-        userId: user.id,
-        otp,
-        isUsed: false,
-        expiresAt: { gt: new Date() }
+      if (!user) {
+        throw new ApiError(400, "Invalid email or OTP");
       }
-    });
 
-    if (!otpRecord) {
-      throw new ApiError(400, "Invalid or expired OTP");
-    }
+      // Find valid OTP
+      const otpRecord = await tx.passwordReset.findFirst({
+        where: {
+          userId: user.id,
+          otp,
+          isUsed: false,
+          expiresAt: { gt: new Date() }
+        }
+      });
 
-    // Hash new password
-    const hashedPassword = await hashPassword(newPassword);
-
-    // Update user password and mark OTP as used
-    await prisma.$transaction([
-      prisma.user.update({
-        where: { id: user.id },
-        data: { hashedPassword }
-      }),
-      prisma.passwordReset.update({
-        where: { id: otpRecord.id },
-        data: { isUsed: true }
-      })
-    ]);
-
-    // Log password reset completion
-    await prisma.auditLog.create({
-      data: {
-        userId: user.id,
-        action: "PASSWORD_RESET_COMPLETE",
-        metadata: { resetTime: new Date() }
+      if (!otpRecord) {
+        throw new ApiError(400, "Invalid or expired OTP");
       }
+
+      // Hash new password
+      const hashedPassword = await hashPassword(newPassword);
+
+      // Update user password and mark OTP as used in parallel
+      await Promise.all([
+        tx.user.update({
+          where: { id: user.id },
+          data: { hashedPassword }
+        }),
+        tx.passwordReset.update({
+          where: { id: otpRecord.id },
+          data: { isUsed: true }
+        }),
+        tx.auditLog.create({
+          data: {
+            userId: user.id,
+            action: "PASSWORD_RESET_COMPLETE",
+            metadata: { resetTime: new Date() }
+          }
+        })
+      ]);
+
+      return user;
     });
+
+    // Invalidate user cache after password reset
+    await cache.invalidateUserCache(result.id);
 
     return { message: "Password reset successfully" };
   }
 
-  // Logout functionality with Redis cleanup
+  // Logout functionality with Redis cleanup - safe parallel operations
   static async logout(userId: string, sessionId?: string): Promise<LogoutResponse> {
-    // If sessionId provided, blacklist token and clear session
+    // If sessionId provided, cleanup session and cache
     if (sessionId) {
+      // These operations are independent - safe to run in parallel
       await Promise.all([
-        blacklist(sessionId, 1800),
-        delSession(sessionId),
-        cache.invalidateUserCache(userId)
+        blacklist(sessionId, 1800),        // Redis blacklist
+        delSession(sessionId),             // Redis session delete
+        cache.invalidateUserCache(userId)  // Cache invalidation
       ]);
     }
 
-    // Log logout
+    // Log logout (separate operation)
     await prisma.auditLog.create({
       data: {
         userId,
@@ -270,62 +293,61 @@ export class AuthService {
     return { success: true };
   }
 
-  // Get user profile with caching
+  // Get user profile with enhanced caching
   static async getProfile(userId: string) {
-    // Try cache first
-    const cachedProfile = await cache.getUserProfile(userId);
-    if (cachedProfile) return cachedProfile;
-
-    const user = await prisma.user.findUnique({
-      where: { id: userId },
-      select: {
-        id: true,
-        fullName: true,
-        email: true,
-        phoneNumber: true,
-        role: true,
-        department: true,
-        isActive: true,
-        wardId: true,
-        zoneId: true,
-        ward: {
+    return cache.getOrSet(
+      { ttl: 1800, prefix: 'user:profile' }, // 30 min cache
+      userId,
+      async () => {
+        const user = await prisma.user.findUnique({
+          where: { id: userId },
           select: {
             id: true,
-            wardNumber: true,
-            name: true,
+            fullName: true,
+            email: true,
+            phoneNumber: true,
+            role: true,
+            department: true,
+            isActive: true,
+            wardId: true,
+            zoneId: true,
+            ward: {
+              select: {
+                id: true,
+                wardNumber: true,
+                name: true,
+                zone: {
+                  select: {
+                    id: true,
+                    name: true,
+                    code: true
+                  }
+                }
+              }
+            },
             zone: {
               select: {
                 id: true,
                 name: true,
                 code: true
               }
-            }
+            },
+            gamification: {
+              select: {
+                points: true,
+                badges: true
+              }
+            },
+            createdAt: true
           }
-        },
-        zone: {
-          select: {
-            id: true,
-            name: true,
-            code: true
-          }
-        },
-        gamification: {
-          select: {
-            points: true,
-            badges: true
-          }
-        },
-        createdAt: true
+        });
+
+        if (!user) {
+          throw new ApiError(404, "User not found");
+        }
+
+        return user;
       }
-    });
-
-    if (!user) {
-      throw new ApiError(404, "User not found");
-    }
-
-    // Cache the profile
-    await cache.setUserProfile(userId, user);
-
-    return user;
+    );
   }
 }

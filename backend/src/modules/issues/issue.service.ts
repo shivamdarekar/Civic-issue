@@ -42,36 +42,36 @@ async function nextTicketNumber(tx: Prisma.TransactionClient) {
 
 async function findWardIdByLatLng(latitude: number, longitude: number): Promise<string | null> {
   try {
-    // Check cache first
-    const cacheKey = `ward:location:${latitude}:${longitude}`;
-    const cached = await cache.getGeoData(cacheKey);
-    if (cached) return cached;
-
-    // Uses wards.boundary geometry(Polygon, 4326)
-    // Point: ST_SetSRID(ST_MakePoint(lon, lat), 4326)
-    const rows = await prisma.$queryRaw<Array<{ id: string }>>`
-      SELECT w.id
-      FROM wards w
-      WHERE w.boundary IS NOT NULL
-        AND ST_Contains(
-          w.boundary,
-          ST_SetSRID(ST_MakePoint(${longitude}, ${latitude}), 4326)
-        )
-      LIMIT 1;
-    `;
-
-    const wardId = rows && rows.length > 0 ? rows[0].id : null;
+    // Create more specific cache key with rounded coordinates for better cache hits
+    const roundedLat = Math.round(latitude * 10000) / 10000; // 4 decimal places
+    const roundedLng = Math.round(longitude * 10000) / 10000;
+    const cacheKey = `${roundedLat}:${roundedLng}`;
     
-    // Cache result for 1 hour
-    await cache.setGeoData(cacheKey, wardId);
+    // Check cache first with spatial cache config
+    const cached = await cache.cacheSpatialQuery(cacheKey, async () => {
+      // Uses wards.boundary geometry(Polygon, 4326)
+      // Point: ST_SetSRID(ST_MakePoint(lon, lat), 4326)
+      const rows = await prisma.$queryRaw<Array<{ id: string }>>`
+        SELECT w.id
+        FROM wards w
+        WHERE w.boundary IS NOT NULL
+          AND ST_Contains(
+            w.boundary,
+            ST_SetSRID(ST_MakePoint(${longitude}, ${latitude}), 4326)
+          )
+        LIMIT 1;
+      `;
+
+      return rows && rows.length > 0 ? rows[0].id : null;
+    });
     
-    if (wardId) {
-      console.log(`✅ Issue location mapped to ward: ${wardId}`);
+    if (cached) {
+      console.log(`✅ Issue location mapped to ward: ${cached}`);
     } else {
       console.warn(`⚠️  No ward found for coordinates: ${latitude}, ${longitude}`);
     }
     
-    return wardId;
+    return cached;
   } catch (error) {
     console.error('❌ Error finding ward by coordinates:', error);
     return null;
@@ -82,27 +82,36 @@ async function pickAssigneeId(args: { wardId: string | null; department: Departm
   // Prefer: WARD_ENGINEER in ward with matching department and active
   if (!args.wardId) return null;
 
-  const primary = await prisma.user.findFirst({
-    where: {
-      isActive: true,
-      role: "WARD_ENGINEER",
-      wardId: args.wardId,
-      ...(args.department ? { department: args.department } : {}),
-    },
-    select: { id: true },
-    orderBy: { createdAt: "asc" },
-  });
+  // Ward-specific cache key to prevent cross-ward assignment errors
+  const cacheKey = `ward:${args.wardId}:dept:${args.department || 'any'}`;
+  
+  return cache.getOrSet(
+    { ttl: 300, prefix: 'assignee:lookup' }, // Reduced TTL for real-time availability
+    cacheKey,
+    async () => {
+      const primary = await prisma.user.findFirst({
+        where: {
+          isActive: true,
+          role: "WARD_ENGINEER",
+          wardId: args.wardId,
+          ...(args.department ? { department: args.department } : {}),
+        },
+        select: { id: true },
+        orderBy: { createdAt: "asc" },
+      });
 
-  if (primary?.id) return primary.id;
+      if (primary?.id) return primary.id;
 
-  // fallback: any WARD_ENGINEER in ward
-  const fallback = await prisma.user.findFirst({
-    where: { isActive: true, role: "WARD_ENGINEER", wardId: args.wardId },
-    select: { id: true },
-    orderBy: { createdAt: "asc" },
-  });
+      // fallback: any WARD_ENGINEER in ward
+      const fallback = await prisma.user.findFirst({
+        where: { isActive: true, role: "WARD_ENGINEER", wardId: args.wardId },
+        select: { id: true },
+        orderBy: { createdAt: "asc" },
+      });
 
-  return fallback?.id ?? null;
+      return fallback?.id ?? null;
+    }
+  );
 }
 
 export class IssuesService {
@@ -134,12 +143,15 @@ export class IssuesService {
     );
   }
 
-  // Get issue statistics with user-specific caching
+  // Get issue statistics with ward-specific caching
   static async getIssueStats(filters?: { wardId?: string; zoneId?: string; assigneeId?: string; reporterId?: string }) {
-    const cacheKey = `${JSON.stringify(filters || {})}:${filters?.assigneeId || filters?.reporterId || 'global'}`;
+    // Create ward-specific cache key to prevent cross-contamination
+    const wardContext = filters?.wardId || filters?.zoneId || 'global';
+    const userContext = filters?.assigneeId || filters?.reporterId || 'all';
+    const cacheKey = `ward:${wardContext}:user:${userContext}:${JSON.stringify(filters || {})}`;
     
     return cache.getOrSet(
-      { ttl: 900, prefix: 'issue:stats' },
+      { ttl: 300, prefix: 'issue:stats' }, // Reduced TTL for real-time stats
       cacheKey,
       async () => {
         const where: Prisma.IssueWhereInput = {
@@ -186,29 +198,34 @@ export class IssuesService {
 
   static async createIssue(input: CreateIssueInput) {
     const issue = await prisma.$transaction(async (tx) => {
-      const category = await tx.issueCategory.findUnique({
-        where: { id: input.categoryId },
-        select: { id: true, slaHours: true, department: true },
-      });
+      // Parallel fetch of category and ward detection
+      const [category, wardId] = await Promise.all([
+        tx.issueCategory.findUnique({
+          where: { id: input.categoryId },
+          select: { id: true, slaHours: true, department: true },
+        }),
+        findWardIdByLatLng(input.latitude, input.longitude)
+      ]);
+      
       if (!category) {
         throw new ApiError(400, "Invalid categoryId");
       }
-
-      const wardId = await findWardIdByLatLng(input.latitude, input.longitude);
       
       // Throw error if location is not within any VMC ward
       if (!wardId) {
         throw new ApiError(400, "Location is outside VMC jurisdiction. Please report issues only within VMC ward boundaries.");
       }
 
-      const ticketNumber = await nextTicketNumber(tx);
+      const [ticketNumber, assigneeId] = await Promise.all([
+        nextTicketNumber(tx),
+        pickAssigneeId({
+          wardId,
+          department: category.department ?? null,
+        })
+      ]);
+      
       const now = new Date();
       const slaTargetAt = category.slaHours ? calculateSlaTarget(now, category.slaHours) : null;
-
-      const assigneeId = await pickAssigneeId({
-        wardId,
-        department: category.department ?? null,
-      });
 
       const issue = await tx.issue.create({
         data: {
@@ -268,30 +285,35 @@ export class IssuesService {
       return issue;
     });
 
-    // Invalidate related caches
-    await Promise.all([
-      cache.invalidateIssueCache(),
-      cache.invalidateAdminCache(),
-      input.reporterId ? cache.invalidateUserCache(input.reporterId) : Promise.resolve(),
-      issue.assigneeId ? cache.invalidateUserCache(issue.assigneeId) : Promise.resolve(),
-    ]);
-
-    // Send email notification if issue was assigned (outside transaction)
-    if (issue.assigneeId && issue.assignee) {
-      try {
-        await EmailService.sendIssueAssignmentEmail(
+    // Ward-specific cache invalidation to prevent cross-contamination
+    const [, emailResult] = await Promise.allSettled([
+      // Precise cache invalidation
+      Promise.all([
+        cache.invalidateIssueCache(),
+        cache.invalidateAdminCache(),
+        // Ward-specific cache invalidation
+        issue.wardId ? cache.invalidateWardCache(issue.wardId) : Promise.resolve(),
+        // User-specific cache invalidation
+        input.reporterId ? cache.invalidateUserCache(input.reporterId) : Promise.resolve(),
+        issue.assigneeId ? cache.invalidateUserCache(issue.assigneeId) : Promise.resolve(),
+      ]),
+      // Email notification (non-blocking)
+      issue.assigneeId && issue.assignee ? 
+        EmailService.sendIssueAssignmentEmail(
           issue.assignee.email,
           issue.assignee.fullName,
           issue.ticketNumber,
           issue.category.name,
           input.address || `${input.latitude}, ${input.longitude}`,
           issue.priority
-        );
-        console.log(`✅ Assignment email sent to ${issue.assignee.email} for ticket ${issue.ticketNumber}`);
-      } catch (emailError) {
-        console.error('❌ Failed to send assignment email:', emailError);
-        // Don't fail the request if email fails
-      }
+        ) : Promise.resolve()
+    ]);
+
+    // Log email result but don't fail the request
+    if (emailResult.status === 'fulfilled' && issue.assigneeId) {
+      console.log(`✅ Assignment email sent to ${issue.assignee?.email} for ticket ${issue.ticketNumber}`);
+    } else if (emailResult.status === 'rejected') {
+      console.error('❌ Failed to send assignment email:', emailResult.reason);
     }
 
     return issue;
@@ -302,12 +324,13 @@ export class IssuesService {
     const skip = (input.page - 1) * input.pageSize;
     const take = input.pageSize;
     
-    // Create user-specific cache key
-    const userContext = input.assigneeId || input.reporterId || 'global';
-    const cacheKey = `${JSON.stringify({ ...input, skip, take })}:${userContext}`;
+    // Create ward-specific cache key to prevent cross-contamination
+    const wardContext = input.wardId || input.zoneId || 'global';
+    const userContext = input.assigneeId || input.reporterId || 'all';
+    const cacheKey = `ward:${wardContext}:user:${userContext}:page:${input.page}:size:${input.pageSize}:${JSON.stringify(input)}`;
     
     return cache.getOrSet(
-      { ttl: 600, prefix: 'issues:list' },
+      { ttl: 180, prefix: 'issues:list' }, // Reduced TTL for frequent updates
       cacheKey,
       async () => {
         const where: Prisma.IssueWhereInput = {
@@ -382,7 +405,7 @@ export class IssuesService {
 
   static async getIssueById(issueId: string) {
     return cache.getOrSet(
-      { ttl: 1200, prefix: 'issue:detail' },
+      { ttl: 600, prefix: 'issue:detail' }, // Reduced TTL for real-time updates
       issueId,
       async () => {
         const issue = await prisma.issue.findFirst({

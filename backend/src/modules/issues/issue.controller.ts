@@ -32,12 +32,16 @@ export class IssuesController {
   });
 
   static create = asyncHandler(async (req: Request, res: Response) => {
+    const start = Date.now();
     const reporterId = req.user!.id;
 
     const issue = await IssuesService.createIssue({
       reporterId,
       ...req.body,
     });
+
+    const duration = Date.now() - start;
+    res.setHeader('X-Create-Time', `${duration}ms`);
 
     res.status(201).json(
       new ApiResponse(201, issue, "Issue created successfully")
