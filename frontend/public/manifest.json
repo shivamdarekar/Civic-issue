@@ -1,6 +1,6 @@
 {
-  "name": "Civic Sense",
-  "short_name": "CivicSense",
+  "name": "CiviSense",
+  "short_name": "CiviSense",
   "description": "Report and track civic issues in your area",
   "start_url": "/",
   "display": "standalone",
