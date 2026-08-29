@@ -55,6 +55,10 @@ app.get("/", (req, res) => {
     });
 });
 
+app.get("/health", (req, res) => {
+    res.redirect(307, "/api/health");
+});
+
 // API Routes with performance monitoring
 app.get("/api/health", async (req, res) => {
     const start = Date.now();

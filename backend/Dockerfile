@@ -42,7 +42,7 @@ COPY --from=builder --chown=civicuser:nodejs /app/prisma.config.ts ./
 USER civicuser
 
 HEALTHCHECK --interval=30s --timeout=10s --start-period=15s --retries=3 \
-  CMD curl -f http://localhost:5000/health || exit 1
+  CMD curl -f http://localhost:5000/api/health || exit 1
 
 EXPOSE 5000
 CMD ["node", "dist/index.js"]
