@@ -2,7 +2,7 @@ import app from "./app";
 import dotenv from "dotenv";
 import { connectDb, disconnectDb } from "./lib/prisma";
 import { EmailService } from "./services/email/emailService";
-import { redis, connectRedis } from "./lib/redis";
+import { connectRedis, isRedisAvailable } from "./lib/redis";
 
 dotenv.config();
 
@@ -13,10 +13,9 @@ process.env.UV_THREADPOOL_SIZE = '16'; // Increase thread pool for better I/O
 
 async function startServer() {
     try {
-        // Parallel initialization for faster startup
-        const [dbResult, redisResult, emailResult] = await Promise.allSettled([
+        // Database and email are the only startup gates; Redis is optional.
+        const [dbResult, emailResult] = await Promise.allSettled([
             connectDb(),
-            connectRedis(),
             EmailService.initialize()
         ]);
 
@@ -28,12 +27,14 @@ async function startServer() {
             process.exit(1);
         }
 
-        // Redis connection (optional)
-        if (redisResult.status === 'fulfilled') {
-            console.log('✅ Redis connected - caching enabled');
-        } else {
-            console.log('⚠️  Redis connection failed - running without cache');
-        }
+        // Redis connection (optional, non-blocking)
+        void connectRedis().then((connected) => {
+            if (connected) {
+                console.log('✅ Redis connected - caching enabled');
+            } else {
+                console.log('⚠️  Redis unavailable - running without cache');
+            }
+        });
 
         // Email service (optional)
         if (emailResult.status === 'fulfilled') {
@@ -51,7 +52,7 @@ async function startServer() {
 🔗 Server:      http://localhost:${PORT}
 ❤️  Health:      http://localhost:${PORT}/api/health
 📚 API Base:    http://localhost:${PORT}/api/v1
-🔴 Redis:       ${redis.isOpen ? 'Connected' : 'Disabled'}
+🔴 Redis:       ${isRedisAvailable() ? 'Connected' : 'Disabled'}
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
             `);
         });

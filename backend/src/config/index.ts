@@ -31,6 +31,7 @@ const envSchema = z.object({
   REDIS_USERNAME: z.string().optional(),
   REDIS_PASSWORD: z.string().optional(),
   REDIS_USE_TLS: z.string().default('false'),
+  REDIS_MEMORY_MAX: z.string().default('2000').transform((v) => parseInt(v, 10)),
 });
 
 const parsed = envSchema.safeParse(process.env);

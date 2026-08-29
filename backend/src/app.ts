@@ -5,6 +5,8 @@ import morgan from "morgan";
 import compression from "compression";
 import rateLimit from "express-rate-limit";
 import { errorHandler, notFoundHandler } from "./middlewares/error.middleware";
+import { prisma } from "./lib/prisma";
+import { isRedisAvailable, redis } from "./lib/redis";
 
 const app = express();
 
@@ -64,14 +66,16 @@ app.get("/api/health", async (req, res) => {
         
         // Redis health check
         const redisStart = Date.now();
-        let redisStatus = 'unavailable';
+        let redisStatus = isRedisAvailable() ? 'available' : 'unavailable';
         let redisTime = 0;
-        try {
-            await redis.ping();
-            redisStatus = 'available';
-            redisTime = Date.now() - redisStart;
-        } catch (error) {
-            redisTime = Date.now() - redisStart;
+        if (redisStatus === 'available') {
+            try {
+                await redis.ping();
+                redisTime = Date.now() - redisStart;
+            } catch (error) {
+                redisStatus = 'unavailable';
+                redisTime = Date.now() - redisStart;
+            }
         }
         
         const totalTime = Date.now() - start;
@@ -105,8 +109,6 @@ import authRoutes from "./modules/auth/auth.routes";
 import adminRoutes from "./modules/admin/admin.routes";
 import issueRoutes from "./modules/issues/issue.routes";
 import userRoutes from "./modules/users/user.routes";
-import { prisma } from "./lib/prisma";
-import { redis } from "./lib/redis";
 
 app.use("/api/v1/auth", authRoutes);
 app.use("/api/v1/admin", adminRoutes);

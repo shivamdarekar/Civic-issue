@@ -3,8 +3,7 @@ import { asyncHandler } from "../utils/asyncHandler";
 import { ApiError } from "../utils/apiError";
 import jwt, { JwtPayload } from "jsonwebtoken";
 import { prisma } from "../lib/prisma";
-import { redis, connectRedis, getSession, isBlacklisted, setSession } from "../lib/redis";
-import { cache } from "../lib/cache";
+import { getSession, isBlacklisted, setSession } from "../lib/redis";
 
 // Global augmentation for Express Request
 declare global {

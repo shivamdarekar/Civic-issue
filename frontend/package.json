@@ -9,7 +9,7 @@
     "lint": "eslint"
   },
   "dependencies": {
-    "@ducanh2912/next-pwa": "^10.2.9",
+    "@ducanh2912/next-pwa": "^10.2.6",
     "@hookform/resolvers": "^5.2.2",
     "@iamtraction/google-translate": "^1.1.2",
     "@radix-ui/react-accordion": "^1.2.12",

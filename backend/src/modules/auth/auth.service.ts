@@ -4,7 +4,7 @@ import { generateTokenWithUser } from "../../utils/tokens";
 import { comparePassword, hashPassword } from "./auth.utils";
 import { LoginData, AuthResponse, ForgotPasswordResponse, VerifyOtpResponse, ResetPasswordResponse, LogoutResponse } from "../../types";
 import { EmailService } from "../../services/email/emailService";
-import { redis, connectRedis, setSession, getSession, delSession, blacklist, isBlacklisted } from "../../lib/redis";
+import { setSession, delSession, blacklist } from "../../lib/redis";
 import { cache } from "../../lib/cache";
 import jwt from "jsonwebtoken";
 

@@ -1,8 +1,17 @@
-import { redis, connectRedis } from './redis';
+import { LRUCache } from 'lru-cache';
+import { env } from '../config';
+import { redis, connectRedis, isRedisAvailable } from './redis';
+
+const memoryCache = new LRUCache<string, string>({
+  max: env.REDIS_MEMORY_MAX,
+  ttlAutopurge: true,
+});
 
 const ensureRedis = async (): Promise<void> => {
   try {
-    if (!redis.isOpen) await connectRedis();
+    if (!isRedisAvailable()) {
+      await connectRedis();
+    }
   } catch (error) {
     // Silently fail - app continues without Redis
   }
@@ -11,6 +20,11 @@ const ensureRedis = async (): Promise<void> => {
 export const getCache = async <T = any>(key: string): Promise<T | null> => {
   try {
     await ensureRedis();
+    if (!isRedisAvailable()) {
+      const cached = memoryCache.get(key);
+      return cached ? JSON.parse(cached) : null;
+    }
+
     const cached = await redis.get(key);
     return cached ? JSON.parse(cached) : null;
   } catch (error) {
@@ -22,7 +36,14 @@ export const getCache = async <T = any>(key: string): Promise<T | null> => {
 export const setCache = async (key: string, value: any, ttl: number): Promise<void> => {
   try {
     await ensureRedis();
-    await redis.setEx(key, ttl, JSON.stringify(value));
+    const serialized = JSON.stringify(value);
+
+    if (!isRedisAvailable()) {
+      memoryCache.set(key, serialized, { ttl: ttl * 1000 });
+      return;
+    }
+
+    await redis.setEx(key, ttl, serialized);
   } catch (error) {
     console.error(`Cache set error for key ${key}:`, error);
   }
@@ -31,6 +52,10 @@ export const setCache = async (key: string, value: any, ttl: number): Promise<vo
 export const deleteCache = async (key: string): Promise<void> => {
   try {
     await ensureRedis();
+    if (!isRedisAvailable()) {
+      memoryCache.delete(key);
+      return;
+    }
     await redis.del(key);
   } catch (error) {
     console.error(`Cache delete error for key ${key}:`, error);
@@ -40,6 +65,20 @@ export const deleteCache = async (key: string): Promise<void> => {
 export const deleteCachePattern = async (pattern: string): Promise<void> => {
   try {
     await ensureRedis();
+
+    if (!isRedisAvailable()) {
+      const regexPattern = new RegExp(
+        '^' + pattern.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/\\\*/g, '.*') + '$'
+      );
+
+      for (const key of memoryCache.keys()) {
+        if (regexPattern.test(key)) {
+          memoryCache.delete(key);
+        }
+      }
+      return;
+    }
+
     const keys = await redis.keys(pattern);
     if (keys.length > 0) {
       await redis.del(keys);
@@ -52,6 +91,14 @@ export const deleteCachePattern = async (pattern: string): Promise<void> => {
 export const incrementCache = async (key: string, ttl?: number): Promise<number> => {
   try {
     await ensureRedis();
+    if (!isRedisAvailable()) {
+      const existingValue = memoryCache.get(key);
+      const currentCount = existingValue ? parseInt(existingValue, 10) : 0;
+      const nextCount = currentCount + 1;
+      memoryCache.set(key, String(nextCount), { ttl: ttl ? ttl * 1000 : undefined });
+      return nextCount;
+    }
+
     const count = await redis.incr(key);
     if (ttl && count === 1) {
       await redis.expire(key, ttl);
@@ -175,6 +222,13 @@ class CacheManager {
   async setBulk(items: Array<{ key: string; value: any; ttl: number }>): Promise<void> {
     try {
       await ensureRedis();
+      if (!isRedisAvailable()) {
+        items.forEach(({ key, value, ttl }) => {
+          memoryCache.set(key, JSON.stringify(value), { ttl: ttl * 1000 });
+        });
+        return;
+      }
+
       const pipeline = redis.multi();
       
       items.forEach(({ key, value, ttl }) => {
@@ -218,6 +272,10 @@ class CacheManager {
   // Direct cache deletion with pattern support
   async deleteCache(pattern: string): Promise<void> {
     await deleteCachePattern(pattern);
+  }
+
+  isMemoryCacheEnabled(): boolean {
+    return !isRedisAvailable();
   }
 }
 
